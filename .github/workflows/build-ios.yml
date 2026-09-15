@@ -1,0 +1,66 @@
+name: SXRON iOS 1.0.1
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v1.0.1'
+
+permissions:
+  contents: write
+
+jobs:
+  ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web
+        run: npm run build
+
+      - name: Install Capacitor iOS
+        run: npx cap add ios
+
+      - name: Sync iOS
+        run: npx cap sync ios
+
+      - name: Build iOS archive without signing
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -workspace App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$PWD/build/SXRON.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package unsigned iOS archive
+        run: |
+          cd ios/build
+          zip -r ../../SXRON-Marketplace-1.0.1-iOS-unsigned.xcarchive.zip SXRON.xcarchive
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sxron-ios-1.0.1-unsigned
+          path: SXRON-Marketplace-1.0.1-iOS-unsigned.xcarchive.zip
+
+      - name: Upload iOS build to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.1
+          files: SXRON-Marketplace-1.0.1-iOS-unsigned.xcarchive.zip
