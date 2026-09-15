@@ -10,21 +10,14 @@ interface MobileProfileProps {
   onProduct?: (product: Product) => void;
   onCreate?: () => void;
 }
-
 interface TelegramUser { id?: number; first_name?: string; last_name?: string; username?: string; photo_url?: string; }
 interface TelegramWebApp { initDataUnsafe?: { user?: TelegramUser } }
 declare global { interface Window { Telegram?: { WebApp?: TelegramWebApp } } }
 
-function getTelegramUser(): TelegramUser | null {
-  if (typeof window === "undefined") return null;
-  return window.Telegram?.WebApp?.initDataUnsafe?.user ?? null;
-}
-function getInitials(firstName?: string, lastName?: string) {
-  return `${firstName?.trim()?.[0] ?? ""}${lastName?.trim()?.[0] ?? ""}`.toUpperCase() || "S";
-}
-function getTelegramName(user: TelegramUser | null) {
-  return [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() || "Пользователь SXRON";
-}
+function getTelegramUser(): TelegramUser | null { if (typeof window === "undefined") return null; return window.Telegram?.WebApp?.initDataUnsafe?.user ?? null; }
+function getInitials(firstName?: string, lastName?: string) { return `${firstName?.trim()?.[0] ?? ""}${lastName?.trim()?.[0] ?? ""}`.toUpperCase() || "S"; }
+function getTelegramName(user: TelegramUser | null) { return [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() || "Пользователь SXRON"; }
+function isImageAvatar(value: string) { return value.startsWith("data:image/"); }
 
 export default function MobileProfile({ products, profile, onProfileChange, onProduct, onCreate }: MobileProfileProps) {
   const telegramUser = getTelegramUser();
@@ -32,13 +25,14 @@ export default function MobileProfile({ products, profile, onProfileChange, onPr
   const displayName = profile.displayName.trim() || telegramName;
   const username = telegramUser?.username ? `@${telegramUser.username}` : "username не указан";
   const [customizing, setCustomizing] = useState(false);
+  const avatar = isImageAvatar(profile.avatar) ? profile.avatar : null;
 
   return <main className="mobile-page">
     <section className={`mobile-profile-hero mobile-profile-hero--${profile.accent}`}>
       <div className="mobile-profile-hero__glow" />
       <div className="mobile-profile-hero__top">
         <div className="mobile-profile__avatar mobile-profile__avatar--large">
-          {telegramUser?.photo_url ? <img src={telegramUser.photo_url} alt={displayName} /> : <span>{profile.avatar || getInitials(telegramUser?.first_name, telegramUser?.last_name)}</span>}
+          {avatar ? <img src={avatar} alt={displayName} /> : telegramUser?.photo_url ? <img src={telegramUser.photo_url} alt={displayName} /> : <span>{profile.avatar || getInitials(telegramUser?.first_name, telegramUser?.last_name)}</span>}
           <span className="mobile-profile__online-dot" />
         </div>
         <div className="mobile-profile-hero__identity">
