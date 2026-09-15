@@ -51,8 +51,8 @@ function productCity(product: Product) {
 export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth <= 768);
-  const [city, setCity] = useState<City>({ id: 1, name: "Белореченск" });
-  const [profile, setProfile] = useState<ProfileCustomization>(() => loadProfile());
+  const [city] = useState<City>({ id: 1, name: "Белореченск" });
+  const [profile] = useState<ProfileCustomization>(() => loadProfile());
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<{ id: number; name: string; slug?: string; icon?: string }[]>([]);
   const [favorites, setFavorites] = useState<number[]>(() => loadFavorites());
