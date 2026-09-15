@@ -1,21 +1,23 @@
-name: SXRON Android 1.0.1
+name: SXRON Android Release
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v1.0.1'
+  release:
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
   android:
+    if: github.event_name == 'workflow_dispatch' || github.event.release.tag_name == 'v1.0.1'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout release commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || 'main' }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -49,16 +51,17 @@ jobs:
         run: ./gradlew assembleDebug
 
       - name: Rename APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk SXRON-Marketplace-1.0.1-Android.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk SXRON-Marketplace-${{ github.event.release.tag_name || 'v1.0.1' }}-Android.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sxron-android-1.0.1
-          path: SXRON-Marketplace-1.0.1-Android.apk
+          name: sxron-android-${{ github.event.release.tag_name || 'v1.0.1' }}
+          path: SXRON-Marketplace-${{ github.event.release.tag_name || 'v1.0.1' }}-Android.apk
 
-      - name: Upload APK to GitHub Release
+      - name: Upload APK to release
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1
-          files: SXRON-Marketplace-1.0.1-Android.apk
+          tag_name: ${{ github.event.release.tag_name }}
+          files: SXRON-Marketplace-${{ github.event.release.tag_name }}-Android.apk
