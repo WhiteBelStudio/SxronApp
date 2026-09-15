@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "app:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "app:build": "npm run build && electron-builder --publish always",
+    "app:build": "npm run build && electron-builder",
     "android": "npm run build && cap sync android && cap open android",
     "ios": "npm run build && cap sync ios && cap open ios",
     "cap:sync": "npm run build && cap sync",
@@ -50,12 +50,6 @@
     "win": {
       "target": "nsis",
       "artifactName": "SXRON-Marketplace-Setup-${version}.${ext}"
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "WhiteBelStudio",
-      "repo": "SxronApp",
-      "releaseType": "release"
     }
   }
 }
