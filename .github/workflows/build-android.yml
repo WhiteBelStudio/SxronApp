@@ -1,10 +1,10 @@
-name: SXRON Android
+name: SXRON Android 1.0.1
 
 on:
   workflow_dispatch:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v1.0.1'
 
 permissions:
   contents: write
@@ -12,6 +12,7 @@ permissions:
 jobs:
   android:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,12 +44,21 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build debug APK
+      - name: Build signed debug APK
         working-directory: android
         run: ./gradlew assembleDebug
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk SXRON-Marketplace-1.0.1-Android.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sxron-android-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: sxron-android-1.0.1
+          path: SXRON-Marketplace-1.0.1-Android.apk
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.1
+          files: SXRON-Marketplace-1.0.1-Android.apk
