@@ -137,6 +137,26 @@ export interface User {
   city?: City | null;
 
   created_at?: string;
+
+  // Дополнительная информация профиля
+  bio?: string | null;
+
+  // Статистика
+  listings_count?: number;
+  active_listings_count?: number;
+  sold_count?: number;
+  views_count?: number;
+
+  // Рейтинг
+  rating?: number | null;
+  reviews_count?: number;
+
+  // Активность
+  last_seen_at?: string | null;
+  is_online?: boolean;
+
+  // Верификация
+  verified?: boolean;
 }
 
 // =========================================================
@@ -154,6 +174,10 @@ export interface Seller {
   rating?: number;
   reviews_count?: number;
   listings_count?: number;
+
+  verified?: boolean;
+  city?: City | null;
+  bio?: string | null;
 }
 
 // =========================================================
