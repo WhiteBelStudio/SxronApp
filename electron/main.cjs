@@ -1,5 +1,6 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, dialog } = require('electron');
 const path = require('path');
+const { autoUpdater } = require('electron-updater');
 
 const isDev = !app.isPackaged;
 
@@ -32,8 +33,38 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+async function setupAutoUpdater() {
+  if (isDev) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-downloaded', async () => {
+    const result = await dialog.showMessageBox({
+      type: 'info',
+      title: 'Обновление SXRON',
+      message: 'Новая версия SXRON Marketplace уже скачана.',
+      detail: 'Перезапустить приложение сейчас и установить обновление?',
+      buttons: ['Перезапустить', 'Позже'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall(false, true);
+    }
+  });
+
+  try {
+    await autoUpdater.checkForUpdates();
+  } catch (error) {
+    console.warn('SXRON updater:', error?.message || error);
+  }
+}
+
+app.whenReady().then(async () => {
   createWindow();
+  await setupAutoUpdater();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
