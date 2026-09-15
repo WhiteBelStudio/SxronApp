@@ -1,5 +1,15 @@
-import type { Product } from "../../types";
-import DesktopProductCard from "../components/DesktopProductCard";
+import {
+  useMemo,
+  useState,
+} from "react";
+
+import type {
+  Product,
+} from "../../types";
+
+import {
+  DesktopProductCard,
+} from "../components/DesktopProductCard";
 
 interface DesktopHomeProps {
   products?: Product[];
@@ -8,22 +18,97 @@ interface DesktopHomeProps {
   onCreate?: () => void;
 }
 
+const categories = [
+  {
+    name: "Электроника",
+    icon: "📱",
+  },
+  {
+    name: "Одежда",
+    icon: "👕",
+  },
+  {
+    name: "Обувь",
+    icon: "👟",
+  },
+  {
+    name: "Авто",
+    icon: "🚗",
+  },
+  {
+    name: "Для дома",
+    icon: "🏠",
+  },
+  {
+    name: "Красота",
+    icon: "✨",
+  },
+  {
+    name: "Услуги",
+    icon: "🛠️",
+  },
+  {
+    name: "Другое",
+    icon: "📦",
+  },
+];
+
 export default function DesktopHome({
   products = [],
   onProduct,
   onCatalog,
   onCreate,
 }: DesktopHomeProps) {
+  const [search, setSearch] =
+    useState("");
+
+  const filteredProducts =
+    useMemo(() => {
+      const value =
+        search
+          .trim()
+          .toLowerCase();
+
+      if (!value) {
+        return products.slice(
+          0,
+          8,
+        );
+      }
+
+      return products
+        .filter(
+          (product) => {
+            const text = [
+              product.name,
+              product.description,
+              product.category,
+              typeof product.city ===
+              "string"
+                ? product.city
+                : product.city?.name,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+
+            return text.includes(value);
+          },
+        )
+        .slice(0, 8);
+    }, [products, search]);
+
   return (
-    <div className="desktop-main">
+    <main className="desktop-home">
+      <section className="desktop-home__hero">
+        <div className="desktop-home__glow desktop-home__glow--one" />
+        <div className="desktop-home__glow desktop-home__glow--two" />
 
-      <section className="desktop-hero">
-
-        <div className="desktop-hero__content">
-
-          <span className="desktop-hero__badge">
+        <div className="desktop-home__hero-content">
+          <div className="desktop-home__badge">
+            <span>●</span>
             SXRON MARKETPLACE
-          </span>
+          </div>
 
           <h1>
             Покупай.
@@ -35,134 +120,228 @@ export default function DesktopHome({
 
           <p>
             Локальный маркетплейс
-            Белореченска и Хутора
-            Кубанского.
+            Белореченска и
+            Хутора Кубанского.
           </p>
 
-          <div className="desktop-search">
+          <div className="desktop-home__search">
+            <span className="desktop-home__search-icon">
+              🔎
+            </span>
+
             <input
-              type="search"
+              type="text"
+              value={search}
+              onChange={(event) =>
+                setSearch(
+                  event.target.value,
+                )
+              }
               placeholder="Что вы ищете?"
             />
 
+            {search && (
+              <button
+                type="button"
+                className="desktop-home__search-clear"
+                onClick={() =>
+                  setSearch("")
+                }
+              >
+                ×
+              </button>
+            )}
+
             <button
               type="button"
+              className="desktop-home__search-button"
               onClick={onCatalog}
             >
               Найти
             </button>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              marginTop: 14,
-            }}
-          >
+          <div className="desktop-home__actions">
             <button
-              className="desktop-button desktop-button--primary"
               type="button"
-              onClick={onCatalog}
-            >
-              Смотреть каталог
-            </button>
-
-            <button
-              className="desktop-button desktop-button--secondary"
-              type="button"
+              className="desktop-home__primary-button"
               onClick={onCreate}
             >
+              <span>＋</span>
               Подать объявление
             </button>
-          </div>
 
+            <button
+              type="button"
+              className="desktop-home__secondary-button"
+              onClick={onCatalog}
+            >
+              Смотреть объявления
+              <span>→</span>
+            </button>
+          </div>
         </div>
 
+        <div className="desktop-home__visual">
+          <div className="desktop-home__visual-orbit desktop-home__visual-orbit--one" />
+          <div className="desktop-home__visual-orbit desktop-home__visual-orbit--two" />
+
+          <div className="desktop-home__visual-card desktop-home__visual-card--top">
+            <span>🔥</span>
+            Свежие объявления
+          </div>
+
+          <div className="desktop-home__logo-orb">
+            <div className="desktop-home__logo-x">
+              SX
+            </div>
+
+            <strong>RON</strong>
+          </div>
+
+          <div className="desktop-home__visual-card desktop-home__visual-card--bottom">
+            <span>📍</span>
+            Белореченск
+          </div>
+        </div>
       </section>
 
-      <section className="desktop-section">
-
-        <div className="desktop-section__header">
+      <section className="desktop-home__section">
+        <div className="desktop-home__section-heading">
           <div>
-            <h2 className="desktop-section__title">
+            <span className="desktop-home__eyebrow">
+              КАТАЛОГ
+            </span>
+
+            <h2>
               Категории
             </h2>
-
-            <p className="desktop-section__subtitle">
-              Найдите нужное быстрее
-            </p>
-          </div>
-        </div>
-
-        <div className="desktop-categories">
-
-          {[
-            ["📱", "Электроника"],
-            ["👕", "Одежда"],
-            ["👟", "Обувь"],
-            ["🚗", "Авто"],
-            ["🏠", "Для дома"],
-            ["💼", "Услуги"],
-          ].map(([icon, name]) => (
-            <div
-              className="desktop-category"
-              key={name}
-            >
-              <div className="desktop-category__icon">
-                {icon}
-              </div>
-
-              <div className="desktop-category__name">
-                {name}
-              </div>
-            </div>
-          ))}
-
-        </div>
-
-      </section>
-
-      <section className="desktop-section">
-
-        <div className="desktop-section__header">
-          <div>
-            <h2 className="desktop-section__title">
-              Свежие объявления
-            </h2>
-
-            <p className="desktop-section__subtitle">
-              Новые товары на SXRON
-            </p>
           </div>
 
           <button
-            className="desktop-button desktop-button--secondary"
             type="button"
             onClick={onCatalog}
+            className="desktop-home__link-button"
           >
-            Все объявления →
+            Все категории →
           </button>
         </div>
 
-        {products.length > 0 ? (
-          <div className="desktop-products">
-            {products.map((product) => (
-              <DesktopProductCard
-                key={product.id}
-                product={product}
-                onClick={onProduct}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="desktop-profile__card">
-            Пока объявлений нет.
-          </div>
-        )}
+        <div className="desktop-home__categories">
+          {categories.map(
+            (category) => (
+              <button
+                type="button"
+                key={category.name}
+                className="desktop-home__category"
+                onClick={onCatalog}
+              >
+                <span className="desktop-home__category-icon">
+                  {category.icon}
+                </span>
 
+                <span>
+                  {category.name}
+                </span>
+
+                <small>
+                  Смотреть →
+                </small>
+              </button>
+            ),
+          )}
+        </div>
       </section>
 
-    </div>
+      <section className="desktop-home__section desktop-home__section--products">
+        <div className="desktop-home__section-heading">
+          <div>
+            <span className="desktop-home__eyebrow">
+              НОВИНКИ
+            </span>
+
+            <h2>
+              Свежие объявления
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onCatalog}
+            className="desktop-home__link-button"
+          >
+            Смотреть все →
+          </button>
+        </div>
+
+        {filteredProducts.length > 0 ? (
+          <div className="desktop-home__products">
+            {filteredProducts.map(
+              (product) => (
+                <DesktopProductCard
+                  key={product.id}
+                  product={product}
+                  onClick={onProduct}
+                />
+              ),
+            )}
+          </div>
+        ) : (
+          <div className="desktop-home__empty">
+            <div className="desktop-home__empty-icon">
+              {search ? "🔎" : "📦"}
+            </div>
+
+            <h3>
+              {search
+                ? "Ничего не найдено"
+                : "Пока нет объявлений"}
+            </h3>
+
+            <p>
+              {search
+                ? "Попробуйте изменить поисковый запрос."
+                : "Будьте первым — разместите своё объявление."}
+            </p>
+
+            {!search && (
+              <button
+                type="button"
+                onClick={onCreate}
+                className="desktop-home__empty-button"
+              >
+                ＋ Подать объявление
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="desktop-home__banner">
+        <div>
+          <span>
+            SXRON
+          </span>
+
+          <h2>
+            Твой город.
+            <br />
+            Твои объявления.
+          </h2>
+
+          <p>
+            Всё нужное — рядом.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onCreate}
+        >
+          Разместить объявление
+          <span>→</span>
+        </button>
+      </section>
+    </main>
   );
 }
