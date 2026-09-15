@@ -10,6 +10,7 @@ declare global { interface Window { Telegram?: { WebApp?: TelegramWebApp } } }
 function getTelegramUser(): TelegramUser | null { if (typeof window === "undefined") return null; return window.Telegram?.WebApp?.initDataUnsafe?.user ?? null; }
 function getInitials(first?: string, last?: string) { return `${first?.trim()?.[0] ?? ""}${last?.trim()?.[0] ?? ""}`.toUpperCase() || "S"; }
 function getTelegramName(user: TelegramUser | null) { return [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim() || "Пользователь SXRON"; }
+function isImageAvatar(value: string) { return value.startsWith("data:image/"); }
 
 export default function DesktopProfile({ products, profile, onProfileChange, onProduct, onCreate }: DesktopProfileProps) {
   const telegramUser = getTelegramUser();
@@ -17,10 +18,11 @@ export default function DesktopProfile({ products, profile, onProfileChange, onP
   const displayName = profile.displayName.trim() || telegramName;
   const username = telegramUser?.username ? `@${telegramUser.username}` : "username не указан";
   const [customizing, setCustomizing] = useState(false);
+  const avatar = isImageAvatar(profile.avatar) ? profile.avatar : null;
 
   return <div className="desktop-main"><div className="desktop-profile">
     <aside className={`desktop-profile__card desktop-profile__card--expanded desktop-profile--${profile.accent}`}>
-      <div className="desktop-profile__avatar desktop-profile__avatar--large">{telegramUser?.photo_url ? <img src={telegramUser.photo_url} alt={displayName} /> : <span>{profile.avatar || getInitials(telegramUser?.first_name, telegramUser?.last_name)}</span>}<span className="desktop-profile__online-dot" /></div>
+      <div className="desktop-profile__avatar desktop-profile__avatar--large">{avatar ? <img src={avatar} alt={displayName} /> : telegramUser?.photo_url ? <img src={telegramUser.photo_url} alt={displayName} /> : <span>{profile.avatar || getInitials(telegramUser?.first_name, telegramUser?.last_name)}</span>}<span className="desktop-profile__online-dot" /></div>
       <div className="desktop-profile__name-row"><div className="desktop-profile__name">{displayName}</div><span className="desktop-profile__verified">✓</span></div>
       {profile.usernameVisible && <div className="desktop-profile__username">{username}</div>}
       <div className="desktop-profile__location">📍 Белореченск</div>
