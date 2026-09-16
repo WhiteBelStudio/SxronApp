@@ -1,13 +1,10 @@
 {
   "name": "sxron-marketplace",
   "private": true,
-  "version": "1.0.7",
-  "description": "SXRON Marketplace v1.0.7 — unified web, desktop and mobile client",
+  "version": "1.0.8",
+  "description": "SXRON Marketplace v1.0.8 — unified web, desktop and mobile client",
   "author": "WhiteBelStudio",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/WhiteBelStudio/SxronApp.git"
-  },
+  "repository": { "type": "git", "url": "https://github.com/WhiteBelStudio/SxronApp.git" },
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -19,9 +16,7 @@
     "app:build": "npm run build && electron-builder --publish never",
     "android": "npm run build && cap sync android && cap open android",
     "ios": "npm run build && cap sync ios && cap open ios",
-    "cap:sync": "npm run build && cap sync",
-    "cap:open:android": "cap open android",
-    "cap:open:ios": "cap open ios"
+    "cap:sync": "npm run build && cap sync"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
@@ -46,66 +41,39 @@
   "build": {
     "appId": "com.sxron.marketplace",
     "productName": "SXRON Marketplace",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "backend/sxron-api.exe",
-        "to": "backend/sxron-api.exe"
-      }
-    ],
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "electron/**/*", "package.json"],
+    "extraResources": [{ "from": "backend/sxron-api.exe", "to": "backend/sxron-api.exe" }],
     "win": {
       "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        },
-        {
-          "target": "portable",
-          "arch": ["x64"]
-        }
-      ]
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "artifactName": "SXRON-Marketplace-${version}-${arch}.${ext}"
     },
     "nsis": {
       "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}",
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "SXRON Marketplace",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "installerIcon": "build/installer.ico",
+      "uninstallerIcon": "build/installer.ico",
+      "installerHeaderIcon": "build/installer.ico",
+      "include": "build/installer.nsh"
     },
-    "portable": {
-      "artifactName": "SXRON-Marketplace-Portable-${version}-${arch}.${ext}"
-    },
-    "fileAssociations": [
-      {
-        "ext": "sxron",
-        "name": "SXRON Marketplace file",
-        "description": "Файл SXRON Marketplace",
-        "role": "Editor"
-      }
-    ],
-    "protocols": [
-      {
-        "name": "SXRON Marketplace",
-        "schemes": ["sxron"]
-      }
-    ],
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "WhiteBelStudio",
-        "repo": "SxronApp",
-        "releaseType": "release"
-      }
-    ]
+    "portable": { "artifactName": "SXRON-Marketplace-Portable-${version}-${arch}.${ext}" },
+    "fileAssociations": [{
+      "ext": "sxron",
+      "name": "SXRON Marketplace file",
+      "description": "Файл SXRON Marketplace",
+      "role": "Editor"
+    }],
+    "protocols": [{ "name": "SXRON Marketplace", "schemes": ["sxron"] }],
+    "publish": [{ "provider": "github", "owner": "WhiteBelStudio", "repo": "SxronApp", "releaseType": "release" }]
   }
 }
