@@ -10,7 +10,7 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.16"
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("SXRON_DATA_DIR", BASE_DIR / "data"))
 DB_PATH = DATA_DIR / "sxron.db"
@@ -55,20 +55,17 @@ def init_db() -> None:
                 created_at TEXT NOT NULL,
                 last_seen_at TEXT NOT NULL
             );
-
             CREATE TABLE IF NOT EXISTS cities (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 slug TEXT UNIQUE
             );
-
             CREATE TABLE IF NOT EXISTS categories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 slug TEXT UNIQUE,
                 icon TEXT
             );
-
             CREATE TABLE IF NOT EXISTS products (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -88,7 +85,6 @@ def init_db() -> None:
                 FOREIGN KEY(city_id) REFERENCES cities(id),
                 FOREIGN KEY(created_by) REFERENCES users(id)
             );
-
             CREATE TABLE IF NOT EXISTS admins (
                 user_id INTEGER PRIMARY KEY,
                 added_at TEXT NOT NULL,
@@ -96,76 +92,38 @@ def init_db() -> None:
             );
             """
         )
-
-        connection.execute(
-            "INSERT OR IGNORE INTO cities(name, slug) VALUES (?, ?)",
-            ("Белореченск", "belorechensk"),
-        )
-        connection.execute(
-            "INSERT OR IGNORE INTO cities(name, slug) VALUES (?, ?)",
-            ("Хутор Кубанский", "khutor-kubanskiy"),
-        )
-
-        for name, slug, icon in [
-            ("Электроника", "electronics", "▣"),
-            ("Одежда", "clothes", "◈"),
-            ("Дом", "home", "⌂"),
-            ("Транспорт", "transport", "◆"),
-            ("Разное", "other", "✦"),
-        ]:
-            connection.execute(
-                "INSERT OR IGNORE INTO categories(name, slug, icon) VALUES (?, ?, ?)",
-                (name, slug, icon),
-            )
-
+        connection.execute("INSERT OR IGNORE INTO cities(name, slug) VALUES (?, ?)", ("Белореченск", "belorechensk"))
+        connection.execute("INSERT OR IGNORE INTO cities(name, slug) VALUES (?, ?)", ("Хутор Кубанский", "khutor-kubanskiy"))
+        for name, slug, icon in [("Электроника", "electronics", "▣"), ("Одежда", "clothes", "◈"), ("Дом", "home", "⌂"), ("Транспорт", "transport", "◆"), ("Разное", "other", "✦")]:
+            connection.execute("INSERT OR IGNORE INTO categories(name, slug, icon) VALUES (?, ?, ?)", (name, slug, icon))
         if OWNER_CLIENT_ID:
-            row = connection.execute(
-                "SELECT id FROM users WHERE client_id = ?", (OWNER_CLIENT_ID,)
-            ).fetchone()
+            row = connection.execute("SELECT id FROM users WHERE client_id = ?", (OWNER_CLIENT_ID,)).fetchone()
             if row:
-                connection.execute(
-                    "INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)",
-                    (row["id"], now()),
-                )
+                connection.execute("INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)", (row["id"], now()))
 
 
 def current_user(client_id: str | None) -> sqlite3.Row:
     if not client_id:
         raise HTTPException(status_code=401, detail="X-SXRON-Client-ID обязателен")
-
     client_id = client_id.strip()
     if not client_id or len(client_id) > 200:
         raise HTTPException(status_code=401, detail="Некорректный идентификатор пользователя")
-
     with db() as connection:
-        row = connection.execute(
-            "SELECT * FROM users WHERE client_id = ?", (client_id,)
-        ).fetchone()
+        row = connection.execute("SELECT * FROM users WHERE client_id = ?", (client_id,)).fetchone()
         if row:
-            connection.execute(
-                "UPDATE users SET last_seen_at = ? WHERE id = ?", (now(), row["id"])
-            )
+            connection.execute("UPDATE users SET last_seen_at = ? WHERE id = ?", (now(), row["id"]))
             return connection.execute("SELECT * FROM users WHERE id = ?", (row["id"],)).fetchone()
-
-        first_name = "Пользователь"
-        cursor = connection.execute(
-            "INSERT INTO users(client_id, first_name, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
-            (client_id, first_name, now(), now()),
-        )
+        timestamp = now()
+        cursor = connection.execute("INSERT INTO users(client_id, first_name, created_at, last_seen_at) VALUES (?, 'Пользователь', ?, ?)", (client_id, timestamp, timestamp))
         user_id = cursor.lastrowid
         if OWNER_CLIENT_ID and client_id == OWNER_CLIENT_ID:
-            connection.execute(
-                "INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)",
-                (user_id, now()),
-            )
+            connection.execute("INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)", (user_id, now()))
         return connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
 
 
 def is_admin(user_id: int) -> bool:
     with db() as connection:
-        return connection.execute(
-            "SELECT 1 FROM admins WHERE user_id = ?", (user_id,)
-        ).fetchone() is not None
+        return connection.execute("SELECT 1 FROM admins WHERE user_id = ?", (user_id,)).fetchone() is not None
 
 
 def is_owner(user: sqlite3.Row) -> bool:
@@ -216,35 +174,11 @@ def product_dict(row: sqlite3.Row) -> dict[str, Any]:
             category_row = connection.execute("SELECT * FROM categories WHERE id = ?", (row["category_id"],)).fetchone()
             if category_row:
                 category = category_row["name"]
-
-    return {
-        "id": row["id"],
-        "name": row["name"],
-        "description": row["description"],
-        "price": row["price"],
-        "category_id": row["category_id"],
-        "category": category,
-        "city_id": row["city_id"],
-        "city": city,
-        "condition": row["condition"],
-        "delivery": row["delivery"],
-        "photo_url": row["photo_url"],
-        "status": row["status"],
-        "available": bool(row["available"]),
-        "is_available": bool(row["available"]),
-        "created_by": row["created_by"],
-        "seller_id": row["created_by"],
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-    }
+    return {"id": row["id"], "name": row["name"], "description": row["description"], "price": row["price"], "category_id": row["category_id"], "category": category, "city_id": row["city_id"], "city": city, "condition": row["condition"], "delivery": row["delivery"], "photo_url": row["photo_url"], "status": row["status"], "available": bool(row["available"]), "is_available": bool(row["available"]), "created_by": row["created_by"], "seller_id": row["created_by"], "created_at": row["created_at"], "updated_at": row["updated_at"]}
 
 
 @app.get("/products")
-def products(
-    search: str | None = None,
-    category: str | None = None,
-    city: str | None = None,
-) -> list[dict[str, Any]]:
+def products(search: str | None = None, category: str | None = None, city: str | None = None) -> list[dict[str, Any]]:
     sql = "SELECT p.* FROM products p LEFT JOIN categories c ON c.id = p.category_id LEFT JOIN cities ci ON ci.id = p.city_id WHERE p.available = 1"
     values: list[Any] = []
     if search:
@@ -258,7 +192,6 @@ def products(
         sql += " AND LOWER(ci.name) = LOWER(?)"
         values.append(city)
     sql += " ORDER BY p.id DESC"
-
     with db() as connection:
         rows = connection.execute(sql, values).fetchall()
     return [product_dict(row) for row in rows]
@@ -274,51 +207,28 @@ def get_product(product_id: int) -> dict[str, Any]:
 
 
 @app.post("/products")
-def create_product(
-    data: ProductCreate,
-    x_sxron_client_id: str | None = Header(default=None),
-) -> dict[str, Any]:
+def create_product(data: ProductCreate, x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
     user = current_user(x_sxron_client_id)
     require_admin(user)
-
     with db() as connection:
         category_id = data.category_id
         if not category_id and data.category:
-            category_row = connection.execute(
-                "SELECT id FROM categories WHERE LOWER(name) = LOWER(?)", (data.category,)
-            ).fetchone()
-            category_id = category_row["id"] if category_row else None
-
+            row = connection.execute("SELECT id FROM categories WHERE LOWER(name) = LOWER(?)", (data.category,)).fetchone()
+            category_id = row["id"] if row else None
         city_id = data.city_id
         if not city_id and data.city:
-            city_row = connection.execute(
-                "SELECT id FROM cities WHERE LOWER(name) = LOWER(?)", (data.city,)
-            ).fetchone()
-            city_id = city_row["id"] if city_row else None
-
+            row = connection.execute("SELECT id FROM cities WHERE LOWER(name) = LOWER(?)", (data.city,)).fetchone()
+            city_id = row["id"] if row else None
         timestamp = now()
-        cursor = connection.execute(
-            """INSERT INTO products
-            (name, description, price, category_id, city_id, condition, delivery, photo_url, created_by, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (data.name.strip(), data.description.strip(), data.price, category_id, city_id,
-             data.condition, data.delivery, data.photo_url, user["id"], timestamp, timestamp),
-        )
-        product_id = cursor.lastrowid
-        row = connection.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
-
+        cursor = connection.execute("INSERT INTO products(name, description, price, category_id, city_id, condition, delivery, photo_url, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (data.name.strip(), data.description.strip(), data.price, category_id, city_id, data.condition, data.delivery, data.photo_url, user["id"], timestamp, timestamp))
+        row = connection.execute("SELECT * FROM products WHERE id = ?", (cursor.lastrowid,)).fetchone()
     return product_dict(row)
 
 
 @app.get("/categories")
 def categories() -> list[dict[str, Any]]:
     with db() as connection:
-        rows = connection.execute(
-            """SELECT c.*, COUNT(p.id) AS products_count
-               FROM categories c
-               LEFT JOIN products p ON p.category_id = c.id AND p.available = 1
-               GROUP BY c.id ORDER BY c.id"""
-        ).fetchall()
+        rows = connection.execute("SELECT c.*, COUNT(p.id) AS products_count FROM categories c LEFT JOIN products p ON p.category_id = c.id AND p.available = 1 GROUP BY c.id ORDER BY c.id").fetchall()
     return [dict(row) for row in rows]
 
 
@@ -335,26 +245,7 @@ def me(x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
     with db() as connection:
         listings = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ?", (user["id"],)).fetchone()[0]
         active = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ? AND available = 1", (user["id"],)).fetchone()[0]
-
-    user_data = {
-        "id": user["id"],
-        "username": user["username"],
-        "first_name": user["first_name"],
-        "last_name": user["last_name"],
-        "avatar_url": user["avatar_url"],
-        "city": None,
-        "created_at": user["created_at"],
-        "bio": user["bio"],
-        "listings_count": listings,
-        "active_listings_count": active,
-        "sold_count": 0,
-        "views_count": 0,
-        "rating": None,
-        "reviews_count": 0,
-        "last_seen_at": user["last_seen_at"],
-        "is_online": True,
-        "verified": is_owner(user),
-    }
+    user_data = {"id": user["id"], "username": user["username"], "first_name": user["first_name"], "last_name": user["last_name"], "avatar_url": user["avatar_url"], "city": None, "created_at": user["created_at"], "bio": user["bio"], "listings_count": listings, "active_listings_count": active, "sold_count": 0, "views_count": 0, "rating": None, "reviews_count": 0, "last_seen_at": user["last_seen_at"], "is_online": True, "verified": is_owner(user)}
     return {"user": user_data, "is_admin": is_admin(user["id"]), "is_owner": is_owner(user)}
 
 
@@ -363,50 +254,33 @@ def admins(x_sxron_client_id: str | None = Header(default=None)) -> dict[str, An
     user = current_user(x_sxron_client_id)
     require_admin(user)
     with db() as connection:
-        rows = connection.execute(
-            """SELECT u.id, u.username, u.first_name, u.last_name, a.added_at
-               FROM admins a JOIN users u ON u.id = a.user_id ORDER BY a.user_id"""
-        ).fetchall()
-    result = []
-    for row in rows:
-        result.append({**dict(row), "role": "owner" if OWNER_CLIENT_ID and row["id"] == user["id"] and is_owner(user) else "admin"})
-    return {"admins": result}
+        rows = connection.execute("SELECT u.id, u.username, u.first_name, u.last_name, a.added_at FROM admins a JOIN users u ON u.id = a.user_id ORDER BY a.user_id").fetchall()
+    return {"admins": [{**dict(row), "role": "owner" if OWNER_CLIENT_ID and row["id"] == user["id"] and is_owner(user) else "admin"} for row in rows]}
 
 
 @app.post("/admins/add")
-def add_admin(
-    data: AdminMutation,
-    x_sxron_client_id: str | None = Header(default=None),
-) -> dict[str, Any]:
+def add_admin(data: AdminMutation, x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
     user = current_user(x_sxron_client_id)
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Добавлять администраторов может только владелец")
-
     with db() as connection:
         target = connection.execute("SELECT * FROM users WHERE id = ?", (data.user_id,)).fetchone()
         if not target:
             raise HTTPException(status_code=404, detail="Пользователь не найден")
-        connection.execute(
-            "INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)",
-            (data.user_id, now()),
-        )
+        connection.execute("INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)", (data.user_id, now()))
     return {"ok": True, "message": "Администратор добавлен"}
 
 
 @app.post("/admins/remove")
-def remove_admin(
-    data: AdminMutation,
-    x_sxron_client_id: str | None = Header(default=None),
-) -> dict[str, Any]:
+def remove_admin(data: AdminMutation, x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
     user = current_user(x_sxron_client_id)
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Удалять администраторов может только владелец")
-
     with db() as connection:
         target = connection.execute("SELECT * FROM users WHERE id = ?", (data.user_id,)).fetchone()
         if not target:
             raise HTTPException(status_code=404, detail="Пользователь не найден")
         if OWNER_CLIENT_ID and target["client_id"] == OWNER_CLIENT_ID:
-            raise HTTPException(status_code=400, detail="Владельца нельзя удалить из администраторов")
+            raise HTTPException(status_code=400, detail="Нельзя удалить владельца")
         connection.execute("DELETE FROM admins WHERE user_id = ?", (data.user_id,))
     return {"ok": True, "message": "Администратор удалён"}
