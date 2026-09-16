@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 import {
   clearAuthToken,
   getAuthMe,
@@ -15,7 +16,7 @@ type Mode = "register" | "login";
 type RegisterMethod = "email" | "phone";
 type Step = "identifier" | "code" | "phone" | "phone_code";
 
-const panelStyle: React.CSSProperties = {
+const panelStyle: CSSProperties = {
   minHeight: "100vh",
   display: "flex",
   alignItems: "center",
@@ -26,7 +27,7 @@ const panelStyle: React.CSSProperties = {
   fontFamily: "Inter, system-ui, sans-serif",
 };
 
-const cardStyle: React.CSSProperties = {
+const cardStyle: CSSProperties = {
   width: "100%",
   maxWidth: 440,
   borderRadius: 28,
@@ -37,7 +38,7 @@ const cardStyle: React.CSSProperties = {
   backdropFilter: "blur(18px)",
 };
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
   borderRadius: 14,
@@ -49,7 +50,7 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
 };
 
-const primaryStyle: React.CSSProperties = {
+const primaryStyle: CSSProperties = {
   width: "100%",
   border: 0,
   borderRadius: 14,
@@ -61,7 +62,7 @@ const primaryStyle: React.CSSProperties = {
   background: "linear-gradient(135deg, #19d8d0, #7a4dff)",
 };
 
-export default function AuthGate({ children }: { children: React.ReactNode }) {
+export default function AuthGate({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
   const [mode, setMode] = useState<Mode>("register");
@@ -248,7 +249,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
               onChange={(event) => setIdentifier(event.target.value)}
               placeholder={mode === "login" ? "Email или +79991234567" : method === "email" ? "you@example.com" : "+79991234567"}
               type={method === "email" && mode === "register" ? "email" : "text"}
-              autoComplete="email"
+              autoComplete={method === "email" && mode === "register" ? "email" : "tel"}
               required
             />
           )}
