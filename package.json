@@ -46,15 +46,15 @@
     "extraResources": [{ "from": "backend/sxron-api.exe", "to": "backend/sxron-api.exe" }],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        { "target": "nsis", "arch": ["x64"] }
       ],
-      "artifactName": "SXRON-Marketplace-${version}-${arch}.${ext}"
+      "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}"
     },
     "nsis": {
       "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "perMachine": false,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
@@ -63,7 +63,6 @@
       "runAfterFinish": true,
       "include": "build/installer.nsh"
     },
-    "portable": { "artifactName": "SXRON-Marketplace-Portable-${version}-${arch}.${ext}" },
     "fileAssociations": [{
       "ext": "sxron",
       "name": "SXRON Marketplace file",
