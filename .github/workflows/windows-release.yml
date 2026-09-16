@@ -34,9 +34,14 @@ jobs:
       - name: Verify Windows artifacts
         shell: pwsh
         run: |
-          if (-not (Test-Path 'release/SXRON-Marketplace-Setup-${{ github.ref_name }}.exe')) {
+          $installer = Get-ChildItem 'release/SXRON-Marketplace-Setup-*.exe' | Select-Object -First 1
+          if (-not $installer) {
             throw 'Windows installer was not created.'
           }
+          if ($installer.Length -lt 1000000) {
+            throw 'Windows installer looks invalid or incomplete.'
+          }
+          Write-Host "Windows installer: $($installer.FullName)"
           Get-ChildItem release
 
       - name: Upload Windows release assets
