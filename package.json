@@ -1,8 +1,8 @@
 {
   "name": "sxron-marketplace",
   "private": true,
-  "version": "1.0.3",
-  "description": "SXRON Marketplace v1.0.3 — unified web, desktop and mobile client",
+  "version": "1.0.4",
+  "description": "SXRON Marketplace v1.0.4 — unified web, desktop and mobile client",
   "author": "WhiteBelStudio",
   "repository": {
     "type": "git",
@@ -55,10 +55,25 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
-      ],
-      "artifactName": "SXRON-Marketplace-${version}-${arch}.${ext}"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "SXRON-Marketplace-Portable-${version}-${arch}.${ext}"
     },
     "publish": [
       {
