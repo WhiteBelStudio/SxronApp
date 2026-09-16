@@ -64,20 +64,85 @@ jobs:
           python -c "import multipart; print('python-multipart:', multipart.__file__)"
           python -m pip install pyinstaller
 
+      - name: Validate SXRON API source
+        shell: pwsh
+        run: |
+          python -c "import server.main; print('SXRON API source import: OK')"
+
       - name: Build bundled SXRON API
         shell: pwsh
         run: |
           if (Test-Path backend) { Remove-Item backend -Recurse -Force }
+          if (Test-Path build/pyinstaller) { Remove-Item build/pyinstaller -Recurse -Force }
           New-Item -ItemType Directory -Path backend | Out-Null
-          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --hidden-import=multipart --hidden-import=multipart.multipart server/launcher.py
+          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --hidden-import=multipart --hidden-import=multipart.multipart server/launcher.py
           if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) {
             throw 'Bundled SXRON API executable was not created.'
           }
-          if (-not (Test-Path 'backend/sxron-api/multipart')) {
-            Write-Host 'multipart package directory not present; checking PyInstaller analysis output.'
-          }
           Write-Host "Bundled API directory created: backend/sxron-api"
           Get-ChildItem 'backend/sxron-api' | Select-Object Name,Length
+
+      - name: Smoke test bundled SXRON API
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'backend\sxron-api\sxron-api.exe'
+          $smokeData = Join-Path $PWD 'build\smoke-data'
+          $stdout = Join-Path $PWD 'build\smoke-api.stdout.log'
+          $stderr = Join-Path $PWD 'build\smoke-api.stderr.log'
+
+          if (Test-Path $smokeData) { Remove-Item $smokeData -Recurse -Force }
+          New-Item -ItemType Directory -Path $smokeData | Out-Null
+
+          $oldDataDir = $env:SXRON_DATA_DIR
+          $env:SXRON_DATA_DIR = $smokeData
+
+          $proc = Start-Process `
+            -FilePath $exe `
+            -WorkingDirectory (Split-Path $exe) `
+            -RedirectStandardOutput $stdout `
+            -RedirectStandardError $stderr `
+            -PassThru
+
+          $healthy = $false
+          try {
+            for ($i = 0; $i -lt 30; $i++) {
+              Start-Sleep -Seconds 1
+
+              if ($proc.HasExited) {
+                Write-Host "SXRON API exited early with code $($proc.ExitCode)."
+                break
+              }
+
+              try {
+                $response = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 2
+                if ($response.status -eq 'ok') {
+                  $healthy = $true
+                  Write-Host "SXRON API health check: OK"
+                  break
+                }
+              } catch {
+                # API is still starting.
+              }
+            }
+
+            if (-not $healthy) {
+              Write-Host '----- SXRON API stdout -----'
+              if (Test-Path $stdout) { Get-Content $stdout }
+              Write-Host '----- SXRON API stderr -----'
+              if (Test-Path $stderr) { Get-Content $stderr }
+              throw 'Bundled SXRON API failed the Windows startup/health smoke test.'
+            }
+          }
+          finally {
+            if ($proc -and -not $proc.HasExited) {
+              Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            }
+            if ($null -eq $oldDataDir) {
+              Remove-Item Env:SXRON_DATA_DIR -ErrorAction SilentlyContinue
+            } else {
+              $env:SXRON_DATA_DIR = $oldDataDir
+            }
+          }
 
       - name: Install Node dependencies
         run: npm install --prefer-offline --no-audit --no-fund
@@ -134,5 +199,3 @@ jobs:
           files: |
             release/SXRON-Marketplace-Setup-*.exe
             release/latest.yml
-
-# v1.0.13: explicitly bundle python-multipart for FastAPI form handling.
