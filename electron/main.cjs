@@ -26,20 +26,25 @@ function getApiExecutable() {
   return path.join(process.resourcesPath, 'backend', 'sxron-api');
 }
 
-function waitForApi(timeoutMs = 15000) {
+function waitForApi(timeoutMs = 45000) {
   const started = Date.now();
 
   return new Promise((resolve, reject) => {
     let settled = false;
 
+    const finishError = (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error instanceof Error ? error : new Error(String(error)));
+    };
+
     const retry = () => {
       if (settled) return;
       if (Date.now() - started >= timeoutMs) {
-        settled = true;
-        reject(new Error('SXRON API не запустился вовремя'));
+        finishError(new Error('SXRON API не запустился за 45 секунд. Проверьте, что sxron-api.exe не заблокирован антивирусом.'));
         return;
       }
-      setTimeout(check, 250);
+      setTimeout(check, 300);
     };
 
     const check = () => {
@@ -70,17 +75,25 @@ async function startApi() {
   if (isDev) return;
 
   const executable = getApiExecutable();
+  const apiDirectory = path.dirname(executable);
   const dataDir = path.join(app.getPath('userData'), 'data');
 
+  console.log('SXRON API executable:', executable);
+  console.log('SXRON API data directory:', dataDir);
+
   apiProcess = spawn(executable, [], {
+    cwd: apiDirectory,
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
       SXRON_DATA_DIR: dataDir,
       SXRON_CORS_ORIGINS: '*',
+      PYTHONUNBUFFERED: '1',
     },
   });
+
+  let processError = null;
 
   apiProcess.stdout?.on('data', (data) => {
     console.log(`[SXRON API] ${data.toString().trim()}`);
@@ -91,6 +104,7 @@ async function startApi() {
   });
 
   apiProcess.on('error', (error) => {
+    processError = error;
     console.error('SXRON API process error:', error);
   });
 
@@ -99,7 +113,14 @@ async function startApi() {
     apiProcess = null;
   });
 
-  await waitForApi();
+  try {
+    await waitForApi();
+  } catch (error) {
+    if (processError) {
+      throw new Error(`Не удалось запустить SXRON API: ${processError.message}`);
+    }
+    throw error;
+  }
 }
 
 function stopApi() {
