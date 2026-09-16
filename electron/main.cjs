@@ -1,5 +1,6 @@
 const { app, BrowserWindow, shell, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 const http = require('http');
 const { autoUpdater } = require('electron-updater');
@@ -26,6 +27,18 @@ function getApiExecutable() {
   return path.join(process.resourcesPath, 'backend', 'sxron-api', 'sxron-api');
 }
 
+function getApiLogPath() {
+  return path.join(app.getPath('userData'), 'sxron-api.log');
+}
+
+function appendApiLog(text) {
+  try {
+    fs.appendFileSync(getApiLogPath(), text, 'utf8');
+  } catch (error) {
+    console.warn('SXRON API log write:', error?.message || error);
+  }
+}
+
 function waitForApi(timeoutMs = 45000) {
   const started = Date.now();
 
@@ -41,7 +54,7 @@ function waitForApi(timeoutMs = 45000) {
     const retry = () => {
       if (settled) return;
       if (Date.now() - started >= timeoutMs) {
-        finishError(new Error('SXRON API не запустился за 45 секунд. Если Windows Defender или другой антивирус показал предупреждение, разрешите SXRON Marketplace.'));
+        finishError(new Error('SXRON API не запустился за 45 секунд. Подробный лог: ' + getApiLogPath()));
         return;
       }
       setTimeout(check, 300);
@@ -77,10 +90,18 @@ async function startApi() {
   const executable = getApiExecutable();
   const apiDirectory = path.dirname(executable);
   const dataDir = path.join(app.getPath('userData'), 'data');
+  const logPath = getApiLogPath();
 
-  console.log('SXRON API executable:', executable);
-  console.log('SXRON API working directory:', apiDirectory);
-  console.log('SXRON API data directory:', dataDir);
+  appendApiLog(`\n===== SXRON API START ${new Date().toISOString()} =====\n`);
+  appendApiLog(`Executable: ${executable}\n`);
+  appendApiLog(`Working directory: ${apiDirectory}\n`);
+  appendApiLog(`Data directory: ${dataDir}\n`);
+
+  if (!fs.existsSync(executable)) {
+    const message = `Файл SXRON API не найден:\n${executable}`;
+    appendApiLog(message + '\n');
+    throw new Error(message);
+  }
 
   apiProcess = spawn(executable, [], {
     cwd: apiDirectory,
@@ -98,17 +119,26 @@ async function startApi() {
   let processExited = false;
   let exitCode = null;
   let exitSignal = null;
+  let stderrText = '';
+  let stdoutText = '';
 
   apiProcess.stdout?.on('data', (data) => {
-    console.log(`[SXRON API] ${data.toString().trim()}`);
+    const text = data.toString();
+    stdoutText += text;
+    appendApiLog(`[stdout] ${text}`);
+    console.log(`[SXRON API] ${text.trim()}`);
   });
 
   apiProcess.stderr?.on('data', (data) => {
-    console.warn(`[SXRON API] ${data.toString().trim()}`);
+    const text = data.toString();
+    stderrText += text;
+    appendApiLog(`[stderr] ${text}`);
+    console.warn(`[SXRON API] ${text.trim()}`);
   });
 
   apiProcess.on('error', (error) => {
     processError = error;
+    appendApiLog(`[process error] ${error.stack || error}\n`);
     console.error('SXRON API process error:', error);
   });
 
@@ -116,6 +146,7 @@ async function startApi() {
     processExited = true;
     exitCode = code;
     exitSignal = signal;
+    appendApiLog(`[exit] code=${code}, signal=${signal ?? 'none'}\n`);
     console.log(`SXRON API stopped: code=${code}, signal=${signal}`);
     apiProcess = null;
   });
@@ -123,15 +154,19 @@ async function startApi() {
   try {
     await waitForApi();
   } catch (error) {
+    const details = stderrText.trim() || stdoutText.trim() || 'API не вернул текст ошибки.';
+
     if (processError) {
-      throw new Error(`Не удалось запустить SXRON API: ${processError.message}`);
+      throw new Error(`Не удалось запустить SXRON API: ${processError.message}\n\nЛог:\n${details}`);
     }
 
     if (processExited) {
-      throw new Error(`SXRON API завершился до запуска: code=${exitCode}, signal=${exitSignal ?? 'none'}. Проверьте Windows Defender/антивирус и наличие файлов backend/sxron-api.`);
+      throw new Error(
+        `SXRON API завершился до запуска: code=${exitCode}, signal=${exitSignal ?? 'none'}.\n\nПричина API:\n${details}\n\nПолный лог:\n${logPath}`,
+      );
     }
 
-    throw error;
+    throw new Error(`${error.message}\n\nПолный лог:\n${logPath}`);
   }
 }
 
