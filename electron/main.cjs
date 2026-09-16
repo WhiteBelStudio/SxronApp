@@ -19,10 +19,25 @@ function waitForApi(timeoutMs = 15000) {
   const started = Date.now();
 
   return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const retry = () => {
+      if (settled) return;
+      if (Date.now() - started >= timeoutMs) {
+        settled = true;
+        reject(new Error('SXRON API не запустился вовремя'));
+        return;
+      }
+      setTimeout(check, 250);
+    };
+
     const check = () => {
+      if (settled) return;
+
       const request = http.get('http://127.0.0.1:8000/health', (response) => {
         response.resume();
         if (response.statusCode && response.statusCode < 500) {
+          settled = true;
           resolve();
           return;
         }
@@ -34,14 +49,6 @@ function waitForApi(timeoutMs = 15000) {
         request.destroy();
         retry();
       });
-    };
-
-    const retry = () => {
-      if (Date.now() - started >= timeoutMs) {
-        reject(new Error('SXRON API не запустился вовремя'));
-        return;
-      }
-      setTimeout(check, 250);
     };
 
     check();
@@ -60,7 +67,7 @@ async function startApi() {
     env: {
       ...process.env,
       SXRON_DATA_DIR: dataDir,
-      SXRON_CORS_ORIGINS: 'http://127.0.0.1:8000,http://localhost:8000',
+      SXRON_CORS_ORIGINS: '*',
     },
   });
 
