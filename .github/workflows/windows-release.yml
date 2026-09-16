@@ -28,7 +28,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -89,58 +88,29 @@ jobs:
           $smokeData = Join-Path $PWD 'build\smoke-data'
           $stdout = Join-Path $PWD 'build\smoke-api.stdout.log'
           $stderr = Join-Path $PWD 'build\smoke-api.stderr.log'
-
           if (Test-Path $smokeData) { Remove-Item $smokeData -Recurse -Force }
           New-Item -ItemType Directory -Path $smokeData | Out-Null
-
           $oldDataDir = $env:SXRON_DATA_DIR
           $env:SXRON_DATA_DIR = $smokeData
-
-          $proc = Start-Process `
-            -FilePath $exe `
-            -WorkingDirectory (Split-Path $exe) `
-            -RedirectStandardOutput $stdout `
-            -RedirectStandardError $stderr `
-            -PassThru
-
+          $proc = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
           $healthy = $false
           try {
             for ($i = 0; $i -lt 30; $i++) {
               Start-Sleep -Seconds 1
-
-              if ($proc.HasExited) {
-                Write-Host "SXRON API exited early with code $($proc.ExitCode)."
-                break
-              }
-
+              if ($proc.HasExited) { Write-Host "SXRON API exited early with code $($proc.ExitCode)."; break }
               try {
                 $response = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 2
-                if ($response.status -eq 'ok') {
-                  $healthy = $true
-                  Write-Host "SXRON API health check: OK"
-                  break
-                }
-              } catch {
-              }
+                if ($response.status -eq 'ok') { $healthy = $true; Write-Host 'SXRON API health check: OK'; break }
+              } catch {}
             }
-
             if (-not $healthy) {
-              Write-Host '----- SXRON API stdout -----'
-              if (Test-Path $stdout) { Get-Content $stdout }
-              Write-Host '----- SXRON API stderr -----'
-              if (Test-Path $stderr) { Get-Content $stderr }
+              Write-Host '----- SXRON API stdout -----'; if (Test-Path $stdout) { Get-Content $stdout }
+              Write-Host '----- SXRON API stderr -----'; if (Test-Path $stderr) { Get-Content $stderr }
               throw 'Bundled SXRON API failed the Windows startup/health smoke test.'
             }
-          }
-          finally {
-            if ($proc -and -not $proc.HasExited) {
-              Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-            }
-            if ($null -eq $oldDataDir) {
-              Remove-Item Env:SXRON_DATA_DIR -ErrorAction SilentlyContinue
-            } else {
-              $env:SXRON_DATA_DIR = $oldDataDir
-            }
+          } finally {
+            if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+            if ($null -eq $oldDataDir) { Remove-Item Env:SXRON_DATA_DIR -ErrorAction SilentlyContinue } else { $env:SXRON_DATA_DIR = $oldDataDir }
           }
 
       - name: Install Node dependencies
@@ -166,22 +136,10 @@ jobs:
         shell: pwsh
         run: |
           $setup = Get-ChildItem 'release/SXRON-Marketplace-Setup-*.exe'
-          if (-not $setup) {
-            throw 'SXRON Setup.exe was not created.'
-          }
-
-          if ($setup.Count -ne 1) {
-            throw "Expected exactly one Setup.exe, found $($setup.Count)."
-          }
-
-          if ($setup.Length -lt 1000000) {
-            throw 'Setup.exe looks invalid or incomplete.'
-          }
-
-          if (-not (Test-Path 'release/latest.yml')) {
-            throw 'latest.yml was not created.'
-          }
-
+          if (-not $setup) { throw 'SXRON Setup.exe was not created.' }
+          if ($setup.Count -ne 1) { throw "Expected exactly one Setup.exe, found $($setup.Count)." }
+          if ($setup.Length -lt 1000000) { throw 'Setup.exe looks invalid or incomplete.' }
+          if (-not (Test-Path 'release/latest.yml')) { throw 'latest.yml was not created.' }
           Write-Host "Verified Setup: $($setup.FullName) ($($setup.Length) bytes)"
           Get-ChildItem release
 
