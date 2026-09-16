@@ -29,6 +29,8 @@ jobs:
         run: npm run build
 
       - name: Check repository state
+        shell: bash
         run: |
           echo "SXRON nightly check completed successfully."
-          echo "Version: $(node -p \"require('./package.json').version\")"
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Version: $VERSION"
