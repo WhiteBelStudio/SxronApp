@@ -31,3 +31,10 @@ jobs:
         run: npm run app:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: SXRON-Windows-1.0.5
+          path: release/*.exe
+          if-no-files-found: error
