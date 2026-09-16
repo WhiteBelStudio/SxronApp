@@ -131,3 +131,5 @@ jobs:
           files: |
             release/SXRON-Marketplace-Setup-*.exe
             release/latest.yml
+
+# Force a fresh Windows build from the current workflow definition.
