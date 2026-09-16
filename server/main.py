@@ -10,7 +10,7 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-APP_VERSION = "1.0.5"
+APP_VERSION = "1.0.1"
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("SXRON_DATA_DIR", BASE_DIR / "data"))
 DB_PATH = DATA_DIR / "sxron.db"
@@ -78,89 +78,119 @@ def init_db() -> None:
                 city_id INTEGER,
                 condition TEXT,
                 delivery TEXT,
-                image_url TEXT,
+                photo_url TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
                 available INTEGER NOT NULL DEFAULT 1,
+                created_by INTEGER,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-                FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE SET NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS favorites (
-                user_id INTEGER NOT NULL,
-                product_id INTEGER NOT NULL,
-                created_at TEXT NOT NULL,
-                PRIMARY KEY (user_id, product_id),
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+                FOREIGN KEY(category_id) REFERENCES categories(id),
+                FOREIGN KEY(city_id) REFERENCES cities(id),
+                FOREIGN KEY(created_by) REFERENCES users(id)
             );
 
             CREATE TABLE IF NOT EXISTS admins (
                 user_id INTEGER PRIMARY KEY,
-                role TEXT NOT NULL DEFAULT 'admin',
                 added_at TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             );
             """
         )
 
-        if connection.execute("SELECT COUNT(*) FROM cities").fetchone()[0] == 0:
-            connection.executemany(
-                "INSERT INTO cities (name, slug) VALUES (?, ?)",
-                [("Белореченск", "belorechensk"), ("Хутор Кубанский", "khutor-kubanskiy")],
+        connection.execute(
+            "INSERT OR IGNORE INTO cities(name, slug) VALUES (?, ?)",
+            ("Белореченск", "belorechensk"),
+        )
+        connection.execute(
+            "INSERT OR IGNORE INTO cities(name, slug) VALUES (?, ?)",
+            ("Хутор Кубанский", "khutor-kubanskiy"),
+        )
+
+        for name, slug, icon in [
+            ("Электроника", "electronics", "▣"),
+            ("Одежда", "clothes", "◈"),
+            ("Дом", "home", "⌂"),
+            ("Транспорт", "transport", "◆"),
+            ("Разное", "other", "✦"),
+        ]:
+            connection.execute(
+                "INSERT OR IGNORE INTO categories(name, slug, icon) VALUES (?, ?, ?)",
+                (name, slug, icon),
             )
 
-        if connection.execute("SELECT COUNT(*) FROM categories").fetchone()[0] == 0:
-            connection.executemany(
-                "INSERT INTO categories (name, slug, icon) VALUES (?, ?, ?)",
-                [
-                    ("Электроника", "electronics", "📱"),
-                    ("Одежда", "clothing", "👕"),
-                    ("Дом", "home", "🏠"),
-                    ("Разное", "other", "📦"),
-                ],
+        if OWNER_CLIENT_ID:
+            row = connection.execute(
+                "SELECT id FROM users WHERE client_id = ?", (OWNER_CLIENT_ID,)
+            ).fetchone()
+            if row:
+                connection.execute(
+                    "INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)",
+                    (row["id"], now()),
+                )
+
+
+def current_user(client_id: str | None) -> sqlite3.Row:
+    if not client_id:
+        raise HTTPException(status_code=401, detail="X-SXRON-Client-ID обязателен")
+
+    client_id = client_id.strip()
+    if not client_id or len(client_id) > 200:
+        raise HTTPException(status_code=401, detail="Некорректный идентификатор пользователя")
+
+    with db() as connection:
+        row = connection.execute(
+            "SELECT * FROM users WHERE client_id = ?", (client_id,)
+        ).fetchone()
+        if row:
+            connection.execute(
+                "UPDATE users SET last_seen_at = ? WHERE id = ?", (now(), row["id"])
             )
+            return connection.execute("SELECT * FROM users WHERE id = ?", (row["id"],)).fetchone()
+
+        first_name = "Пользователь"
+        cursor = connection.execute(
+            "INSERT INTO users(client_id, first_name, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+            (client_id, first_name, now(), now()),
+        )
+        user_id = cursor.lastrowid
+        if OWNER_CLIENT_ID and client_id == OWNER_CLIENT_ID:
+            connection.execute(
+                "INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)",
+                (user_id, now()),
+            )
+        return connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
 
 
-def get_or_create_user(connection: sqlite3.Connection, client_id: str) -> sqlite3.Row:
-    timestamp = now()
-    connection.execute(
-        """
-        INSERT INTO users (client_id, created_at, last_seen_at)
-        VALUES (?, ?, ?)
-        ON CONFLICT(client_id) DO UPDATE SET last_seen_at = excluded.last_seen_at
-        """,
-        (client_id, timestamp, timestamp),
-    )
-    return connection.execute("SELECT * FROM users WHERE client_id = ?", (client_id,)).fetchone()
+def is_admin(user_id: int) -> bool:
+    with db() as connection:
+        return connection.execute(
+            "SELECT 1 FROM admins WHERE user_id = ?", (user_id,)
+        ).fetchone() is not None
 
 
-def require_client(client_id: str | None) -> str:
-    if not client_id or not client_id.strip():
-        raise HTTPException(status_code=400, detail="Не указан X-SXRON-Client-ID")
-    return client_id.strip()
+def is_owner(user: sqlite3.Row) -> bool:
+    return bool(OWNER_CLIENT_ID and user["client_id"] == OWNER_CLIENT_ID)
 
 
-def is_admin(connection: sqlite3.Connection, user_id: int) -> bool:
-    return connection.execute("SELECT 1 FROM admins WHERE user_id = ?", (user_id,)).fetchone() is not None
-
-
-def is_owner(client_id: str) -> bool:
-    return bool(OWNER_CLIENT_ID) and client_id == OWNER_CLIENT_ID
+def require_admin(user: sqlite3.Row) -> None:
+    if not is_admin(user["id"]):
+        raise HTTPException(status_code=403, detail="Доступ только для администратора")
 
 
 class ProductCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=4000)
-    price: float = Field(default=0, ge=0)
+    price: float = Field(ge=0)
+    category: str | None = None
     category_id: int | None = None
+    city: str | None = None
     city_id: int | None = None
     condition: str | None = None
     delivery: str | None = None
-    image_url: str | None = None
+    photo_url: str | None = None
 
 
-class AdminRequest(BaseModel):
+class AdminMutation(BaseModel):
     user_id: int
 
 
@@ -171,165 +201,213 @@ def startup() -> None:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "app": "SXRON Marketplace", "version": APP_VERSION}
+    return {"status": "ok", "app": "SXRON API", "version": APP_VERSION}
+
+
+def product_dict(row: sqlite3.Row) -> dict[str, Any]:
+    city = None
+    category = None
+    with db() as connection:
+        if row["city_id"]:
+            city_row = connection.execute("SELECT * FROM cities WHERE id = ?", (row["city_id"],)).fetchone()
+            if city_row:
+                city = {"id": city_row["id"], "name": city_row["name"], "slug": city_row["slug"]}
+        if row["category_id"]:
+            category_row = connection.execute("SELECT * FROM categories WHERE id = ?", (row["category_id"],)).fetchone()
+            if category_row:
+                category = category_row["name"]
+
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "description": row["description"],
+        "price": row["price"],
+        "category_id": row["category_id"],
+        "category": category,
+        "city_id": row["city_id"],
+        "city": city,
+        "condition": row["condition"],
+        "delivery": row["delivery"],
+        "photo_url": row["photo_url"],
+        "status": row["status"],
+        "available": bool(row["available"]),
+        "is_available": bool(row["available"]),
+        "created_by": row["created_by"],
+        "seller_id": row["created_by"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
 
 
 @app.get("/products")
 def products(
-    search: str | None = Query(default=None),
-    category: str | None = Query(default=None),
-    city: str | None = Query(default=None),
+    search: str | None = None,
+    category: str | None = None,
+    city: str | None = None,
+    _: sqlite3.Row = None,
 ) -> list[dict[str, Any]]:
+    sql = "SELECT p.* FROM products p LEFT JOIN categories c ON c.id = p.category_id LEFT JOIN cities ci ON ci.id = p.city_id WHERE p.available = 1"
+    values: list[Any] = []
+    if search:
+        sql += " AND (LOWER(p.name) LIKE ? OR LOWER(p.description) LIKE ?)"
+        pattern = f"%{search.lower()}%"
+        values.extend([pattern, pattern])
+    if category and category != "Все":
+        sql += " AND LOWER(c.name) = LOWER(?)"
+        values.append(category)
+    if city:
+        sql += " AND LOWER(ci.name) = LOWER(?)"
+        values.append(city)
+    sql += " ORDER BY p.id DESC"
+
     with db() as connection:
-        sql = """
-            SELECT p.*, c.name AS category_name, c.slug AS category_slug,
-                   ci.name AS city_name, ci.slug AS city_slug
-            FROM products p
-            LEFT JOIN categories c ON c.id = p.category_id
-            LEFT JOIN cities ci ON ci.id = p.city_id
-            WHERE p.available = 1
-        """
-        params: list[Any] = []
-        if search:
-            sql += " AND (p.name LIKE ? OR p.description LIKE ?)"
-            like = f"%{search}%"
-            params.extend([like, like])
-        if category:
-            sql += " AND (c.slug = ? OR c.name = ?)"
-            params.extend([category, category])
-        if city:
-            sql += " AND (ci.slug = ? OR ci.name = ?)"
-            params.extend([city, city])
-        sql += " ORDER BY p.created_at DESC"
-        return [dict(row) for row in connection.execute(sql, params).fetchall()]
+        rows = connection.execute(sql, values).fetchall()
+    return [product_dict(row) for row in rows]
 
 
 @app.get("/products/{product_id}")
-def product(product_id: int) -> dict[str, Any]:
+def get_product(product_id: int) -> dict[str, Any]:
     with db() as connection:
-        row = connection.execute(
-            """
-            SELECT p.*, c.name AS category_name, c.slug AS category_slug,
-                   ci.name AS city_name, ci.slug AS city_slug
-            FROM products p
-            LEFT JOIN categories c ON c.id = p.category_id
-            LEFT JOIN cities ci ON ci.id = p.city_id
-            WHERE p.id = ? AND p.available = 1
-            """,
-            (product_id,),
-        ).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Товар не найден")
-        return dict(row)
+        row = connection.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Товар не найден")
+    return product_dict(row)
 
 
 @app.post("/products")
 def create_product(
-    payload: ProductCreate,
+    data: ProductCreate,
     x_sxron_client_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    client_id = require_client(x_sxron_client_id)
+    user = current_user(x_sxron_client_id)
+    require_admin(user)
+
     with db() as connection:
-        user = get_or_create_user(connection, client_id)
-        if not (is_owner(client_id) or is_admin(connection, user["id"])):
-            raise HTTPException(status_code=403, detail="Недостаточно прав")
+        category_id = data.category_id
+        if not category_id and data.category:
+            category_row = connection.execute(
+                "SELECT id FROM categories WHERE LOWER(name) = LOWER(?)", (data.category,)
+            ).fetchone()
+            category_id = category_row["id"] if category_row else None
+
+        city_id = data.city_id
+        if not city_id and data.city:
+            city_row = connection.execute(
+                "SELECT id FROM cities WHERE LOWER(name) = LOWER(?)", (data.city,)
+            ).fetchone()
+            city_id = city_row["id"] if city_row else None
+
         timestamp = now()
         cursor = connection.execute(
-            """
-            INSERT INTO products
-                (name, description, price, category_id, city_id, condition, delivery, image_url, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                payload.name,
-                payload.description,
-                payload.price,
-                payload.category_id,
-                payload.city_id,
-                payload.condition,
-                payload.delivery,
-                payload.image_url,
-                timestamp,
-                timestamp,
-            ),
+            """INSERT INTO products
+            (name, description, price, category_id, city_id, condition, delivery, photo_url, created_by, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (data.name.strip(), data.description.strip(), data.price, category_id, city_id,
+             data.condition, data.delivery, data.photo_url, user["id"], timestamp, timestamp),
         )
         product_id = cursor.lastrowid
         row = connection.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
-        return dict(row)
+
+    return product_dict(row)
 
 
 @app.get("/categories")
 def categories() -> list[dict[str, Any]]:
     with db() as connection:
-        return [dict(row) for row in connection.execute("SELECT * FROM categories ORDER BY name").fetchall()]
+        rows = connection.execute(
+            """SELECT c.*, COUNT(p.id) AS products_count
+               FROM categories c
+               LEFT JOIN products p ON p.category_id = c.id AND p.available = 1
+               GROUP BY c.id ORDER BY c.id"""
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 @app.get("/cities")
 def cities() -> list[dict[str, Any]]:
     with db() as connection:
-        return [dict(row) for row in connection.execute("SELECT * FROM cities ORDER BY name").fetchall()]
+        rows = connection.execute("SELECT * FROM cities ORDER BY id").fetchall()
+    return [dict(row) for row in rows]
 
 
 @app.get("/me")
 def me(x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
-    client_id = require_client(x_sxron_client_id)
+    user = current_user(x_sxron_client_id)
     with db() as connection:
-        user = get_or_create_user(connection, client_id)
-        admin = is_admin(connection, user["id"])
-        owner = is_owner(client_id)
-        return {
-            "user": dict(user),
-            "is_admin": admin or owner,
-            "is_owner": owner,
-        }
+        listings = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ?", (user["id"],)).fetchone()[0]
+        active = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ? AND available = 1", (user["id"],)).fetchone()[0]
+
+    user_data = {
+        "id": user["id"],
+        "username": user["username"],
+        "first_name": user["first_name"],
+        "last_name": user["last_name"],
+        "avatar_url": user["avatar_url"],
+        "city": None,
+        "created_at": user["created_at"],
+        "bio": user["bio"],
+        "listings_count": listings,
+        "active_listings_count": active,
+        "sold_count": 0,
+        "views_count": 0,
+        "rating": None,
+        "reviews_count": 0,
+        "last_seen_at": user["last_seen_at"],
+        "is_online": True,
+        "verified": is_owner(user),
+    }
+    return {"user": user_data, "is_admin": is_admin(user["id"]), "is_owner": is_owner(user)}
 
 
 @app.get("/admins")
 def admins(x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
-    client_id = require_client(x_sxron_client_id)
+    user = current_user(x_sxron_client_id)
+    require_admin(user)
     with db() as connection:
-        user = get_or_create_user(connection, client_id)
-        if not is_owner(client_id):
-            raise HTTPException(status_code=403, detail="Только владелец может управлять администраторами")
         rows = connection.execute(
-            """
-            SELECT u.id, u.username, u.first_name, u.last_name,
-                   a.role, a.added_at
-            FROM admins a
-            JOIN users u ON u.id = a.user_id
-            ORDER BY a.added_at DESC
-            """
+            """SELECT u.id, u.username, u.first_name, u.last_name, a.added_at
+               FROM admins a JOIN users u ON u.id = a.user_id ORDER BY a.user_id"""
         ).fetchall()
-        return {"admins": [dict(row) for row in rows]}
+    result = []
+    for row in rows:
+        result.append({**dict(row), "role": "owner" if OWNER_CLIENT_ID and row["id"] == user["id"] and is_owner(user) else "admin"})
+    return {"admins": result}
 
 
 @app.post("/admins/add")
 def add_admin(
-    payload: AdminRequest,
+    data: AdminMutation,
     x_sxron_client_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    client_id = require_client(x_sxron_client_id)
+    user = current_user(x_sxron_client_id)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Добавлять администраторов может только владелец")
+
     with db() as connection:
-        if not is_owner(client_id):
-            raise HTTPException(status_code=403, detail="Только владелец может добавлять администраторов")
-        user = connection.execute("SELECT * FROM users WHERE id = ?", (payload.user_id,)).fetchone()
-        if not user:
+        target = connection.execute("SELECT * FROM users WHERE id = ?", (data.user_id,)).fetchone()
+        if not target:
             raise HTTPException(status_code=404, detail="Пользователь не найден")
         connection.execute(
-            "INSERT OR REPLACE INTO admins (user_id, role, added_at) VALUES (?, 'admin', ?)",
-            (payload.user_id, now()),
+            "INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)",
+            (data.user_id, now()),
         )
-        return {"ok": True, "message": "Администратор добавлен", "admin": dict(user) | {"role": "admin", "added_at": now()}}
+    return {"ok": True, "message": "Администратор добавлен"}
 
 
 @app.post("/admins/remove")
 def remove_admin(
-    payload: AdminRequest,
+    data: AdminMutation,
     x_sxron_client_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    client_id = require_client(x_sxron_client_id)
+    user = current_user(x_sxron_client_id)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Удалять администраторов может только владелец")
+
     with db() as connection:
-        if not is_owner(client_id):
-            raise HTTPException(status_code=403, detail="Только владелец может удалять администраторов")
-        connection.execute("DELETE FROM admins WHERE user_id = ?", (payload.user_id,))
-        return {"ok": True, "message": "Администратор удалён"}
+        target = connection.execute("SELECT * FROM users WHERE id = ?", (data.user_id,)).fetchone()
+        if not target:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        if OWNER_CLIENT_ID and target["client_id"] == OWNER_CLIENT_ID:
+            raise HTTPException(status_code=400, detail="Владельца нельзя удалить из администраторов")
+        connection.execute("DELETE FROM admins WHERE user_id = ?", (data.user_id,))
+    return {"ok": True, "message": "Администратор удалён"}
