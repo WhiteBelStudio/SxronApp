@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'package.json'
-      - 'package-lock.json'
       - 'src/**'
       - 'server/**'
       - 'electron/**'
@@ -44,7 +43,7 @@ jobs:
           path: |
             ~/.cache/electron
             ~/AppData/Local/electron/Cache
-          key: Windows-electron-${{ hashFiles('package-lock.json') }}
+          key: Windows-electron-${{ hashFiles('package.json') }}
           restore-keys: |
             Windows-electron-
 
@@ -54,7 +53,7 @@ jobs:
           path: |
             ~/.cache/electron-builder
             ~/AppData/Local/electron-builder/Cache
-          key: Windows-electron-builder-${{ hashFiles('package-lock.json') }}
+          key: Windows-electron-builder-${{ hashFiles('package.json') }}
           restore-keys: |
             Windows-electron-builder-
 
@@ -62,6 +61,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r server/requirements.txt
+          python -c "import multipart; print('python-multipart:', multipart.__file__)"
           python -m pip install pyinstaller
 
       - name: Build bundled SXRON API
@@ -69,15 +69,18 @@ jobs:
         run: |
           if (Test-Path backend) { Remove-Item backend -Recurse -Force }
           New-Item -ItemType Directory -Path backend | Out-Null
-          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller server/launcher.py
+          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --hidden-import=multipart --hidden-import=multipart.multipart server/launcher.py
           if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) {
             throw 'Bundled SXRON API executable was not created.'
+          }
+          if (-not (Test-Path 'backend/sxron-api/multipart')) {
+            Write-Host 'multipart package directory not present; checking PyInstaller analysis output.'
           }
           Write-Host "Bundled API directory created: backend/sxron-api"
           Get-ChildItem 'backend/sxron-api' | Select-Object Name,Length
 
       - name: Install Node dependencies
-        run: npm ci --prefer-offline --no-audit --no-fund
+        run: npm install --prefer-offline --no-audit --no-fund
 
       - name: Read app version
         id: version
@@ -132,4 +135,4 @@ jobs:
             release/SXRON-Marketplace-Setup-*.exe
             release/latest.yml
 
-# Force a fresh Windows build from the current workflow definition.
+# v1.0.13: explicitly bundle python-multipart for FastAPI form handling.
