@@ -39,6 +39,10 @@ export function clearAuthToken(): void {
   localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
 }
 
+export function getClientIdentifier(): string {
+  return getClientId();
+}
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = getAuthToken();
   const response = await fetch(`${API_URL}${endpoint}`, {
@@ -92,12 +96,6 @@ export interface AuthResult {
   expires_in?: number;
   debug_code?: string;
   user_id?: number;
-}
-
-export interface AuthMeResponse {
-  user: AuthUser;
-  is_admin: boolean;
-  is_owner: boolean;
 }
 
 export async function startOwnerLogin(): Promise<AuthResult> {
@@ -169,6 +167,45 @@ export async function logout(): Promise<void> {
   }
 }
 
+export interface SessionInfo {
+  id: number;
+  user_id?: number;
+  client_id?: string;
+  username?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  created_at: string;
+  expires_at: string;
+  revoked_at?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  device?: string | null;
+  platform?: string | null;
+  client_type?: string | null;
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+}
+
+export interface SessionsResponse {
+  sessions: SessionInfo[];
+}
+
+export async function getSessions(): Promise<SessionsResponse> {
+  return request<SessionsResponse>("/auth/sessions");
+}
+
+export async function revokeSession(sessionId: number): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/auth/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+export async function revokeAllSessions(): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>("/auth/sessions/revoke-all", { method: "POST" });
+}
+
+export async function getAdminSessions(): Promise<SessionsResponse> {
+  return request<SessionsResponse>("/admin/sessions");
+}
+
 export async function getProducts(params?: { search?: string; category?: string; city?: string }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
   if (params?.search) searchParams.set("search", params.search);
@@ -209,6 +246,12 @@ export interface AdminUser {
 
 export interface MeResponse {
   user: User;
+  is_admin: boolean;
+  is_owner: boolean;
+}
+
+export interface AuthMeResponse {
+  user: AuthUser;
   is_admin: boolean;
   is_owner: boolean;
 }
