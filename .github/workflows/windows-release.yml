@@ -121,7 +121,6 @@ jobs:
                   break
                 }
               } catch {
-                # API is still starting.
               }
             }
 
