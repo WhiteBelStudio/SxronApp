@@ -7,27 +7,20 @@ import {
 } from "react-dom/client";
 
 import App from "./App";
+import AuthGate from "./components/AuthGate";
 
 import "./styles/global.css";
 
-
-const rootElement =
-  document.getElementById(
-    "root",
-  );
-
+const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-  throw new Error(
-    "Не найден элемент #root.",
-  );
+  throw new Error("Не найден элемент #root.");
 }
 
-
-createRoot(
-  rootElement,
-).render(
+createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <AuthGate>
+      <App />
+    </AuthGate>
   </StrictMode>,
 );
