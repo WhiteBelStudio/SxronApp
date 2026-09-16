@@ -35,9 +35,9 @@ jobs:
           path: |
             ~/.cache/electron
             ~/AppData/Local/electron/Cache
-          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
+          key: Windows-electron-${{ hashFiles('package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-electron-
+            Windows-electron-
 
       - name: Cache electron-builder downloads
         uses: actions/cache@v4
@@ -45,9 +45,9 @@ jobs:
           path: |
             ~/.cache/electron-builder
             ~/AppData/Local/electron-builder/Cache
-          key: ${{ runner.os }}-electron-builder-${{ hashFiles('package-lock.json') }}
+          key: Windows-electron-builder-${{ hashFiles('package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-electron-builder-
+            Windows-electron-builder-
 
       - name: Install dependencies
         run: npm ci --prefer-offline --no-audit --no-fund
@@ -71,14 +71,21 @@ jobs:
       - name: Verify Windows artifacts
         shell: pwsh
         run: |
-          $installer = Get-ChildItem 'release/SXRON-Marketplace-Setup-*.exe' | Select-Object -First 1
-          if (-not $installer) {
-            throw 'Windows installer was not created.'
+          $executables = Get-ChildItem 'release/*.exe' | Where-Object { $_.Name -notmatch '__uninstaller\.exe$' }
+          if (-not $executables) {
+            throw 'No Windows .exe artifacts were created.'
           }
-          if ($installer.Length -lt 1000000) {
-            throw 'Windows installer looks invalid or incomplete.'
+
+          $valid = $executables | Where-Object { $_.Length -ge 1000000 }
+          if (-not $valid) {
+            throw 'Windows .exe artifacts look invalid or incomplete.'
           }
-          Write-Host "Windows installer: $($installer.FullName)"
+
+          Write-Host 'Windows artifacts:'
+          $valid | ForEach-Object {
+            Write-Host "- $($_.FullName) ($($_.Length) bytes)"
+          }
+
           Get-ChildItem release
 
       - name: Create GitHub release
