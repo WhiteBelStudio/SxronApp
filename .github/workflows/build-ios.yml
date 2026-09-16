@@ -1,4 +1,4 @@
-name: SXRON iOS Release
+name: SXRON iOS 1.0.1
 
 on:
   workflow_dispatch:
@@ -26,7 +26,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build web
         run: npm run build
@@ -37,7 +37,7 @@ jobs:
       - name: Sync iOS
         run: npx cap sync ios
 
-      - name: Build unsigned iOS archive
+      - name: Build iOS archive without signing
         working-directory: ios
         run: |
           xcodebuild \
@@ -47,23 +47,30 @@ jobs:
             -sdk iphoneos \
             -archivePath "$PWD/build/SXRON.xcarchive" \
             archive \
+            MARKETING_VERSION=1.0.1 \
+            CURRENT_PROJECT_VERSION=2 \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
 
-      - name: Package iOS archive
+      - name: Verify iOS archive
+        run: test -d ios/build/SXRON.xcarchive
+
+      - name: Package unsigned iOS archive
         run: |
           cd ios/build
-          zip -r ../../SXRON-Marketplace-${{ github.event.release.tag_name || 'v1.0.1' }}-iOS-unsigned.xcarchive.zip SXRON.xcarchive
+          zip -r ../../SXRON-Marketplace-1.0.1-iOS-unsigned.xcarchive.zip SXRON.xcarchive
 
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sxron-ios-${{ github.event.release.tag_name || 'v1.0.1' }}-unsigned
-          path: SXRON-Marketplace-${{ github.event.release.tag_name || 'v1.0.1' }}-iOS-unsigned.xcarchive.zip
+          name: sxron-ios-1.0.1-unsigned
+          path: SXRON-Marketplace-1.0.1-iOS-unsigned.xcarchive.zip
 
-      - name: Upload iOS archive to release
+      - name: Upload iOS build to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.event.release.tag_name }}
-          files: SXRON-Marketplace-${{ github.event.release.tag_name }}-iOS-unsigned.xcarchive.zip
+          files: SXRON-Marketplace-1.0.1-iOS-unsigned.xcarchive.zip
