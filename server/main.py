@@ -244,7 +244,6 @@ def products(
     search: str | None = None,
     category: str | None = None,
     city: str | None = None,
-    _: sqlite3.Row = None,
 ) -> list[dict[str, Any]]:
     sql = "SELECT p.* FROM products p LEFT JOIN categories c ON c.id = p.category_id LEFT JOIN cities ci ON ci.id = p.city_id WHERE p.available = 1"
     values: list[Any] = []
