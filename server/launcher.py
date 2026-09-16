@@ -3,13 +3,16 @@ from __future__ import annotations
 import uvicorn
 
 try:
-    from server.main import app
+    from server.main import app, init_db
     from server.auth import register_auth
 except ModuleNotFoundError:
     # PyInstaller may execute this launcher with server/ as its import root.
-    from main import app
+    from main import app, init_db
     from auth import register_auth
 
+# The auth schema extends the base application schema, so initialize
+# the base SQLite tables before creating auth tables.
+init_db()
 register_auth(app)
 
 
