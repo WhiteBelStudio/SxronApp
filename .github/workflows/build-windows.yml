@@ -42,13 +42,37 @@ jobs:
         run: |
           if (Test-Path backend) { Remove-Item backend -Recurse -Force }
           New-Item -ItemType Directory -Path backend | Out-Null
-          # Explicitly collect python-multipart so FastAPI Form/File routes work inside PyInstaller.
           python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --hidden-import=multipart --hidden-import=multipart.multipart server/launcher.py
-          if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) {
-            throw 'Bundled SXRON API executable was not created.'
-          }
+          if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) { throw 'Bundled SXRON API executable was not created.' }
           Write-Host 'SXRON API bundle created successfully.'
-          Get-ChildItem 'backend/sxron-api' | Select-Object Name,Length
+
+      - name: Smoke test bundled API
+        shell: pwsh
+        run: |
+          $env:SXRON_DATA_DIR = Join-Path $PWD 'build/smoke-data'
+          New-Item -ItemType Directory -Force -Path $env:SXRON_DATA_DIR | Out-Null
+          $api = Start-Process -FilePath 'backend/sxron-api/sxron-api.exe' -PassThru -RedirectStandardOutput 'build/api.stdout.log' -RedirectStandardError 'build/api.stderr.log'
+          try {
+            $healthy = $false
+            for ($i = 0; $i -lt 30; $i++) {
+              Start-Sleep -Seconds 1
+              try {
+                $response = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/health' -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $healthy = $true; break }
+              } catch {}
+              if ($api.HasExited) { break }
+            }
+            if (-not $healthy) {
+              Write-Host '--- API STDOUT ---'
+              if (Test-Path 'build/api.stdout.log') { Get-Content 'build/api.stdout.log' }
+              Write-Host '--- API STDERR ---'
+              if (Test-Path 'build/api.stderr.log') { Get-Content 'build/api.stderr.log' }
+              throw 'Bundled SXRON API failed /health smoke test.'
+            }
+            Write-Host 'Bundled SXRON API /health smoke test passed.'
+          } finally {
+            if (-not $api.HasExited) { Stop-Process -Id $api.Id -Force }
+          }
 
       - name: Install Node dependencies
         run: npm install --no-audit --no-fund
@@ -58,7 +82,8 @@ jobs:
         run: |
           $version = node -p "require('./package.json').version"
           Write-Host "SXRON Marketplace version: $version"
-          if ($version -ne '1.0.13') { throw "Expected version 1.0.13, got $version" }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid application version: $version" }
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build SXRON Windows installer
         run: npm run app:build
@@ -77,6 +102,16 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: SXRON-Windows-1.0.13
+          name: SXRON-Windows-${{ env.APP_VERSION }}
           path: release/SXRON-Marketplace-Setup-*.exe
           if-no-files-found: error
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.APP_VERSION }}
+          name: SXRON Marketplace v${{ env.APP_VERSION }}
+          generate_release_notes: true
+          files: |
+            release/SXRON-Marketplace-Setup-*.exe
+            release/latest.yml
