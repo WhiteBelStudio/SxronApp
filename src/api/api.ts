@@ -18,7 +18,6 @@ const AUTH_TOKEN_STORAGE_KEY = "sxron_auth_token";
 
 function getClientId(): string {
   if (typeof window === "undefined") return "server";
-
   let clientId = localStorage.getItem(CLIENT_ID_STORAGE_KEY);
   if (!clientId) {
     clientId = crypto.randomUUID();
@@ -51,7 +50,6 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
       ...(options?.headers ?? {}),
     },
   });
-
   if (!response.ok) {
     let message = `Ошибка API: ${response.status}`;
     try {
@@ -62,7 +60,6 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     }
     throw new Error(message);
   }
-
   return response.json() as Promise<T>;
 }
 
@@ -94,6 +91,7 @@ export interface AuthResult {
   destination?: string;
   expires_in?: number;
   debug_code?: string;
+  user_id?: number;
 }
 
 export interface AuthMeResponse {
@@ -102,20 +100,22 @@ export interface AuthMeResponse {
   is_owner: boolean;
 }
 
+export async function startOwnerLogin(): Promise<AuthResult> {
+  return request<AuthResult>("/auth/owner", { method: "POST" });
+}
+
 export async function startRegistration(
   method: "email" | "phone",
   identifier: string,
+  password?: string,
 ): Promise<AuthStartResponse> {
   return request<AuthStartResponse>("/auth/start", {
     method: "POST",
-    body: JSON.stringify({ method, identifier }),
+    body: JSON.stringify({ method, identifier, ...(password ? { password } : {}) }),
   });
 }
 
-export async function verifyRegistration(
-  challengeId: string,
-  code: string,
-): Promise<AuthResult> {
+export async function verifyRegistration(challengeId: string, code: string): Promise<AuthResult> {
   return request<AuthResult>("/auth/verify", {
     method: "POST",
     body: JSON.stringify({ challenge_id: challengeId, code }),
@@ -126,6 +126,13 @@ export async function resendAuthCode(challengeId: string): Promise<AuthStartResp
   return request<AuthStartResponse>("/auth/resend", {
     method: "POST",
     body: JSON.stringify({ challenge_id: challengeId }),
+  });
+}
+
+export async function loginWithPassword(identifier: string, password: string, remember: boolean): Promise<AuthResult> {
+  return request<AuthResult>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ identifier, password, remember }),
   });
 }
 
@@ -143,6 +150,13 @@ export async function verifyLogin(challengeId: string, code: string): Promise<Au
   });
 }
 
+export async function setPassword(password: string): Promise<void> {
+  await request("/auth/password/set", {
+    method: "POST",
+    body: JSON.stringify({ password }),
+  });
+}
+
 export async function getAuthMe(): Promise<AuthMeResponse> {
   return request<AuthMeResponse>("/auth/me");
 }
@@ -155,9 +169,7 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function getProducts(
-  params?: { search?: string; category?: string; city?: string },
-): Promise<Product[]> {
+export async function getProducts(params?: { search?: string; category?: string; city?: string }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
   if (params?.search) searchParams.set("search", params.search);
   if (params?.category) searchParams.set("category", params.category);
@@ -220,15 +232,9 @@ export async function getAdmins(): Promise<AdminsResponse> {
 }
 
 export async function addAdmin(userId: number): Promise<AdminMutationResponse> {
-  return request<AdminMutationResponse>("/admins/add", {
-    method: "POST",
-    body: JSON.stringify({ user_id: userId }),
-  });
+  return request<AdminMutationResponse>("/admins/add", { method: "POST", body: JSON.stringify({ user_id: userId }) });
 }
 
 export async function removeAdmin(userId: number): Promise<AdminMutationResponse> {
-  return request<AdminMutationResponse>("/admins/remove", {
-    method: "POST",
-    body: JSON.stringify({ user_id: userId }),
-  });
+  return request<AdminMutationResponse>("/admins/remove", { method: "POST", body: JSON.stringify({ user_id: userId }) });
 }
