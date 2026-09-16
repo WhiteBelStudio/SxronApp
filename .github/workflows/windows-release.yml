@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - 'package.json'
+      - 'package-lock.json'
+      - 'src/**'
+      - 'electron/**'
+      - '.github/workflows/windows-release.yml'
   workflow_dispatch:
 
 permissions:
@@ -26,7 +30,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Read app version
         id: version
@@ -36,16 +40,8 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           Write-Host "SXRON version: $version"
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: SXRON Marketplace v${{ steps.version.outputs.version }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+      - name: Build web application
+        run: npm run build
 
       - name: Build Windows installer
         run: npx electron-builder --publish never
@@ -65,7 +61,7 @@ jobs:
           Write-Host "Windows installer: $($installer.FullName)"
           Get-ChildItem release
 
-      - name: Upload Windows release assets
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,6 +69,8 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: SXRON Marketplace v${{ steps.version.outputs.version }}
           generate_release_notes: true
+          draft: false
+          prerelease: false
           files: |
             release/*.exe
             release/*.blockmap
