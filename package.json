@@ -61,9 +61,6 @@
       "shortcutName": "SXRON Marketplace",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
-      "installerIcon": "build/installer.ico",
-      "uninstallerIcon": "build/installer.ico",
-      "installerHeaderIcon": "build/installer.ico",
       "include": "build/installer.nsh"
     },
     "portable": { "artifactName": "SXRON-Marketplace-Portable-${version}-${arch}.${ext}" },
