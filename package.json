@@ -1,8 +1,8 @@
 {
   "name": "sxron-marketplace",
   "private": true,
-  "version": "1.0.6",
-  "description": "SXRON Marketplace v1.0.6 — unified web, desktop and mobile client",
+  "version": "1.0.7",
+  "description": "SXRON Marketplace v1.0.7 — unified web, desktop and mobile client",
   "author": "WhiteBelStudio",
   "repository": {
     "type": "git",
@@ -76,11 +76,29 @@
       "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}",
       "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": false
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SXRON Marketplace",
+      "deleteAppDataOnUninstall": false
     },
     "portable": {
       "artifactName": "SXRON-Marketplace-Portable-${version}-${arch}.${ext}"
     },
+    "fileAssociations": [
+      {
+        "ext": "sxron",
+        "name": "SXRON Marketplace file",
+        "description": "Файл SXRON Marketplace",
+        "role": "Editor"
+      }
+    ],
+    "protocols": [
+      {
+        "name": "SXRON Marketplace",
+        "schemes": ["sxron"]
+      }
+    ],
     "publish": [
       {
         "provider": "github",
