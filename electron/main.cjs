@@ -6,6 +6,17 @@ const { autoUpdater } = require('electron-updater');
 
 const isDev = !app.isPackaged;
 let apiProcess = null;
+let updateCheckStarted = false;
+
+function registerWindowsAssociations() {
+  if (process.platform !== 'win32' || isDev) return;
+
+  try {
+    app.setAsDefaultProtocolClient('sxron');
+  } catch (error) {
+    console.warn('SXRON protocol registration:', error?.message || error);
+  }
+}
 
 function getApiExecutable() {
   if (process.platform === 'win32') {
@@ -136,19 +147,45 @@ async function createWindow() {
   });
 }
 
-async function setupAutoUpdater() {
-  if (isDev) return;
-
+function configureAutoUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowDowngrade = false;
+  autoUpdater.allowPrerelease = false;
+  autoUpdater.fullChangelog = true;
 
-  autoUpdater.on('update-downloaded', async () => {
+  autoUpdater.on('checking-for-update', () => {
+    console.log('SXRON updater: проверка обновлений...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log(`SXRON updater: найдено обновление ${info.version}, начинается загрузка.`);
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    console.log(
+      `SXRON updater: ${Math.round(progress.percent)}% ` +
+        `(${Math.round(progress.bytesPerSecond / 1024)} KB/s)`,
+    );
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log(`SXRON updater: установлена актуальная версия ${info.version}.`);
+  });
+
+  autoUpdater.on('error', (error) => {
+    console.warn('SXRON updater error:', error?.message || error);
+  });
+
+  autoUpdater.on('update-downloaded', async (info) => {
+    console.log(`SXRON updater: обновление ${info.version} скачано и готово к установке.`);
+
     const result = await dialog.showMessageBox({
       type: 'info',
       title: 'Обновление SXRON',
-      message: 'Новая версия SXRON Marketplace уже скачана.',
-      detail: 'Перезапустить приложение сейчас и установить обновление?',
-      buttons: ['Перезапустить', 'Позже'],
+      message: `Обновление SXRON Marketplace ${info.version} уже скачано.`,
+      detail: 'После перезапуска новая версия автоматически заменит старые файлы приложения. Ваши данные сохранятся.',
+      buttons: ['Перезапустить сейчас', 'Позже'],
       defaultId: 0,
       cancelId: 1,
     });
@@ -157,15 +194,24 @@ async function setupAutoUpdater() {
       autoUpdater.quitAndInstall(false, true);
     }
   });
+}
+
+async function setupAutoUpdater() {
+  if (isDev || updateCheckStarted) return;
+
+  updateCheckStarted = true;
+  configureAutoUpdater();
 
   try {
     await autoUpdater.checkForUpdates();
   } catch (error) {
-    console.warn('SXRON updater:', error?.message || error);
+    console.warn('SXRON updater check:', error?.message || error);
   }
 }
 
 app.whenReady().then(async () => {
+  registerWindowsAssociations();
+
   try {
     await startApi();
     await createWindow();
