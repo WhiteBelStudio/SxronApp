@@ -10,6 +10,7 @@ on:
       - 'src/**'
       - 'server/**'
       - 'electron/**'
+      - 'build/**'
       - '.github/workflows/windows-release.yml'
   workflow_dispatch:
 
@@ -50,12 +51,12 @@ jobs:
       - name: Cache electron-builder downloads
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/electron-builder
-            ~/AppData/Local/electron-builder/Cache
-          key: Windows-electron-builder-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            Windows-electron-builder-
+            path: |
+              ~/.cache/electron-builder
+              ~/AppData/Local/electron-builder/Cache
+            key: Windows-electron-builder-${{ hashFiles('package-lock.json') }}
+            restore-keys: |
+              Windows-electron-builder-
 
       - name: Install Python dependencies
         run: |
@@ -96,21 +97,20 @@ jobs:
       - name: Verify Windows artifacts
         shell: pwsh
         run: |
-          $executables = Get-ChildItem 'release/*.exe' | Where-Object { $_.Name -notmatch '__uninstaller\.exe$' }
-          if (-not $executables) {
-            throw 'No Windows .exe artifacts were created.'
+          $setup = Get-ChildItem 'release/SXRON-Marketplace-Setup-*.exe'
+          if (-not $setup) {
+            throw 'SXRON Setup.exe was not created.'
           }
 
-          $valid = $executables | Where-Object { $_.Length -ge 1000000 }
-          if (-not $valid) {
-            throw 'Windows .exe artifacts look invalid or incomplete.'
+          if ($setup.Count -ne 1) {
+            throw "Expected exactly one Setup.exe, found $($setup.Count)."
           }
 
-          Write-Host 'Windows artifacts:'
-          $valid | ForEach-Object {
-            Write-Host "- $($_.FullName) ($($_.Length) bytes)"
+          if ($setup.Length -lt 1000000) {
+            throw 'Setup.exe looks invalid or incomplete.'
           }
 
+          Write-Host "Verified Setup: $($setup.FullName) ($($setup.Length) bytes)"
           Get-ChildItem release
 
       - name: Create GitHub release
@@ -124,6 +124,5 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            release/*.exe
-            release/*.blockmap
+            release/SXRON-Marketplace-Setup-*.exe
             release/latest.yml
