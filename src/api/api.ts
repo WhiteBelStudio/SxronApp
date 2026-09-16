@@ -6,9 +6,15 @@ import type {
   User,
 } from "../types";
 
-// SXRON is a standalone application.
-// It does not depend on Telegram WebApp or Telegram authentication.
-const API_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
+// In development Vite proxies /api to FastAPI.
+// In the packaged Electron app the renderer uses file://, so requests must
+// go directly to the bundled local API process.
+const DEFAULT_API_URL =
+  typeof window !== "undefined" && window.location.protocol === "file:"
+    ? "http://127.0.0.1:8000"
+    : "/api";
+
+const API_URL = (import.meta.env.VITE_API_URL || DEFAULT_API_URL).replace(/\/$/, "");
 
 const CLIENT_ID_STORAGE_KEY = "sxron_client_id";
 
