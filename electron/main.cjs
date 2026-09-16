@@ -20,10 +20,10 @@ function registerWindowsAssociations() {
 
 function getApiExecutable() {
   if (process.platform === 'win32') {
-    return path.join(process.resourcesPath, 'backend', 'sxron-api.exe');
+    return path.join(process.resourcesPath, 'backend', 'sxron-api', 'sxron-api.exe');
   }
 
-  return path.join(process.resourcesPath, 'backend', 'sxron-api');
+  return path.join(process.resourcesPath, 'backend', 'sxron-api', 'sxron-api');
 }
 
 function waitForApi(timeoutMs = 45000) {
@@ -41,7 +41,7 @@ function waitForApi(timeoutMs = 45000) {
     const retry = () => {
       if (settled) return;
       if (Date.now() - started >= timeoutMs) {
-        finishError(new Error('SXRON API не запустился за 45 секунд. Проверьте, что sxron-api.exe не заблокирован антивирусом.'));
+        finishError(new Error('SXRON API не запустился за 45 секунд. Если Windows Defender или другой антивирус показал предупреждение, разрешите SXRON Marketplace.'));
         return;
       }
       setTimeout(check, 300);
@@ -79,6 +79,7 @@ async function startApi() {
   const dataDir = path.join(app.getPath('userData'), 'data');
 
   console.log('SXRON API executable:', executable);
+  console.log('SXRON API working directory:', apiDirectory);
   console.log('SXRON API data directory:', dataDir);
 
   apiProcess = spawn(executable, [], {
@@ -94,6 +95,9 @@ async function startApi() {
   });
 
   let processError = null;
+  let processExited = false;
+  let exitCode = null;
+  let exitSignal = null;
 
   apiProcess.stdout?.on('data', (data) => {
     console.log(`[SXRON API] ${data.toString().trim()}`);
@@ -109,6 +113,9 @@ async function startApi() {
   });
 
   apiProcess.on('exit', (code, signal) => {
+    processExited = true;
+    exitCode = code;
+    exitSignal = signal;
     console.log(`SXRON API stopped: code=${code}, signal=${signal}`);
     apiProcess = null;
   });
@@ -119,6 +126,11 @@ async function startApi() {
     if (processError) {
       throw new Error(`Не удалось запустить SXRON API: ${processError.message}`);
     }
+
+    if (processExited) {
+      throw new Error(`SXRON API завершился до запуска: code=${exitCode}, signal=${exitSignal ?? 'none'}. Проверьте Windows Defender/антивирус и наличие файлов backend/sxron-api.`);
+    }
+
     throw error;
   }
 }
