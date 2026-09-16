@@ -42,7 +42,8 @@ jobs:
         run: |
           if (Test-Path backend) { Remove-Item backend -Recurse -Force }
           New-Item -ItemType Directory -Path backend | Out-Null
-          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --hidden-import=multipart --hidden-import=multipart.multipart server/launcher.py
+          # Explicitly collect python-multipart so FastAPI Form/File routes work inside PyInstaller.
+          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --hidden-import=multipart --hidden-import=multipart.multipart server/launcher.py
           if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) {
             throw 'Bundled SXRON API executable was not created.'
           }
