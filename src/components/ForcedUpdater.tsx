@@ -1,69 +1,164 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-const APP_VERSION = "1.1.11";
-const APP_BUILD = "1.1.11-build-1";
-const MANIFEST_URL = `https://raw.githubusercontent.com/WhiteBelStudio/SxronApp/main/update-manifest.json?ts=${Date.now()}`;
+const APP_VERSION = "1.1.12";
 
-type UpdateManifest = { version: string; build: string; title?: string; message?: string; changes?: string[] };
-type UpdateKind = "version" | "repair";
+type UpdaterEvent = {
+  event: string;
+  currentVersion?: string;
+  currentBuild?: string;
+  targetVersion?: string;
+  targetBuild?: string;
+  releaseName?: string;
+  releaseNotes?: string;
+  message?: string;
+  percent?: number;
+};
 
-function compareVersions(a: string, b: string) {
-  const left = a.split(".").map(Number), right = b.split(".").map(Number);
-  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
-    const l = left[i] ?? 0, r = right[i] ?? 0;
-    if (l !== r) return l > r ? 1 : -1;
-  }
-  return 0;
+function openProtocol(protocol: "check-updates" | "start-update") {
+  window.open(`sxron://${protocol}`, "_self");
 }
-function startInstaller(kind: UpdateKind) { window.open(kind === "version" ? "sxron://check-updates" : "sxron://repair-current", "_self"); }
 
 export default function ForcedUpdater() {
-  const [manifest, setManifest] = useState<UpdateManifest | null>(null);
-  const [kind, setKind] = useState<UpdateKind | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [available, setAvailable] = useState<UpdaterEvent | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      try {
-        const response = await fetch(MANIFEST_URL, { cache: "no-store", headers: { Accept: "application/json" } });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = (await response.json()) as UpdateManifest;
-        if (cancelled) return;
-        setManifest(data);
-        const versionChanged = compareVersions(data.version, APP_VERSION) > 0;
-        const currentBuildChanged = compareVersions(data.version, APP_VERSION) === 0 && data.build !== APP_BUILD;
-        setKind(versionChanged ? "version" : currentBuildChanged ? "repair" : null);
-      } catch (checkError) {
-        if (!cancelled) setError(checkError instanceof Error ? checkError.message : "Не удалось проверить обновления.");
-      } finally { if (!cancelled) setLoading(false); }
-    }
-    void check();
-    return () => { cancelled = true; };
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<UpdaterEvent>).detail;
+      if (!detail) return;
+
+      if (detail.event === "checking") {
+        setChecking(true);
+        setMessage("Проверяем GitHub на наличие новой сборки…");
+      }
+      if (detail.event === "up-to-date") {
+        setChecking(false);
+        setAvailable(null);
+        setMessage("У вас установлена последняя доступная сборка.");
+        setOpen(true);
+      }
+      if (detail.event === "update-required") {
+        setChecking(false);
+        setAvailable(detail);
+        setMessage("");
+        setOpen(true);
+      }
+      if (detail.event === "download-start") {
+        setChecking(false);
+        setOpen(true);
+        setProgress(0);
+        setMessage("Скачиваем новую сборку из GitHub…");
+      }
+      if (detail.event === "download-progress") {
+        setProgress(Math.max(0, Math.min(100, Number(detail.percent) || 0)));
+      }
+      if (detail.event === "update-ready") {
+        setProgress(100);
+        setMessage("Установщик проверен. Перезапускаем приложение для обновления…");
+      }
+      if (detail.event === "update-error") {
+        setChecking(false);
+        setMessage(detail.message || "Не удалось проверить или установить обновление.");
+        setOpen(true);
+      }
+    };
+
+    window.addEventListener("sxron-updater", handler);
+    return () => window.removeEventListener("sxron-updater", handler);
   }, []);
 
-  const title = useMemo(() => kind === "version" ? `Доступна новая версия ${manifest?.version ?? ""}` : kind === "repair" ? `Доступно обновление файлов ${APP_VERSION}` : "SXRON Marketplace", [kind, manifest?.version]);
-  if (loading || !kind) return null;
-  const isVersionUpdate = kind === "version";
+  const check = () => {
+    setOpen(true);
+    setChecking(true);
+    setAvailable(null);
+    setMessage("Проверяем GitHub на наличие новой сборки…");
+    openProtocol("check-updates");
+  };
 
   return (
-    <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 999999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 15% 20%, rgba(32,211,194,.18), transparent 35%), radial-gradient(circle at 85% 80%, rgba(128,103,245,.22), transparent 35%), rgba(5,8,15,.97)", backdropFilter: "blur(28px)", WebkitBackdropFilter: "blur(28px)", color: "#f8fafc", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      <div style={{ width: "min(720px, 100%)", border: "1px solid rgba(255,255,255,.13)", borderRadius: 30, padding: "clamp(28px, 5vw, 52px)", background: "linear-gradient(145deg, rgba(18,24,35,.96), rgba(10,14,23,.96))", boxShadow: "0 40px 140px rgba(0,0,0,.55)" }}>
-        <div style={{ width: 68, height: 68, display: "grid", placeItems: "center", borderRadius: 20, marginBottom: 24, fontSize: 30, background: "linear-gradient(135deg,#20d3c2,#8067f5)", boxShadow: "0 14px 45px rgba(73,153,226,.25)" }}>{isVersionUpdate ? "🚀" : "🛠️"}</div>
-        <div style={{ color: "#20d3c2", fontSize: 12, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>SXRON UPDATE CENTER</div>
-        <h1 style={{ margin: "10px 0 12px", fontSize: "clamp(28px, 5vw, 46px)", lineHeight: 1.05 }}>{title}</h1>
-        <p style={{ margin: 0, color: "#a8b3c5", fontSize: 16, lineHeight: 1.65 }}>{manifest?.message ?? "Выпущена новая версия SXRON. Нажмите «Обновить», чтобы загрузить и установить актуальные файлы."}</p>
-        <div style={{ marginTop: 24, display: "grid", gap: 10, padding: 18, borderRadius: 18, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, color: "#dce5f2", fontSize: 14 }}><span>Текущая версия</span><strong>{APP_VERSION}</strong></div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, color: "#dce5f2", fontSize: 14 }}><span>{isVersionUpdate ? "Новая версия" : "Актуальные файлы"}</span><strong>{isVersionUpdate ? manifest?.version : manifest?.build}</strong></div>
+    <>
+      <button
+        type="button"
+        onClick={check}
+        style={{
+          position: "fixed",
+          right: 20,
+          bottom: 20,
+          zIndex: 999990,
+          border: "1px solid rgba(255,255,255,.14)",
+          borderRadius: 14,
+          padding: "11px 16px",
+          color: "#fff",
+          background: "linear-gradient(135deg,#20d3c2,#8067f5)",
+          boxShadow: "0 12px 34px rgba(0,0,0,.3)",
+          cursor: "pointer",
+          fontWeight: 800,
+        }}
+      >
+        🔄 Обновления
+      </button>
+
+      {open ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 999999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            background: "rgba(5,8,15,.86)",
+            backdropFilter: "blur(20px)",
+            color: "#f8fafc",
+            fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          }}
+        >
+          <div style={{ width: "min(620px,100%)", border: "1px solid rgba(255,255,255,.13)", borderRadius: 28, padding: 34, background: "linear-gradient(145deg,rgba(18,24,35,.98),rgba(10,14,23,.98))", boxShadow: "0 35px 120px rgba(0,0,0,.55)" }}>
+            <div style={{ color: "#20d3c2", fontSize: 12, fontWeight: 900, letterSpacing: ".12em" }}>SXRON UPDATE CENTER</div>
+            <h2 style={{ margin: "10px 0 12px", fontSize: 32 }}>Центр обновлений</h2>
+            <p style={{ color: "#a8b3c5", lineHeight: 1.6, margin: 0 }}>
+              Установлена версия <strong style={{ color: "#fff" }}>{APP_VERSION}</strong>. Проверка выполняется непосредственно по опубликованным GitHub-сборкам.
+            </p>
+
+            {available ? (
+              <div style={{ marginTop: 22, padding: 18, borderRadius: 18, background: "rgba(32,211,194,.07)", border: "1px solid rgba(32,211,194,.22)" }}>
+                <div style={{ fontSize: 20, fontWeight: 900 }}>Доступно обновление</div>
+                <div style={{ marginTop: 8, color: "#a8b3c5" }}>{available.releaseName || `SXRON Marketplace ${APP_VERSION}`}</div>
+                <div style={{ marginTop: 6, fontSize: 13, color: "#728097" }}>Новая сборка: {available.targetBuild || "новая"}</div>
+                {available.releaseNotes ? <div style={{ marginTop: 14, whiteSpace: "pre-wrap", color: "#a8b3c5", fontSize: 13, lineHeight: 1.55 }}>{available.releaseNotes}</div> : null}
+              </div>
+            ) : null}
+
+            {message ? <div style={{ marginTop: 18, color: "#a8b3c5", lineHeight: 1.55 }}>{message}</div> : null}
+            {progress > 0 && progress < 100 ? <div style={{ marginTop: 18, height: 8, borderRadius: 99, overflow: "hidden", background: "rgba(255,255,255,.08)" }}><div style={{ width: `${progress}%`, height: "100%", background: "linear-gradient(90deg,#20d3c2,#8067f5)", transition: "width .2s" }} /></div> : null}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 26 }}>
+              {available ? (
+                <button type="button" disabled={checking} onClick={() => { setMessage("Запускаем загрузку и установку…"); openProtocol("start-update"); }} style={{ flex: 1, minHeight: 52, border: 0, borderRadius: 14, color: "#fff", fontWeight: 900, background: "linear-gradient(135deg,#20d3c2,#8067f5)", cursor: "pointer" }}>
+                  Да, обновить
+                </button>
+              ) : (
+                <button type="button" disabled={checking} onClick={check} style={{ flex: 1, minHeight: 52, border: 0, borderRadius: 14, color: "#fff", fontWeight: 900, background: "linear-gradient(135deg,#20d3c2,#8067f5)", cursor: checking ? "wait" : "pointer" }}>
+                  {checking ? "Проверяем…" : "Проверить обновления"}
+                </button>
+              )}
+              <button type="button" onClick={() => setOpen(false)} style={{ minHeight: 52, padding: "0 20px", border: "1px solid rgba(255,255,255,.12)", borderRadius: 14, color: "#c7d0df", background: "rgba(255,255,255,.05)", cursor: "pointer" }}>
+                Позже
+              </button>
+            </div>
+
+            <div style={{ marginTop: 14, color: "#728097", fontSize: 12, textAlign: "center", lineHeight: 1.5 }}>
+              Обновление устанавливается из GitHub. Пользовательские данные хранятся отдельно и не удаляются.
+            </div>
+          </div>
         </div>
-        {manifest?.changes?.length ? <ul style={{ margin: "20px 0 0", paddingLeft: 22, color: "#a8b3c5", lineHeight: 1.65 }}>{manifest.changes.map((change) => <li key={change}>{change}</li>)}</ul> : null}
-        {error ? <div style={{ marginTop: 18, color: "#ff9b9b", fontSize: 13 }}>Не удалось проверить обновление: {error}</div> : null}
-        <button type="button" disabled={starting} onClick={() => { setStarting(true); startInstaller(kind); }} style={{ width: "100%", minHeight: 58, marginTop: 28, border: 0, borderRadius: 16, cursor: starting ? "wait" : "pointer", color: "white", fontSize: 15, fontWeight: 900, background: "linear-gradient(135deg,#20d3c2,#8067f5)", boxShadow: "0 16px 40px rgba(71,137,220,.28)", opacity: starting ? 0.72 : 1 }}>{starting ? "Запускаем обновление…" : "Обновить сейчас"}</button>
-        <div style={{ marginTop: 14, color: "#728097", fontSize: 12, lineHeight: 1.5, textAlign: "center" }}>Обновление заменит файлы приложения. Пользовательские данные сохраняются.</div>
-      </div>
-    </div>
+      ) : null}
+    </>
   );
 }
