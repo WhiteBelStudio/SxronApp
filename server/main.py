@@ -10,11 +10,11 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-APP_VERSION = "1.0.16"
+APP_VERSION = "1.0.19"
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("SXRON_DATA_DIR", BASE_DIR / "data"))
 DB_PATH = DATA_DIR / "sxron.db"
-OWNER_CLIENT_ID = os.getenv("SXRON_OWNER_CLIENT_ID", "").strip()
+OWNER_CLIENT_ID = os.getenv("SXRON_OWNER_CLIENT_ID", "sxron-owner-nikitinka7644").strip()
 
 app = FastAPI(title="SXRON API", version=APP_VERSION)
 
@@ -284,3 +284,8 @@ def remove_admin(data: AdminMutation, x_sxron_client_id: str | None = Header(def
             raise HTTPException(status_code=400, detail="Нельзя удалить владельца")
         connection.execute("DELETE FROM admins WHERE user_id = ?", (data.user_id,))
     return {"ok": True, "message": "Администратор удалён"}
+
+
+from server.auth import register_auth
+
+register_auth(app)
