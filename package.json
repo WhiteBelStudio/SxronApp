@@ -1,8 +1,8 @@
 {
   "name": "sxron-marketplace",
   "private": true,
-  "version": "1.1.9",
-  "description": "SXRON Marketplace v1.1.9 — hardened Windows update release integrity",
+  "version": "1.1.10",
+  "description": "SXRON Marketplace v1.1.10 — stability and release integrity",
   "author": "WhiteBelStudio",
   "repository": { "type": "git", "url": "https://github.com/WhiteBelStudio/SxronApp.git" },
   "type": "module",
