@@ -47,13 +47,20 @@ export interface ProductsResponse { products: Product[]; total?: number; page?: 
 export interface Favorite { id: number; product_id: number; user_id?: number; created_at?: string; }
 
 export type ProfileAccent = "cyan" | "violet" | "blue" | "sunset";
+export type ProfileBanner = "aurora" | "violet" | "ocean" | "sunset";
+export type AvatarShape = "rounded" | "circle" | "square";
+
 export interface ProfileCustomization {
   displayName: string;
   bio: string;
+  status: string;
   avatar: string;
   accent: ProfileAccent;
+  banner: ProfileBanner;
+  avatarShape: AvatarShape;
   usernameVisible: boolean;
   badgesVisible: boolean;
+  activityVisible: boolean;
 }
 
 export interface User {
@@ -66,9 +73,13 @@ export interface User {
   created_at?: string;
   bio?: string | null;
   display_name?: string | null;
+  profile_status?: string | null;
   profile_accent?: ProfileAccent;
+  profile_banner?: ProfileBanner;
+  avatar_shape?: AvatarShape;
   username_visible?: boolean;
   badges_visible?: boolean;
+  activity_visible?: boolean;
   listings_count?: number;
   active_listings_count?: number;
   sold_count?: number;
