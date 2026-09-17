@@ -1,4 +1,7 @@
-SXRON Marketplace v1.1.0
+SXRON Marketplace v1.1.1
+User profile and profile customization enabled.
 Light and dark themes enabled.
 Persistent theme selection and in-app updates panel enabled.
+The Updates button checks GitHub releases through electron-updater.
+Available application files are downloaded automatically and installed after restart.
 Windows release build is managed by GitHub Actions.
