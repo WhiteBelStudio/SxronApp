@@ -1,9 +1,8 @@
 name: SXRON Android APK Release
 
 on:
-  workflow_run:
-    workflows: ["SXRON Windows Release Final"]
-    types: [completed]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -11,7 +10,6 @@ permissions:
 
 jobs:
   android:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,7 +40,8 @@ jobs:
         run: npm run build
 
       - name: Create Android project
-        run: npx cap add android
+        run: |
+          if [ ! -d android ]; then npx cap add android; fi
 
       - name: Sync Capacitor
         run: npx cap sync android
