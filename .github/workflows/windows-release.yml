@@ -196,66 +196,21 @@ jobs:
         run: |
           $version = '${{ steps.version.outputs.version }}'
           $tag = "v$version"
-          $exe = (Get-ChildItem "release/SXRON-Marketplace-Setup-$version-x64.exe").FullName
-          $latest = (Resolve-Path 'release/latest.yml').Path
+          $exe = Get-ChildItem "release/SXRON-Marketplace-Setup-$version-x64.exe"
+          $latest = Get-Item 'release/latest.yml'
+          if (-not $exe) { throw "Installer not found: $tag" }
+          if (-not $latest) { throw 'latest.yml missing' }
 
-          $release = gh api "repos/WhiteBelStudio/SxronApp/releases/tags/$tag" | ConvertFrom-Json
-          if (!$release.id) { throw "Release not found: $tag" }
+          gh release view $tag --repo WhiteBelStudio/SxronApp | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "Release not found: $tag" }
 
-          $uploadBase = "https://uploads.github.com/repos/WhiteBelStudio/SxronApp/releases/$($release.id)/assets"
+          Write-Host "Uploading $($exe.Name) with GitHub CLI..."
+          gh release upload $tag $exe.FullName --clobber --repo WhiteBelStudio/SxronApp
+          if ($LASTEXITCODE -ne 0) { throw "Failed to upload $($exe.Name)" }
 
-          function Get-ReleaseAsset($name) {
-            $items = gh api "repos/WhiteBelStudio/SxronApp/releases/$($release.id)/assets?per_page=100" | ConvertFrom-Json
-            return @($items | Where-Object { $_.name -eq $name })
-          }
-
-          function Remove-ReleaseAsset($name) {
-            foreach ($asset in (Get-ReleaseAsset $name)) {
-              Write-Host "Removing old asset: $($asset.name) ($($asset.id))"
-              gh api --method DELETE "repos/WhiteBelStudio/SxronApp/releases/assets/$($asset.id)"
-              if ($LASTEXITCODE -ne 0) { throw "Failed to remove old asset: $($asset.name)" }
-            }
-          }
-
-          function Upload-ReleaseAsset($path, $name, $contentType) {
-            $url = "$uploadBase?name=$([uri]::EscapeDataString($name))"
-            Write-Host "Uploading $name from $path"
-            Write-Host "Using curl HTTP/1.1 streaming upload."
-
-            & curl.exe `
-              --http1.1 `
-              --fail-with-body `
-              --silent `
-              --show-error `
-              --request POST `
-              --header "Authorization: Bearer $env:GH_TOKEN" `
-              --header 'Accept: application/vnd.github+json' `
-              --header 'User-Agent: SXRON-GitHub-Actions' `
-              --header "Content-Type: $contentType" `
-              --data-binary "@$path" `
-              $url
-
-            $exitCode = $LASTEXITCODE
-            if ($exitCode -eq 0) {
-              Write-Host "Upload completed: $name"
-              return
-            }
-
-            Write-Host "curl exited with code $exitCode. Checking GitHub release assets before failing..."
-            if (Get-ReleaseAsset $name) {
-              Write-Host "GitHub already contains $name; treating the upload as successful."
-              return
-            }
-
-            throw "Failed to upload release asset '$name' (curl exit code $exitCode)."
-          }
-
-          $exeName = Split-Path $exe -Leaf
-          Remove-ReleaseAsset $exeName
-          Remove-ReleaseAsset 'latest.yml'
-
-          Upload-ReleaseAsset $exe $exeName 'application/octet-stream'
-          Upload-ReleaseAsset $latest 'latest.yml' 'text/yaml'
+          Write-Host 'Uploading latest.yml with GitHub CLI...'
+          gh release upload $tag $latest.FullName --clobber --repo WhiteBelStudio/SxronApp
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to upload latest.yml' }
 
       - name: Verify published Windows assets
         env:
