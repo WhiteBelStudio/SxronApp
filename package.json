@@ -1,8 +1,8 @@
 {
   "name": "sxron-marketplace",
   "private": true,
-  "version": "1.1.7",
-  "description": "SXRON Marketplace v1.1.7 — authenticated owner admin control center",
+  "version": "1.1.8",
+  "description": "SXRON Marketplace v1.1.8 — hardened auto-update and network cache handling",
   "author": "WhiteBelStudio",
   "repository": { "type": "git", "url": "https://github.com/WhiteBelStudio/SxronApp.git" },
   "type": "module",
