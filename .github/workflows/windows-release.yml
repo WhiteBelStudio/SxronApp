@@ -18,6 +18,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sxron-windows-release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -129,6 +133,13 @@ jobs:
       - name: Build web application
         run: npm run build
 
+      - name: Clean Windows release directory
+        shell: pwsh
+        run: |
+          if (Test-Path release) { Remove-Item release -Recurse -Force }
+          New-Item -ItemType Directory -Path release | Out-Null
+          Write-Host 'Clean release directory prepared.'
+
       - name: Build Windows installer
         run: npx electron-builder --publish never
         env:
@@ -137,13 +148,43 @@ jobs:
       - name: Verify Windows artifacts
         shell: pwsh
         run: |
-          $setup = Get-ChildItem 'release/SXRON-Marketplace-Setup-*.exe'
+          $setup = @(Get-ChildItem 'release/SXRON-Marketplace-Setup-*.exe')
           if (-not $setup) { throw 'SXRON Setup.exe was not created.' }
           if ($setup.Count -ne 1) { throw "Expected exactly one Setup.exe, found $($setup.Count)." }
-          if ($setup.Length -lt 1000000) { throw 'Setup.exe looks invalid or incomplete.' }
+          if ($setup[0].Length -lt 1000000) { throw 'Setup.exe looks invalid or incomplete.' }
           if (-not (Test-Path 'release/latest.yml')) { throw 'latest.yml was not created.' }
-          Write-Host "Verified Setup: $($setup.FullName) ($($setup.Length) bytes)"
+          Write-Host "Verified Setup: $($setup[0].FullName) ($($setup[0].Length) bytes)"
           Get-ChildItem release
+
+      - name: Verify installer checksum
+        shell: pwsh
+        run: |
+          $setup = @(Get-ChildItem 'release/SXRON-Marketplace-Setup-*.exe')
+          $latest = Get-Content 'release/latest.yml' -Raw
+          $fileMatch = [regex]::Match($latest, '(?m)^\s*-\s+url:\s*(.+)$')
+          $shaMatch = [regex]::Match($latest, '(?m)^\s+sha512:\s*(.+)$')
+          if (-not $fileMatch.Success) { throw 'latest.yml does not contain installer url.' }
+          if (-not $shaMatch.Success) { throw 'latest.yml does not contain sha512.' }
+
+          $manifestFile = $fileMatch.Groups[1].Value.Trim()
+          $expected = $shaMatch.Groups[1].Value.Trim()
+          if ($manifestFile -ne $setup[0].Name) {
+            throw "latest.yml points to '$manifestFile', actual installer is '$($setup[0].Name)'."
+          }
+
+          $sha = [System.Security.Cryptography.SHA512]::Create()
+          try {
+            $hashBytes = $sha.ComputeHash([System.IO.File]::ReadAllBytes($setup[0].FullName))
+          } finally {
+            $sha.Dispose()
+          }
+          $actual = [Convert]::ToBase64String($hashBytes)
+
+          if ($actual -ne $expected) {
+            throw "SHA-512 mismatch: latest.yml=$expected actual=$actual"
+          }
+
+          Write-Host "SHA-512 verified: $actual"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -155,7 +196,7 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
-          overwrite_files: true
+          overwrite_files: false
           files: |
             release/SXRON-Marketplace-Setup-*.exe
             release/latest.yml
