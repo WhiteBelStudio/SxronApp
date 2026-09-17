@@ -3,17 +3,32 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const http = require('http');
-const { autoUpdater } = require('electron-updater');
+const https = require('https');
+const crypto = require('crypto');
 
 const isDev = !app.isPackaged;
 let apiProcess = null;
-let updateCheckStarted = false;
 let mainWindow = null;
-let updateAvailable = false;
-let updateDownloaded = false;
+let updateCheckInProgress = false;
+let latestRelease = null;
+
 const CURRENT_VERSION = app.getVersion();
-const GITHUB_RELEASE_OWNER = 'WhiteBelStudio';
-const GITHUB_RELEASE_REPO = 'SxronApp';
+const GITHUB_OWNER = 'WhiteBelStudio';
+const GITHUB_REPO = 'SxronApp';
+const GITHUB_LATEST_RELEASE_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
+
+function readBuildInfo() {
+  try {
+    const file = path.join(app.getAppPath(), 'dist', 'build-info.json');
+    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (error) {
+    console.warn('SXRON build-info:', error?.message || error);
+  }
+  return { version: CURRENT_VERSION, build: 'local', commit: 'unknown', releaseTag: '' };
+}
+
+const BUILD_INFO = readBuildInfo();
+const CURRENT_BUILD = String(BUILD_INFO.build || 'local');
 
 function registerWindowsAssociations() {
   if (process.platform !== 'win32' || isDev) return;
@@ -28,10 +43,7 @@ function getApiExecutable() {
     : path.join(process.resourcesPath, 'backend', 'sxron-api', 'sxron-api');
 }
 
-function getApiLogPath() {
-  return path.join(app.getPath('userData'), 'sxron-api.log');
-}
-
+function getApiLogPath() { return path.join(app.getPath('userData'), 'sxron-api.log'); }
 function appendApiLog(text) {
   try { fs.appendFileSync(getApiLogPath(), text, 'utf8'); }
   catch (error) { console.warn('SXRON API log write:', error?.message || error); }
@@ -41,27 +53,17 @@ function waitForApi(timeoutMs = 45000) {
   const started = Date.now();
   return new Promise((resolve, reject) => {
     let settled = false;
-    const fail = (error) => {
-      if (settled) return;
-      settled = true;
-      reject(error instanceof Error ? error : new Error(String(error)));
-    };
+    const fail = (error) => { if (!settled) { settled = true; reject(error instanceof Error ? error : new Error(String(error))); } };
     const retry = () => {
       if (settled) return;
-      if (Date.now() - started >= timeoutMs) {
-        fail(new Error('SXRON API не запустился за 45 секунд. Подробный лог: ' + getApiLogPath()));
-        return;
-      }
+      if (Date.now() - started >= timeoutMs) { fail(new Error('SXRON API не запустился за 45 секунд. Подробный лог: ' + getApiLogPath())); return; }
       setTimeout(check, 300);
     };
     const check = () => {
       if (settled) return;
       const request = http.get('http://127.0.0.1:8000/health', (response) => {
         response.resume();
-        if (response.statusCode && response.statusCode < 500) {
-          settled = true;
-          resolve();
-        } else retry();
+        if (response.statusCode && response.statusCode < 500) { settled = true; resolve(); } else retry();
       });
       request.on('error', retry);
       request.setTimeout(1000, () => { request.destroy(); retry(); });
@@ -76,13 +78,9 @@ async function startApi() {
   const apiDirectory = path.dirname(executable);
   const dataDir = path.join(app.getPath('userData'), 'data');
   const logPath = getApiLogPath();
-
   appendApiLog(`\n===== SXRON API START ${new Date().toISOString()} =====\n`);
   appendApiLog(`Executable: ${executable}\nWorking directory: ${apiDirectory}\nData directory: ${dataDir}\n`);
-
-  if (!fs.existsSync(executable)) {
-    throw new Error(`Файл SXRON API не найден:\n${executable}`);
-  }
+  if (!fs.existsSync(executable)) throw new Error(`Файл SXRON API не найден:\n${executable}`);
 
   apiProcess = spawn(executable, [], {
     cwd: apiDirectory,
@@ -97,22 +95,13 @@ async function startApi() {
   let exitSignal = null;
   let stderrText = '';
   let stdoutText = '';
-
-  apiProcess.stdout?.on('data', (data) => {
-    const text = data.toString(); stdoutText += text; appendApiLog(`[stdout] ${text}`); console.log(`[SXRON API] ${text.trim()}`);
-  });
-  apiProcess.stderr?.on('data', (data) => {
-    const text = data.toString(); stderrText += text; appendApiLog(`[stderr] ${text}`); console.warn(`[SXRON API] ${text.trim()}`);
-  });
+  apiProcess.stdout?.on('data', (data) => { const text = data.toString(); stdoutText += text; appendApiLog(`[stdout] ${text}`); });
+  apiProcess.stderr?.on('data', (data) => { const text = data.toString(); stderrText += text; appendApiLog(`[stderr] ${text}`); });
   apiProcess.on('error', (error) => { processError = error; appendApiLog(`[process error] ${error.stack || error}\n`); });
-  apiProcess.on('exit', (code, signal) => {
-    processExited = true; exitCode = code; exitSignal = signal;
-    appendApiLog(`[exit] code=${code}, signal=${signal ?? 'none'}\n`); apiProcess = null;
-  });
+  apiProcess.on('exit', (code, signal) => { processExited = true; exitCode = code; exitSignal = signal; appendApiLog(`[exit] code=${code}, signal=${signal ?? 'none'}\n`); apiProcess = null; });
 
-  try {
-    await waitForApi();
-  } catch (error) {
+  try { await waitForApi(); }
+  catch (error) {
     const details = stderrText.trim() || stdoutText.trim() || 'API не вернул текст ошибки.';
     if (processError) throw new Error(`Не удалось запустить SXRON API: ${processError.message}\n\nЛог:\n${details}`);
     if (processExited) throw new Error(`SXRON API завершился до запуска: code=${exitCode}, signal=${exitSignal ?? 'none'}.\n\nПричина API:\n${details}\n\nПолный лог:\n${logPath}`);
@@ -129,90 +118,147 @@ function stopApi() {
 function sendUpdateUi(event, payload = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const encoded = JSON.stringify({ event, ...payload }).replace(/</g, '\\u003c');
-  mainWindow.webContents.executeJavaScript(
-    `window.dispatchEvent(new CustomEvent('sxron-updater', { detail: ${encoded}, bubbles: false }));`
-  ).catch(() => {});
+  mainWindow.webContents.executeJavaScript(`window.dispatchEvent(new CustomEvent('sxron-updater', { detail: ${encoded}, bubbles: false }));`).catch(() => {});
 }
 
-function configureAutoUpdater() {
-  if (updateCheckStarted || isDev) return;
-  updateCheckStarted = true;
-
-  // Critical fix: never download/install silently. The renderer controls the mandatory update flow.
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.allowDowngrade = false;
-  autoUpdater.allowPrerelease = false;
-  autoUpdater.fullChangelog = true;
-
-  autoUpdater.on('checking-for-update', () => sendUpdateUi('checking', { version: CURRENT_VERSION }));
-
-  autoUpdater.on('update-available', (info) => {
-    updateAvailable = true;
-    updateDownloaded = false;
-    sendUpdateUi('update-required', {
-      currentVersion: CURRENT_VERSION,
-      targetVersion: info.version,
-      releaseName: info.releaseName || `SXRON Marketplace ${info.version}`,
-      releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : '',
+function githubRequest(url) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, {
+      headers: {
+        'User-Agent': 'SXRON-Marketplace-Updater',
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2026-03-10',
+      },
+    }, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => {
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          githubRequest(response.headers.location).then(resolve, reject);
+          return;
+        }
+        if (response.statusCode !== 200) { reject(new Error(`GitHub HTTP ${response.statusCode}`)); return; }
+        try { resolve(JSON.parse(body)); } catch { reject(new Error('GitHub вернул некорректный JSON.')); }
+      });
     });
-  });
-
-  autoUpdater.on('download-progress', (progress) => {
-    sendUpdateUi('download-progress', {
-      percent: Math.max(0, Math.min(100, Number(progress.percent) || 0)),
-      transferred: progress.transferred || 0,
-      total: progress.total || 0,
-      bytesPerSecond: progress.bytesPerSecond || 0,
-    });
-  });
-
-  autoUpdater.on('update-downloaded', (info) => {
-    updateDownloaded = true;
-    sendUpdateUi('update-ready', {
-      currentVersion: CURRENT_VERSION,
-      targetVersion: info.version,
-      percent: 100,
-    });
-  });
-
-  autoUpdater.on('update-not-available', (info) => {
-    sendUpdateUi('up-to-date', { currentVersion: CURRENT_VERSION, targetVersion: info.version || CURRENT_VERSION });
-  });
-
-  autoUpdater.on('error', (error) => {
-    console.warn('SXRON updater error:', error?.message || error);
-    sendUpdateUi('update-error', { message: error?.message || String(error), currentVersion: CURRENT_VERSION });
+    request.on('error', reject);
+    request.setTimeout(15000, () => { request.destroy(new Error('Истекло время ожидания GitHub.')); });
   });
 }
 
-async function checkForUpdatesManually() {
-  if (isDev) {
-    sendUpdateUi('update-error', { message: 'Проверка обновлений доступна в установленной версии приложения.' });
-    return;
-  }
-  configureAutoUpdater();
-  try { await autoUpdater.checkForUpdates(); }
-  catch (error) { sendUpdateUi('update-error', { message: error?.message || String(error) }); }
+function compareBuilds(a, b) {
+  const left = String(a || '');
+  const right = String(b || '');
+  if (left === right) return 0;
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) return leftNumber > rightNumber ? 1 : -1;
+  return left === 'local' ? -1 : 1;
 }
 
-async function startUpdateDownload() {
-  if (!updateAvailable || updateDownloaded) {
-    if (updateDownloaded) sendUpdateUi('update-ready', { currentVersion: CURRENT_VERSION, percent: 100 });
-    return;
-  }
+function findInstallerAsset(release) {
+  const expected = `SXRON-Marketplace-Setup-${CURRENT_VERSION}-x64.exe`;
+  return (release.assets || []).find((asset) => asset.name === expected)
+    || (release.assets || []).find((asset) => /^SXRON-Marketplace-Setup-.*-x64\.exe$/i.test(asset.name));
+}
+
+async function checkForGitHubUpdate() {
+  if (isDev) throw new Error('Проверка обновлений доступна в установленной версии приложения.');
+  if (updateCheckInProgress) return;
+  updateCheckInProgress = true;
+  sendUpdateUi('checking', { currentVersion: CURRENT_VERSION, currentBuild: CURRENT_BUILD });
   try {
-    sendUpdateUi('download-start', { currentVersion: CURRENT_VERSION });
-    await autoUpdater.downloadUpdate();
-  } catch (error) {
-    sendUpdateUi('update-error', { message: error?.message || String(error), currentVersion: CURRENT_VERSION });
+    const release = await githubRequest(GITHUB_LATEST_RELEASE_URL);
+    const asset = findInstallerAsset(release);
+    if (!asset) throw new Error('В последней GitHub-сборке не найден Windows-установщик SXRON.');
+    const tagBuild = String(release.tag_name || '').replace(/^v/, '');
+    const targetBuild = tagBuild.startsWith(`${CURRENT_VERSION}-build-`) ? tagBuild : String(release.target_commitish || tagBuild);
+    const sameVersion = String(release.name || '').includes(CURRENT_VERSION) || tagBuild.startsWith(CURRENT_VERSION);
+    const buildChanged = targetBuild !== CURRENT_BUILD;
+    const versionChanged = sameVersion ? false : tagBuild !== CURRENT_VERSION;
+    const available = buildChanged || versionChanged;
+
+    latestRelease = { release, asset, targetBuild };
+    sendUpdateUi(available ? 'update-required' : 'up-to-date', {
+      currentVersion: CURRENT_VERSION,
+      currentBuild: CURRENT_BUILD,
+      targetVersion: CURRENT_VERSION,
+      targetBuild,
+      releaseName: release.name || `SXRON Marketplace ${CURRENT_VERSION}`,
+      releaseNotes: release.body || '',
+      available,
+    });
+  } finally {
+    updateCheckInProgress = false;
   }
 }
 
-function installDownloadedUpdate() {
-  if (!updateDownloaded) return;
-  // v26 API: explicit install after update-downloaded.
-  autoUpdater.quitAndInstall(false, true);
+function downloadFile(url, destination) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, {
+      headers: { 'User-Agent': 'SXRON-Marketplace-Updater', Accept: 'application/octet-stream' },
+    }, (response) => {
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        response.resume();
+        downloadFile(response.headers.location, destination).then(resolve, reject);
+        return;
+      }
+      if (response.statusCode !== 200) { response.resume(); reject(new Error(`GitHub download HTTP ${response.statusCode}`)); return; }
+      const output = fs.createWriteStream(destination);
+      let received = 0;
+      const total = Number(response.headers['content-length'] || 0);
+      response.on('data', (chunk) => {
+        received += chunk.length;
+        sendUpdateUi('download-progress', { percent: total ? (received / total) * 100 : 0, received, total });
+      });
+      response.pipe(output);
+      output.on('finish', () => output.close(resolve));
+      output.on('error', (error) => { output.destroy(); reject(error); });
+      response.on('error', reject);
+    });
+    request.on('error', reject);
+    request.setTimeout(120000, () => { request.destroy(new Error('Истекло время загрузки установщика.')); });
+  });
+}
+
+async function downloadAndInstallGitHubUpdate() {
+  if (!latestRelease?.asset) await checkForGitHubUpdate();
+  if (!latestRelease?.asset) throw new Error('Обновление не найдено.');
+
+  const asset = latestRelease.asset;
+  const updateDir = path.join(app.getPath('userData'), 'updates');
+  fs.mkdirSync(updateDir, { recursive: true });
+  const installerPath = path.join(updateDir, asset.name);
+  sendUpdateUi('download-start', { targetBuild: latestRelease.targetBuild });
+  await downloadFile(asset.browser_download_url, installerPath);
+
+  const expectedDigest = String(asset.digest || '').replace(/^sha256:/i, '').toLowerCase();
+  if (expectedDigest) {
+    const hash = crypto.createHash('sha256');
+    const data = fs.readFileSync(installerPath);
+    const actualDigest = hash.update(data).digest('hex').toLowerCase();
+    if (actualDigest !== expectedDigest) {
+      fs.rmSync(installerPath, { force: true });
+      throw new Error('Проверка SHA-256 установщика не прошла. Установка отменена.');
+    }
+  }
+
+  if (process.platform !== 'win32') {
+    await shell.openPath(installerPath);
+    return;
+  }
+
+  const installDir = path.dirname(app.getPath('exe'));
+  sendUpdateUi('update-ready', { currentVersion: CURRENT_VERSION, targetVersion: CURRENT_VERSION, targetBuild: latestRelease.targetBuild, percent: 100 });
+
+  const child = spawn(installerPath, ['--updated', '/S', `/D=${installDir}`, '--force-run'], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  child.unref();
+  setTimeout(() => app.quit(), 250);
 }
 
 async function createWindow() {
@@ -221,44 +267,25 @@ async function createWindow() {
     height: 920,
     minWidth: 1000,
     minHeight: 700,
-    title: 'SXRON Marketplace',
+    title: `SXRON Marketplace ${CURRENT_VERSION}`,
     backgroundColor: '#07090f',
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
   mainWindow = win;
-
-  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
-    console.error('SXRON renderer load failed:', errorCode, errorDescription);
-  });
-
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => console.error('SXRON renderer load failed:', errorCode, errorDescription));
   if (isDev) await win.loadURL('http://localhost:5173');
   else await win.loadFile(path.join(app.getAppPath(), 'dist', 'index.html'));
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url === 'sxron://check-updates') { checkForUpdatesManually(); return { action: 'deny' }; }
-    if (url === 'sxron://start-update') { startUpdateDownload(); return { action: 'deny' }; }
-    if (url === 'sxron://install-update') { installDownloadedUpdate(); return { action: 'deny' }; }
-    if (url === 'sxron://repair-current') { startUpdateDownload(); return { action: 'deny' }; }
+    if (url === 'sxron://check-updates') { checkForGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) })); return { action: 'deny' }; }
+    if (url === 'sxron://start-update') { downloadAndInstallGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) })); return { action: 'deny' }; }
+    if (url === 'sxron://repair-current') { downloadAndInstallGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) })); return { action: 'deny' }; }
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
-
-  win.webContents.on('did-finish-load', () => {
-    sendUpdateUi('app-version', { version: CURRENT_VERSION });
-    if (updateAvailable) {
-      sendUpdateUi('update-required', { currentVersion: CURRENT_VERSION });
-    }
-  });
-
+  win.webContents.on('did-finish-load', () => sendUpdateUi('app-version', { version: CURRENT_VERSION, build: CURRENT_BUILD }));
   win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
-}
-
-async function setupAutoUpdater() {
-  if (isDev) return;
-  configureAutoUpdater();
-  try { await autoUpdater.checkForUpdates(); }
-  catch (error) { console.warn('SXRON updater check:', error?.message || error); }
 }
 
 app.whenReady().then(async () => {
@@ -266,22 +293,13 @@ app.whenReady().then(async () => {
   try {
     await startApi();
     await createWindow();
-    await setupAutoUpdater();
   } catch (error) {
     console.error('SXRON startup failed:', error);
-    await dialog.showMessageBox({
-      type: 'error',
-      title: 'SXRON Marketplace',
-      message: 'Не удалось запустить SXRON Marketplace.',
-      detail: error?.message || String(error),
-    });
+    await dialog.showMessageBox({ type: 'error', title: 'SXRON Marketplace', message: 'Не удалось запустить SXRON Marketplace.', detail: error?.message || String(error) });
     app.quit();
     return;
   }
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow().catch(console.error);
-  });
+  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow().catch(console.error); });
 });
 
 app.on('before-quit', () => stopApi());
