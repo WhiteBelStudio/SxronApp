@@ -1,4 +1,5 @@
 name: SXRON Windows Release
+# Release trigger refresh after Windows asset uploader fix
 
 on:
   push:
