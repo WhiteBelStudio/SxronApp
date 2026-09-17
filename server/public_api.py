@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 
 import server.main as base
+
+# Re-export the same FastAPI application used by the base backend so local,
+# bundled and Vercel entrypoints all expose the identical route set.
+app = base.app
 
 # Keep the API version aligned with the desktop/web package version while
 # retaining server/main.py as the source of the existing application routes.
@@ -13,7 +17,7 @@ base.app.version = base.APP_VERSION
 init_db = base.init_db
 
 
-@base.app.get("/public/sellers/{user_id}")
+@app.get("/public/sellers/{user_id}")
 def get_public_seller(user_id: int) -> dict[str, Any]:
     """Return the public seller card, statistics, reviews and active listings."""
     with base.db() as connection:
