@@ -65,6 +65,10 @@ export interface User {
   city?: City | null;
   created_at?: string;
   bio?: string | null;
+  display_name?: string | null;
+  profile_accent?: ProfileAccent;
+  username_visible?: boolean;
+  badges_visible?: boolean;
   listings_count?: number;
   active_listings_count?: number;
   sold_count?: number;
