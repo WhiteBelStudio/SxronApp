@@ -4,13 +4,13 @@ import uvicorn
 
 try:
     from server.mail_config import register_mail_config
-    from server.main import app, init_db
+    from server.public_api import app, init_db
     from server.auth import register_auth
     from server.session_tracking import register_session_tracking
 except ModuleNotFoundError:
     # PyInstaller may execute this launcher with server/ as its import root.
     from mail_config import register_mail_config
-    from main import app, init_db
+    from public_api import app, init_db
     from auth import register_auth
     from session_tracking import register_session_tracking
 
