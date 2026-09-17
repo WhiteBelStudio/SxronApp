@@ -184,7 +184,7 @@ jobs:
           if ($actual -ne $expected) { throw "SHA-512 mismatch: latest.yml=$expected actual=$actual" }
           Write-Host "SHA-512 verified: $actual"
 
-      - name: Create GitHub release
+      - name: Create or update GitHub release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -194,7 +194,7 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
-          overwrite_files: false
+          overwrite_files: true
           files: |
             release/SXRON-Marketplace-Setup-*.exe
             release/latest.yml
