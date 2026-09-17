@@ -3,30 +3,153 @@
   <head>
     <meta charset="UTF-8" />
 
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <meta
-      name="theme-color"
-      content="#111827"
-    />
+    <meta name="theme-color" content="#111827" />
 
-    <meta
-      name="description"
-      content="SXRON — маркетплейс Белореченска"
-    />
+    <meta name="description" content="SXRON — маркетплейс Белореченска" />
 
-    <title>SXRON</title>
+    <title>SXRON Marketplace</title>
+
+    <style>
+      /* SXRON 1.1.0 theme system */
+      #sxron-theme-toggle {
+        position: fixed;
+        top: 84px;
+        right: 20px;
+        z-index: 1000;
+        height: 40px;
+        padding: 0 14px;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 12px;
+        color: #f8fafc;
+        background: rgba(13,17,25,.88);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        box-shadow: 0 10px 30px rgba(0,0,0,.18);
+        cursor: pointer;
+        font: 700 13px/1 system-ui, sans-serif;
+        transition: .2s ease;
+      }
+      #sxron-theme-toggle:hover { transform: translateY(-1px); border-color: rgba(32,211,194,.4); }
+
+      html[data-sxron-theme="light"] {
+        --bg: #f4f7fb;
+        --surface: #ffffff;
+        --surface-2: #f8fafc;
+        --surface-3: #eef2f7;
+        --border: rgba(15,23,42,.10);
+        --border-hover: rgba(20,184,166,.35);
+        --text: #111827;
+        --text-secondary: #5f6b7a;
+        --text-muted: #7b8798;
+      }
+
+      html[data-sxron-theme="light"] body {
+        color: #111827;
+        background:
+          radial-gradient(700px 450px at 8% 0%, rgba(32,211,194,.10), transparent 65%),
+          radial-gradient(700px 450px at 95% 4%, rgba(128,103,245,.10), transparent 65%),
+          #f4f7fb;
+      }
+      html[data-sxron-theme="light"] body::before {
+        background:
+          linear-gradient(rgba(15,23,42,.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(15,23,42,.025) 1px, transparent 1px);
+      }
+      html[data-sxron-theme="light"] .sxron-topbar {
+        background: rgba(255,255,255,.86);
+      }
+      html[data-sxron-theme="light"] .sxron-brand,
+      html[data-sxron-theme="light"] .sxron-category-card,
+      html[data-sxron-theme="light"] .sxron-topnav button.active,
+      html[data-sxron-theme="light"] .sxron-topnav button:hover {
+        color: #111827;
+      }
+      html[data-sxron-theme="light"] .sxron-topnav button { color: #64748b; }
+      html[data-sxron-theme="light"] .sxron-city-pill,
+      html[data-sxron-theme="light"] .sxron-secondary,
+      html[data-sxron-theme="light"] .sxron-category-card,
+      html[data-sxron-theme="light"] .sxron-searchbar,
+      html[data-sxron-theme="light"] .sxron-filter-scroll button,
+      html[data-sxron-theme="light"] .sxron-product-card,
+      html[data-sxron-theme="light"] .sxron-profile-banner,
+      html[data-sxron-theme="light"] .sxron-admin-card,
+      html[data-sxron-theme="light"] .sxron-manage-card {
+        background: rgba(255,255,255,.78);
+      }
+      html[data-sxron-theme="light"] .sxron-category-card:hover,
+      html[data-sxron-theme="light"] .sxron-product-card:hover {
+        background: #fff;
+      }
+      html[data-sxron-theme="light"] .sxron-product-image {
+        background: linear-gradient(145deg,#eef3f8,#e3e9f1);
+      }
+      html[data-sxron-theme="light"] .sxron-product-image button {
+        background: rgba(255,255,255,.88);
+        color: #111827;
+      }
+      html[data-sxron-theme="light"] .sxron-searchbar input,
+      html[data-sxron-theme="light"] .sxron-admin-manage input,
+      html[data-sxron-theme="light"] .sxron-editor input,
+      html[data-sxron-theme="light"] .sxron-editor textarea {
+        color: #111827;
+      }
+      html[data-sxron-theme="light"] .sxron-modal {
+        background: #fff;
+        box-shadow: 0 30px 100px rgba(15,23,42,.20);
+      }
+      html[data-sxron-theme="light"] .sxron-detail-image {
+        background: #eef3f8;
+      }
+      html[data-sxron-theme="light"] .sxron-modal-backdrop {
+        background: rgba(15,23,42,.42);
+      }
+      html[data-sxron-theme="light"] .sxron-empty h2,
+      html[data-sxron-theme="light"] .sxron-detail-content h2,
+      html[data-sxron-theme="light"] .sxron-seller-modal h2,
+      html[data-sxron-theme="light"] .sxron-section-head h2,
+      html[data-sxron-theme="light"] .sxron-page-head h1,
+      html[data-sxron-theme="light"] .sxron-product-body h3 {
+        color: #111827;
+      }
+      html[data-sxron-theme="light"] .sxron-toast,
+      html[data-sxron-theme="light"] #sxron-theme-toggle {
+        color: #111827;
+        background: rgba(255,255,255,.92);
+        border-color: rgba(15,23,42,.10);
+      }
+
+      @media (max-width: 768px) {
+        #sxron-theme-toggle { top: 70px; right: 12px; height: 36px; padding: 0 11px; font-size: 12px; }
+      }
+    </style>
   </head>
 
   <body>
+    <button id="sxron-theme-toggle" type="button" aria-label="Переключить тему">🌙 Тёмная</button>
     <div id="root"></div>
 
-    <script
-      type="module"
-      src="/src/main.tsx"
-    ></script>
+    <script>
+      (() => {
+        const key = "sxron_theme";
+        const root = document.documentElement;
+        const button = document.getElementById("sxron-theme-toggle");
+        const saved = localStorage.getItem(key);
+        const theme = saved === "light" || saved === "dark" ? saved : "dark";
+
+        function applyTheme(value) {
+          root.dataset.sxronTheme = value;
+          localStorage.setItem(key, value);
+          button.textContent = value === "dark" ? "☀️ Светлая" : "🌙 Тёмная";
+          document.querySelector('meta[name="theme-color"]').setAttribute("content", value === "dark" ? "#07090f" : "#f4f7fb");
+        }
+
+        applyTheme(theme);
+        button.addEventListener("click", () => applyTheme(root.dataset.sxronTheme === "dark" ? "light" : "dark"));
+      })();
+    </script>
+
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
