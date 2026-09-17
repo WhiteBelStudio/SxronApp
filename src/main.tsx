@@ -14,6 +14,18 @@ import PublicSellerProfile from "./components/PublicSellerProfile";
 import "./styles/global.css";
 import "./styles/user-profile.css";
 
+const APP_VERSION = "1.1.6";
+
+function syncStaticVersionLabels() {
+  document.title = `SXRON Marketplace ${APP_VERSION}`;
+  const currentVersion = document.getElementById("sxron-current-version");
+  const installedVersion = document.getElementById("sxron-installed-pill");
+  if (currentVersion) currentVersion.textContent = `АКТУАЛЬНАЯ ВЕРСИЯ · ${APP_VERSION}`;
+  if (installedVersion) installedVersion.textContent = `Установлена · ${APP_VERSION}`;
+}
+
+syncStaticVersionLabels();
+
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
