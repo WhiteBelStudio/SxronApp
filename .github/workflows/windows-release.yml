@@ -7,6 +7,7 @@ on:
     paths:
       - 'package.json'
       - 'index.html'
+      - 'public/**'
       - 'src/**'
       - 'server/**'
       - 'electron/**'
@@ -67,7 +68,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r server/requirements.txt
           python -c "import multipart; print('python-multipart:', multipart.__file__)"
-          python -m pip install pyinstaller
+          python -m pip install pyinstaller pillow cairosvg
 
       - name: Validate SXRON API source
         shell: pwsh
@@ -81,9 +82,7 @@ jobs:
           if (Test-Path build/pyinstaller) { Remove-Item build/pyinstaller -Recurse -Force }
           New-Item -ItemType Directory -Path backend | Out-Null
           python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --hidden-import=multipart --hidden-import=multipart.multipart server/launcher.py
-          if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) {
-            throw 'Bundled SXRON API executable was not created.'
-          }
+          if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) { throw 'Bundled SXRON API executable was not created.' }
           Write-Host "Bundled API directory created: backend/sxron-api"
           Get-ChildItem 'backend/sxron-api' | Select-Object Name,Length
 
@@ -121,6 +120,16 @@ jobs:
 
       - name: Install Node dependencies
         run: npm install --prefer-offline --no-audit --no-fund
+
+      - name: Generate SXRON application icon
+        shell: pwsh
+        run: |
+          if (Test-Path 'build/sxron-icon.png') { Remove-Item 'build/sxron-icon.png' -Force }
+          if (Test-Path 'build/sxron-icon.ico') { Remove-Item 'build/sxron-icon.ico' -Force }
+          python -c "import cairosvg; cairosvg.svg2png(url='public/sxron-logo.svg',write_to='build/sxron-icon.png',output_width=512,output_height=512)"
+          python -c "from PIL import Image; im=Image.open('build/sxron-icon.png').convert('RGBA'); im.save('build/sxron-icon.ico',sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])"
+          if (-not (Test-Path 'build/sxron-icon.ico')) { throw 'SXRON ICO icon was not created.' }
+          Write-Host 'Official SXRON application icon generated.'
 
       - name: Read app version
         id: version
