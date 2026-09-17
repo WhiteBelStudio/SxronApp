@@ -24,11 +24,11 @@ function readBuildInfo() {
   } catch (error) {
     console.warn('SXRON build-info:', error?.message || error);
   }
-  return { version: CURRENT_VERSION, build: 'local', commit: 'unknown', releaseTag: '' };
+  return { version: CURRENT_VERSION, build: CURRENT_VERSION, commit: 'unknown', releaseTag: `v${CURRENT_VERSION}` };
 }
 
 const BUILD_INFO = readBuildInfo();
-const CURRENT_BUILD = String(BUILD_INFO.build || 'local');
+const CURRENT_BUILD = String(BUILD_INFO.version || BUILD_INFO.build || CURRENT_VERSION);
 
 function registerWindowsAssociations() {
   if (process.platform !== 'win32' || isDev) return;
@@ -147,46 +147,46 @@ function githubRequest(url) {
   });
 }
 
-function compareBuilds(a, b) {
-  const left = String(a || '');
-  const right = String(b || '');
-  if (left === right) return 0;
-  const leftNumber = Number(left);
-  const rightNumber = Number(right);
-  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) return leftNumber > rightNumber ? 1 : -1;
-  return left === 'local' ? -1 : 1;
+function parseVersion(version) {
+  const match = String(version || '').trim().replace(/^v/i, '').match(/^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
 }
 
-function findInstallerAsset(release) {
-  const expected = `SXRON-Marketplace-Setup-${CURRENT_VERSION}-x64.exe`;
+function compareVersions(left, right) {
+  const a = parseVersion(left);
+  const b = parseVersion(right);
+  if (!a || !b) return String(left || '') === String(right || '') ? 0 : null;
+  for (let index = 0; index < 3; index += 1) {
+    if (a[index] !== b[index]) return a[index] > b[index] ? 1 : -1;
+  }
+  return 0;
+}
+
+function findInstallerAsset(release, targetVersion) {
+  const expected = `SXRON-Marketplace-Setup-${targetVersion}-x64.exe`;
   return (release.assets || []).find((asset) => asset.name === expected)
-    || (release.assets || []).find((asset) => /^SXRON-Marketplace-Setup-.*-x64\.exe$/i.test(asset.name));
+    || (release.assets || []).find((asset) => /^SXRON-Marketplace-Setup-\d+\.\d+\.\d+-x64\.exe$/i.test(asset.name));
 }
 
 async function checkForGitHubUpdate() {
   if (isDev) throw new Error('Проверка обновлений доступна в установленной версии приложения.');
   if (updateCheckInProgress) return;
   updateCheckInProgress = true;
-  sendUpdateUi('checking', { currentVersion: CURRENT_VERSION, currentBuild: CURRENT_BUILD });
+  sendUpdateUi('checking', { currentVersion: CURRENT_VERSION });
   try {
     const release = await githubRequest(GITHUB_LATEST_RELEASE_URL);
-    const asset = findInstallerAsset(release);
-    if (!asset) throw new Error('В последней GitHub-сборке не найден Windows-установщик SXRON.');
+    const releaseVersion = String(release.tag_name || '').replace(/^v/i, '').trim();
+    const comparison = compareVersions(releaseVersion, CURRENT_VERSION);
+    if (comparison === null) throw new Error(`GitHub вернул некорректную версию релиза: ${releaseVersion || 'неизвестно'}.`);
+    const asset = findInstallerAsset(release, releaseVersion);
+    if (!asset) throw new Error(`В релизе ${releaseVersion} не найден Windows-установщик SXRON.`);
 
-    const tagBuild = String(release.tag_name || '').replace(/^v/, '');
-    const targetBuild = tagBuild;
-    const sameVersion = tagBuild.startsWith(`${CURRENT_VERSION}-build-`);
-    const buildChanged = targetBuild !== CURRENT_BUILD;
-    const versionChanged = !sameVersion && tagBuild !== CURRENT_VERSION;
-    const available = buildChanged || versionChanged;
-
-    latestRelease = { release, asset, targetBuild };
+    const available = comparison > 0;
+    latestRelease = { release, asset, targetVersion: releaseVersion };
     sendUpdateUi(available ? 'update-required' : 'up-to-date', {
       currentVersion: CURRENT_VERSION,
-      currentBuild: CURRENT_BUILD,
-      targetVersion: sameVersion ? CURRENT_VERSION : tagBuild.split('-build-')[0] || tagBuild,
-      targetBuild,
-      releaseName: release.name || `SXRON Marketplace ${tagBuild}`,
+      targetVersion: releaseVersion,
+      releaseName: release.name || `SXRON Marketplace v${releaseVersion}`,
       releaseNotes: release.body || '',
       available,
     });
@@ -231,7 +231,7 @@ async function downloadAndInstallGitHubUpdate() {
   const updateDir = path.join(app.getPath('userData'), 'updates');
   fs.mkdirSync(updateDir, { recursive: true });
   const installerPath = path.join(updateDir, asset.name);
-  sendUpdateUi('download-start', { targetBuild: latestRelease.targetBuild });
+  sendUpdateUi('download-start', { targetVersion: latestRelease.targetVersion });
   await downloadFile(asset.browser_download_url, installerPath);
 
   const expectedDigest = String(asset.digest || '').replace(/^sha256:/i, '').toLowerCase();
@@ -251,7 +251,7 @@ async function downloadAndInstallGitHubUpdate() {
   }
 
   const installDir = path.dirname(app.getPath('exe'));
-  sendUpdateUi('update-ready', { currentVersion: CURRENT_VERSION, targetVersion: CURRENT_VERSION, targetBuild: latestRelease.targetBuild, percent: 100 });
+  sendUpdateUi('update-ready', { currentVersion: CURRENT_VERSION, targetVersion: latestRelease.targetVersion, percent: 100 });
 
   const child = spawn(installerPath, ['--updated', '/S', `/D=${installDir}`, '--force-run'], {
     detached: true,
@@ -281,12 +281,11 @@ async function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url === 'sxron://check-updates') { checkForGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) })); return { action: 'deny' }; }
     if (url === 'sxron://start-update') { downloadAndInstallGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) })); return { action: 'deny' }; }
-    if (url === 'sxron://repair-current') { downloadAndInstallGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) })); return { action: 'deny' }; }
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
   win.webContents.on('did-finish-load', () => {
-    sendUpdateUi('app-version', { version: CURRENT_VERSION, build: CURRENT_BUILD });
+    sendUpdateUi('app-version', { version: CURRENT_VERSION });
     if (!isDev) {
       setTimeout(() => {
         checkForGitHubUpdate().catch((error) => console.warn('SXRON automatic update check:', error?.message || error));
