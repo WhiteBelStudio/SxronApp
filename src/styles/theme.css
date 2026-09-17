@@ -1,0 +1,256 @@
+/* =========================================================
+   SXRON 1.2.1 — APP SHELL + THEMES
+   ========================================================= */
+
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--bg) !important;
+}
+
+#root {
+  background: var(--bg);
+}
+
+.sxron-shell {
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0 0 20px;
+  background: var(--bg);
+  color: var(--text);
+  isolation: isolate;
+}
+
+.sxron-content {
+  width: min(1240px, calc(100% - 40px));
+}
+
+/* The app owns the whole window. No browser-like white page around it. */
+@media (min-width: 769px) {
+  .sxron-content {
+    min-height: calc(100vh - 72px);
+  }
+}
+
+/* =========================================================
+   LIGHT THEME
+   ========================================================= */
+
+:root[data-sxron-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f3f6fa;
+  --surface: #ffffff;
+  --surface-2: #f7f9fc;
+  --surface-3: #edf2f7;
+
+  --border: rgba(15, 23, 42, 0.10);
+  --border-hover: rgba(20, 184, 166, 0.38);
+
+  --text: #101828;
+  --text-secondary: #536174;
+  --text-muted: #7b8798;
+
+  --teal: #0f9f91;
+  --purple: #7257e8;
+
+  --gradient: linear-gradient(135deg, #10bfae 0%, #4f96e8 48%, #7659e8 100%);
+}
+
+:root[data-sxron-theme="light"] body,
+:root[data-sxron-theme="light"] #root,
+:root[data-sxron-theme="light"] .sxron-shell {
+  background: var(--bg) !important;
+  color: var(--text);
+}
+
+:root[data-sxron-theme="light"] body::before {
+  background:
+    linear-gradient(rgba(15, 23, 42, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.025) 1px, transparent 1px);
+}
+
+:root[data-sxron-theme="light"] .sxron-topbar {
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom-color: var(--border);
+}
+
+:root[data-sxron-theme="light"] .sxron-topnav button:hover,
+:root[data-sxron-theme="light"] .sxron-topnav button.active {
+  color: #111827;
+  background: rgba(15, 23, 42, 0.055);
+}
+
+:root[data-sxron-theme="light"] .sxron-city-pill {
+  color: #526071;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+:root[data-sxron-theme="light"] .sxron-hero-card,
+:root[data-sxron-theme="light"] .sxron-category-card,
+:root[data-sxron-theme="light"] .sxron-product-card,
+:root[data-sxron-theme="light"] .sxron-manage-card,
+:root[data-sxron-theme="light"] .sxron-admin-card,
+:root[data-sxron-theme="light"] .sxron-profile-banner {
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 18px 55px rgba(31, 41, 55, 0.055);
+}
+
+:root[data-sxron-theme="light"] .sxron-hero-card {
+  background:
+    radial-gradient(circle at 85% 50%, rgba(118, 89, 232, 0.12), transparent 28%),
+    radial-gradient(circle at 65% 20%, rgba(16, 191, 174, 0.10), transparent 30%),
+    #ffffff;
+}
+
+:root[data-sxron-theme="light"] .sxron-category-card,
+:root[data-sxron-theme="light"] .sxron-product-card,
+:root[data-sxron-theme="light"] .sxron-manage-card,
+:root[data-sxron-theme="light"] .sxron-admin-card {
+  color: var(--text);
+}
+
+:root[data-sxron-theme="light"] .sxron-category-card span,
+:root[data-sxron-theme="light"] .sxron-product-body h3,
+:root[data-sxron-theme="light"] .sxron-card-head h2,
+:root[data-sxron-theme="light"] .sxron-page-head h1,
+:root[data-sxron-theme="light"] .sxron-section-head h2,
+:root[data-sxron-theme="light"] .sxron-empty h2 {
+  color: var(--text);
+}
+
+:root[data-sxron-theme="light"] .sxron-searchbar,
+:root[data-sxron-theme="light"] .sxron-filter-scroll button,
+:root[data-sxron-theme="light"] .sxron-secondary,
+:root[data-sxron-theme="light"] .sxron-manage-row button,
+:root[data-sxron-theme="light"] .sxron-admin-manage input,
+:root[data-sxron-theme="light"] .sxron-editor input,
+:root[data-sxron-theme="light"] .sxron-editor textarea {
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text);
+}
+
+:root[data-sxron-theme="light"] .sxron-searchbar input,
+:root[data-sxron-theme="light"] .sxron-admin-manage input,
+:root[data-sxron-theme="light"] .sxron-editor input,
+:root[data-sxron-theme="light"] .sxron-editor textarea {
+  color: #111827;
+}
+
+:root[data-sxron-theme="light"] .sxron-searchbar input::placeholder,
+:root[data-sxron-theme="light"] .sxron-editor input::placeholder,
+:root[data-sxron-theme="light"] .sxron-editor textarea::placeholder {
+  color: #8a95a5;
+}
+
+:root[data-sxron-theme="light"] .sxron-product-image,
+:root[data-sxron-theme="light"] .sxron-detail-image,
+:root[data-sxron-theme="light"] .sxron-skeleton {
+  background: #e9eef5;
+}
+
+:root[data-sxron-theme="light"] .sxron-product-image > span,
+:root[data-sxron-theme="light"] .sxron-detail-image > span {
+  color: #a2adbc;
+}
+
+:root[data-sxron-theme="light"] .sxron-modal-backdrop {
+  background: rgba(15, 23, 42, 0.48);
+}
+
+:root[data-sxron-theme="light"] .sxron-modal {
+  background: #ffffff;
+  box-shadow: 0 30px 100px rgba(15, 23, 42, 0.22);
+}
+
+:root[data-sxron-theme="light"] .sxron-toast {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 15px 50px rgba(15, 23, 42, 0.16);
+}
+
+:root[data-sxron-theme="light"] .sxron-theme-switcher {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(15, 23, 42, 0.10);
+  box-shadow: 0 14px 38px rgba(15, 23, 42, 0.12);
+}
+
+/* =========================================================
+   PROFILE THEME CONTROL
+   ========================================================= */
+
+.sxron-theme-switcher {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.sxron-theme-switcher__label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.sxron-theme-switcher__button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--surface-2);
+  font-size: 12px;
+  font-weight: 850;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.sxron-theme-switcher__button:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-hover);
+}
+
+.sxron-theme-switcher__button span {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--gradient);
+  color: #fff;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .sxron-theme-switcher {
+    margin-bottom: 12px;
+    border-radius: 16px;
+  }
+}
