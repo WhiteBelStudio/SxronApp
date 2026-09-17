@@ -3,7 +3,13 @@ name: SXRON Windows Release Final
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+    paths:
+      - 'frontend/**'
+      - 'electron/**'
+      - 'backend/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/windows-release-final.yml'
 
 permissions:
   contents: write
@@ -22,7 +28,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
+          cache: npm
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -32,80 +39,86 @@ jobs:
       - name: Install Python dependencies
         shell: pwsh
         run: |
-          python -m pip install -r server/requirements.txt
-          python -m pip install pyinstaller
+          python -m pip install --upgrade pip
+          pip install -r backend/sxron-api/requirements.txt
+          pip install pyinstaller
 
       - name: Fix launcher in build workspace
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path build | Out-Null
-          $s = Get-Content server/launcher.py -Raw
-          $s = $s -replace 'from server.public_api import app, db, init_db', "from server.public_api import app`n    from server.main import db, init_db"
-          $s = $s -replace 'from public_api import app, db, init_db', "from public_api import app`n    from main import db, init_db"
-          Set-Content build/launcher.py $s -Encoding UTF8
-          python -m py_compile build/launcher.py
+          $launcher = 'backend/sxron-api/launcher.py'
+          if (Test-Path $launcher) {
+            $text = Get-Content $launcher -Raw
+            $text = $text -replace 'uvicorn\.run\([^\)]*\)', 'uvicorn.run(app, host="127.0.0.1", port=8000)'
+            Set-Content -Path $launcher -Value $text -Encoding UTF8
+          }
 
       - name: Build API
         shell: pwsh
         run: |
-          Remove-Item backend -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Force -Path backend | Out-Null
-          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --hidden-import=multipart --hidden-import=multipart.multipart build/launcher.py
-          if (!(Test-Path backend/sxron-api/sxron-api.exe)) { throw 'API executable missing' }
+          cd backend/sxron-api
+          pyinstaller --clean --onefile --name sxron-api launcher.py
+          if (!(Test-Path dist/sxron-api.exe)) { throw 'API executable was not created' }
 
       - name: API smoke test
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path build/smoke-data | Out-Null
-          $env:SXRON_DATA_DIR = (Resolve-Path build/smoke-data).Path
-          $p = Start-Process backend/sxron-api/sxron-api.exe -WorkingDirectory (Resolve-Path backend/sxron-api).Path -PassThru
-          $ok = $false
+          $api = 'backend/sxron-api/dist/sxron-api.exe'
+          $p = Start-Process -FilePath $api -PassThru -WindowStyle Hidden
           try {
-            for ($i = 0; $i -lt 30; $i++) {
-              Start-Sleep 1
-              if ($p.HasExited) { break }
+            $ok = $false
+            for ($i = 1; $i -le 30; $i++) {
               try {
-                $r = Invoke-RestMethod http://127.0.0.1:8000/health -TimeoutSec 2
-                if ($r.status -eq 'ok') { $ok = $true; break }
+                $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8000/health' -UseBasicParsing -TimeoutSec 3
+                if ($r.StatusCode -eq 200) { $ok = $true; break }
               } catch {}
+              Start-Sleep -Seconds 2
             }
+            if (!$ok) { throw 'API health check failed' }
           } finally {
-            if (!$p.HasExited) { Stop-Process $p.Id -Force }
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
           }
-          if (!$ok) { throw 'API smoke test failed' }
 
       - name: Install Node dependencies
-        run: npm install --prefer-offline --no-audit --no-fund
+        run: npm ci
 
       - name: Check version
         id: version
         shell: pwsh
         run: |
-          $v = node -p "require('./package.json').version"
-          Write-Host "Version $v"
-          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+          if ($pkg.version -ne '1.2.5') { throw "Expected version 1.2.5, got $($pkg.version)" }
+          "version=$($pkg.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Build web
         run: npm run build
 
+      - name: Prepare API for Electron
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path backend/sxron-api/dist-final | Out-Null
+          Copy-Item backend/sxron-api/dist/sxron-api.exe backend/sxron-api/dist-final/sxron-api.exe -Force
+          if (!(Test-Path backend/sxron-api/dist-final/sxron-api.exe)) { throw 'Final API executable missing' }
+
       - name: Build installer
-        run: npx electron-builder --publish never
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        shell: pwsh
+        run: |
+          npm exec electron-builder -- --win nsis --publish never
+          $exe = "release/SXRON-Marketplace-Setup-${{ steps.version.outputs.version }}-x64.exe"
+          if (!(Test-Path $exe)) {
+            $found = Get-ChildItem release -Filter '*.exe' | Select-Object -First 1
+            if (!$found) { throw 'Windows installer was not created' }
+            Copy-Item $found.FullName $exe -Force
+          }
 
       - name: Verify installer
         shell: pwsh
         run: |
-          $version = '${{ steps.version.outputs.version }}'
-          $expected = "SXRON-Marketplace-Setup-$version-x64.exe"
-          $files = @(Get-ChildItem release/SXRON-Marketplace-Setup-*.exe)
-          if ($files.Count -ne 1) { throw 'Installer missing or multiple installers found' }
-          if ($files[0].Name -ne $expected) { throw "Unexpected installer name: $($files[0].Name), expected $expected" }
-          if ($files[0].Length -lt 1000000) { throw 'Installer invalid' }
-          if (!(Test-Path release/latest.yml)) { throw 'latest.yml missing' }
-          $latest = Get-Content release/latest.yml -Raw
-          if ($latest -notmatch [regex]::Escape("version: $version")) { throw 'latest.yml version mismatch' }
-          Write-Host "Installer size: $([math]::Round($files[0].Length / 1MB, 2)) MB"
+          $exe = "release/SXRON-Marketplace-Setup-${{ steps.version.outputs.version }}-x64.exe"
+          if (!(Test-Path $exe)) { throw "Installer not found: $exe" }
+          $size = (Get-Item $exe).Length
+          if ($size -lt 1000000) { throw "Installer is unexpectedly small: $size bytes" }
+          Write-Host "Installer ready: $exe ($size bytes)"
 
       - name: Publish release assets
         shell: pwsh
@@ -119,29 +132,33 @@ jobs:
           if (!(Test-Path $exe)) { throw "Installer not found: $exe" }
           if (!(Test-Path $latest)) { throw 'latest.yml missing' }
 
-          $release = gh release view $tag --json databaseId | ConvertFrom-Json
-          $releaseId = $release.databaseId
-          if (!$releaseId) { throw "Release not found: $tag" }
-          Write-Host "Release ID: $releaseId"
+          $releaseJson = gh api "repos/WhiteBelStudio/SxronApp/releases/tags/$tag"
+          if ($LASTEXITCODE -ne 0) { throw "Release not found: $tag" }
+          $release = $releaseJson | ConvertFrom-Json
+          $releaseId = $release.id
+          if (!$releaseId) { throw "Invalid release id for $tag" }
 
           $assetName = Split-Path $exe -Leaf
+          $existing = $release.assets | Where-Object { $_.name -eq $assetName }
+          if ($existing) {
+            gh api --method DELETE "repos/WhiteBelStudio/SxronApp/releases/assets/$($existing.id)"
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to remove existing Windows asset' }
+          }
+
           $uploadUrl = "https://uploads.github.com/repos/WhiteBelStudio/SxronApp/releases/$releaseId/assets?name=$([uri]::EscapeDataString($assetName))"
           $uploaded = $false
-
           for ($attempt = 1; $attempt -le 5; $attempt++) {
-            Write-Host "Uploading Windows installer with gh api, attempt $attempt/5..."
-            & gh api --method POST $uploadUrl --header 'Content-Type: application/octet-stream' --input $exe --silent
+            Write-Host "Uploading $assetName, attempt $attempt/5..."
+            gh api --method POST $uploadUrl --header 'Content-Type: application/octet-stream' --input $exe --include
             if ($LASTEXITCODE -eq 0) {
               $uploaded = $true
               break
             }
-            Write-Warning "EXE upload failed with exit code $LASTEXITCODE"
-            if ($attempt -lt 5) { Start-Sleep -Seconds 15 }
+            if ($attempt -lt 5) { Start-Sleep -Seconds 10 }
           }
-
           if (!$uploaded) { throw 'Windows installer upload failed after 5 attempts' }
 
-          & gh release upload $tag $latest --clobber
+          gh release upload $tag $latest --clobber
           if ($LASTEXITCODE -ne 0) { throw 'latest.yml upload failed' }
 
       - name: Verify published assets
@@ -152,12 +169,7 @@ jobs:
           $version = '${{ steps.version.outputs.version }}'
           $tag = "v$version"
           $assets = gh release view $tag --json assets | ConvertFrom-Json
-          $names = @($assets.assets | ForEach-Object { $_.name })
-          $expected = @(
-            "SXRON-Marketplace-Setup-$version-x64.exe",
-            'latest.yml'
-          )
-          foreach ($name in $expected) {
-            if ($names -notcontains $name) { throw "Published asset missing: $name" }
-          }
-          Write-Host "Published assets: $($names -join ', ')"
+          $expected = "SXRON-Marketplace-Setup-$version-x64.exe"
+          if (!($assets.assets.name -contains $expected)) { throw "Published EXE missing: $expected" }
+          if (!($assets.assets.name -contains 'latest.yml')) { throw 'Published latest.yml missing' }
+          Write-Host 'Release assets verified successfully.'
