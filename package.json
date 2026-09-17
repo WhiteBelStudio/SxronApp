@@ -9,7 +9,7 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"npm run api:dev\"",
-    "api:dev": "python -m uvicorn server.public_api:app --reload --host 127.0.0.1 --port 8000",
+    "api:dev": "python -m uvicorn server.launcher:app --reload --host 127.0.0.1 --port 8000",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "app:dev": "concurrently -k \"vite\" \"npm run api:dev\" \"wait-on http://localhost:5173 && electron .\"",
