@@ -1,10 +1,5 @@
-import {
-  StrictMode,
-} from "react";
-
-import {
-  createRoot,
-} from "react-dom/client";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 
 import App from "./App";
 import AuthGate from "./components/AuthGate";
@@ -15,7 +10,7 @@ import PublicSellerProfile from "./components/PublicSellerProfile";
 import "./styles/global.css";
 import "./styles/user-profile.css";
 
-const APP_VERSION = "1.1.11";
+const APP_VERSION = "1.1.12";
 
 function syncStaticVersionLabels() {
   document.title = `SXRON Marketplace ${APP_VERSION}`;
@@ -28,10 +23,7 @@ function syncStaticVersionLabels() {
 syncStaticVersionLabels();
 
 const rootElement = document.getElementById("root");
-
-if (!rootElement) {
-  throw new Error("Не найден элемент #root.");
-}
+if (!rootElement) throw new Error("Не найден элемент #root.");
 
 createRoot(rootElement).render(
   <StrictMode>
