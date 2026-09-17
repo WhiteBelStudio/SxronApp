@@ -50,17 +50,9 @@ jobs:
           python -c "import multipart; print('python-multipart:', multipart.__file__)"
           python -m pip install pyinstaller
 
-      - name: Prepare fixed launcher
-        shell: pwsh
-        run: |
-          $source = Get-Content 'server/launcher.py' -Raw
-          $source = $source.Replace('from server.public_api import app, db, init_db', "from server.public_api import app`n    from server.main import db, init_db")
-          $source = $source.Replace('from public_api import app, db, init_db', "from public_api import app`n    from main import db, init_db")
-          Set-Content -Path 'build/launcher-hotfix.py' -Value $source -Encoding UTF8
-
       - name: Validate source
         shell: pwsh
-        run: python -c "import server.main; import server.public_api; print('SXRON API source import: OK')"
+        run: python -c "import server.main; import server.public_api; import server.launcher; print('SXRON API source import: OK')"
 
       - name: Build bundled API
         shell: pwsh
@@ -69,7 +61,7 @@ jobs:
           if (Test-Path build/pyinstaller) { Remove-Item build/pyinstaller -Recurse -Force }
           New-Item -ItemType Directory -Path backend | Out-Null
           New-Item -ItemType Directory -Path build | Out-Null
-          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --hidden-import=multipart --hidden-import=multipart.multipart build/launcher-hotfix.py
+          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --hidden-import=multipart --hidden-import=multipart.multipart server/launcher.py
           if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) { throw 'Bundled SXRON API executable was not created.' }
 
       - name: Smoke test bundled API
@@ -88,16 +80,16 @@ jobs:
           try {
             for ($i = 0; $i -lt 30; $i++) {
               Start-Sleep -Seconds 1
-              if ($proc.HasExited) { break }
+              if ($proc.HasExited) { Write-Host "SXRON API exited early with code $($proc.ExitCode)."; break }
               try {
                 $response = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 2
-                if ($response.status -eq 'ok') { $healthy = $true; break }
+                if ($response.status -eq 'ok') { $healthy = $true; Write-Host 'SXRON API health check: OK'; break }
               } catch {}
             }
             if (-not $healthy) {
-              if (Test-Path $stdout) { Get-Content $stdout }
-              if (Test-Path $stderr) { Get-Content $stderr }
-              throw 'Bundled SXRON API failed the smoke test.'
+              Write-Host '----- SXRON API stdout -----'; if (Test-Path $stdout) { Get-Content $stdout }
+              Write-Host '----- SXRON API stderr -----'; if (Test-Path $stderr) { Get-Content $stderr }
+              throw 'Bundled SXRON API failed the Windows startup/health smoke test.'
             }
           } finally {
             if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
@@ -113,7 +105,7 @@ jobs:
         run: |
           $version = node -p "require('./package.json').version"
           "version=$version" >> $env:GITHUB_OUTPUT
-          if ($version -ne '1.2.0') { throw "Expected version 1.2.0, got $version" }
+          if ($version -ne '1.2.1') { throw "Expected version 1.2.1, got $version" }
 
       - name: Build web application
         run: npm run build
@@ -152,7 +144,7 @@ jobs:
           try { $actual = [Convert]::ToBase64String($hash.ComputeHash([System.IO.File]::ReadAllBytes($setup[0].FullName))) } finally { $hash.Dispose() }
           if ($actual -ne $shaMatch.Groups[1].Value.Trim()) { throw 'SHA-512 mismatch.' }
 
-      - name: Create or update v1.2.0 release
+      - name: Create or update v1.2.1 release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
