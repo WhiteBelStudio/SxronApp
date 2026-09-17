@@ -1,18 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import Header, HTTPException
 
 import server.main as base
 
-# Re-export the same FastAPI application used by the base backend so local,
-# bundled and Vercel entrypoints all expose the identical route set.
 app = base.app
-
-# Keep the API version aligned with the desktop/web package version while
-# retaining server/main.py as the source of the existing application routes.
-base.APP_VERSION = "1.1.6"
+base.APP_VERSION = "1.1.7"
 base.app.version = base.APP_VERSION
 init_db = base.init_db
 
@@ -21,25 +17,17 @@ init_db = base.init_db
 def get_public_seller(user_id: int) -> dict[str, Any]:
     """Return the public seller card, statistics, reviews and active listings."""
     with base.db() as connection:
-        user = connection.execute(
-            "SELECT * FROM users WHERE id = ?",
-            (user_id,),
-        ).fetchone()
+        user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             raise HTTPException(status_code=404, detail="Продавец не найден")
-
         seller = base.user_dict(user, connection)
         listings_rows = connection.execute(
-            "SELECT * FROM products "
-            "WHERE created_by = ? AND available = 1 "
-            "ORDER BY id DESC",
+            "SELECT * FROM products WHERE created_by = ? AND available = 1 ORDER BY id DESC",
             (user_id,),
         ).fetchall()
-
         reviews_count = int(seller.get("reviews_count") or 0)
         rating = seller.get("rating")
 
-    # Respect public visibility settings.
     if not seller.get("username_visible", True):
         seller["username"] = None
     if not seller.get("badges_visible", True):
@@ -55,15 +43,119 @@ def get_public_seller(user_id: int) -> dict[str, Any]:
     seller["rating"] = rating
 
     listings = [base.product_dict(row) for row in listings_rows]
-
-    # The current data model does not have a review table yet. Keep a stable
-    # public response shape so the UI is ready for real reviews later.
-    reviews: list[dict[str, Any]] = []
-
     return {
         "seller": seller,
         "listings": listings,
         "rating": rating,
         "reviews_count": reviews_count,
-        "reviews": reviews,
+        "reviews": [],
     }
+
+
+def _admin_user(authorization: str | None) -> tuple[Any, bool]:
+    """Resolve an authenticated admin from the bearer session."""
+    token = authorization[7:].strip() if authorization and authorization.lower().startswith("bearer ") else None
+    if not token:
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    with base.db() as connection:
+        user = connection.execute(
+            "SELECT u.* FROM auth_sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ?",
+            (token_hash, base.now()),
+        ).fetchone()
+    if not user:
+        raise HTTPException(status_code=401, detail="Сессия истекла")
+    if not base.is_admin(user["id"]):
+        raise HTTPException(status_code=403, detail="Доступ только для администратора")
+    return user, base.is_owner(user)
+
+
+@app.get("/admin/dashboard")
+def admin_dashboard(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    user, owner = _admin_user(authorization)
+    with base.db() as connection:
+        stats = {
+            "users": connection.execute("SELECT COUNT(*) FROM users").fetchone()[0],
+            "products": connection.execute("SELECT COUNT(*) FROM products").fetchone()[0],
+            "active_products": connection.execute("SELECT COUNT(*) FROM products WHERE available = 1").fetchone()[0],
+            "sold_products": connection.execute("SELECT COUNT(*) FROM products WHERE status = 'sold'").fetchone()[0],
+            "admins": connection.execute("SELECT COUNT(*) FROM admins").fetchone()[0],
+            "categories": connection.execute("SELECT COUNT(*) FROM categories").fetchone()[0],
+            "cities": connection.execute("SELECT COUNT(*) FROM cities").fetchone()[0],
+        }
+    return {
+        "version": base.APP_VERSION,
+        "user": {
+            "id": user["id"],
+            "display_name": user["display_name"] or user["first_name"] or "Пользователь",
+            "username": user["username"],
+            "email": user["email"],
+            "email_verified": bool(user["email_verified"]),
+        },
+        "is_owner": owner,
+        "stats": stats,
+    }
+
+
+@app.get("/admin/users")
+def admin_users(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    _admin_user(authorization)
+    with base.db() as connection:
+        rows = connection.execute(
+            "SELECT u.*, EXISTS(SELECT 1 FROM admins a WHERE a.user_id = u.id) AS is_admin FROM users u ORDER BY u.id DESC LIMIT 200"
+        ).fetchall()
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            listings = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ?", (row["id"],)).fetchone()[0]
+            result.append({
+                "id": row["id"],
+                "display_name": row["display_name"] or row["first_name"] or "Пользователь",
+                "username": row["username"],
+                "email": row["email"],
+                "email_verified": bool(row["email_verified"]),
+                "phone_verified": bool(row["phone_verified"]),
+                "created_at": row["created_at"],
+                "last_seen_at": row["last_seen_at"],
+                "listings_count": listings,
+                "is_admin": bool(row["is_admin"]),
+                "is_owner": base.is_owner(row),
+            })
+    return {"users": result}
+
+
+@app.get("/admin/admins")
+def admin_admins(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    _admin_user(authorization)
+    with base.db() as connection:
+        rows = connection.execute(
+            "SELECT u.id, u.client_id, u.username, u.first_name, u.last_name, u.email, a.added_at FROM admins a JOIN users u ON u.id = a.user_id ORDER BY a.user_id"
+        ).fetchall()
+    return {"admins": [{**dict(row), "role": "owner" if base.is_owner(row) else "admin"} for row in rows]}
+
+
+@app.post("/admin/admins/{user_id}")
+def admin_add_user(user_id: int, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    actor, owner = _admin_user(authorization)
+    if not owner:
+        raise HTTPException(status_code=403, detail="Добавлять администраторов может только владелец")
+    with base.db() as connection:
+        target = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not target:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        connection.execute("INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)", (user_id, base.now()))
+    return {"ok": True, "message": "Администратор добавлен", "actor_id": actor["id"]}
+
+
+@app.delete("/admin/admins/{user_id}")
+def admin_remove_user(user_id: int, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    actor, owner = _admin_user(authorization)
+    if not owner:
+        raise HTTPException(status_code=403, detail="Удалять администраторов может только владелец")
+    with base.db() as connection:
+        target = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not target:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        if base.is_owner(target):
+            raise HTTPException(status_code=400, detail="Нельзя удалить владельца")
+        connection.execute("DELETE FROM admins WHERE user_id = ?", (user_id,))
+    return {"ok": True, "message": "Администратор удалён", "actor_id": actor["id"]}
