@@ -3,11 +3,16 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const http = require('http');
+const https = require('https');
 const { autoUpdater } = require('electron-updater');
 
 const isDev = !app.isPackaged;
 let apiProcess = null;
 let updateCheckStarted = false;
+let mainWindow = null;
+const CURRENT_VERSION = app.getVersion();
+const GITHUB_RELEASE_OWNER = 'WhiteBelStudio';
+const GITHUB_RELEASE_REPO = 'SxronApp';
 
 function registerWindowsAssociations() {
   if (process.platform !== 'win32' || isDev) return;
@@ -182,6 +187,151 @@ function stopApi() {
   apiProcess = null;
 }
 
+function sendUpdateUi(event, payload = {}) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  const encoded = JSON.stringify(payload).replace(/</g, '\\u003c');
+  const script = `window.dispatchEvent(new CustomEvent('sxron-updater', { detail: ${encoded}, bubbles: false }));`;
+
+  mainWindow.webContents.executeJavaScript(script).catch(() => {});
+}
+
+function getCurrentInstallerUrl() {
+  return `https://github.com/${GITHUB_RELEASE_OWNER}/${GITHUB_RELEASE_REPO}/releases/download/v${CURRENT_VERSION}/SXRON-Marketplace-Setup-${CURRENT_VERSION}-x64.exe`;
+}
+
+function downloadFile(url, destination, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    if (redirectCount > 5) {
+      reject(new Error('Слишком много перенаправлений при загрузке установщика.'));
+      return;
+    }
+
+    const client = url.startsWith('https://') ? https : http;
+    const request = client.get(url, {
+      headers: { 'User-Agent': 'SXRON-Marketplace-Updater' },
+    }, (response) => {
+      const status = response.statusCode || 0;
+
+      if (status >= 300 && status < 400 && response.headers.location) {
+        response.resume();
+        downloadFile(new URL(response.headers.location, url).toString(), destination, redirectCount + 1)
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+
+      if (status !== 200) {
+        response.resume();
+        reject(new Error(`GitHub вернул HTTP ${status}.`));
+        return;
+      }
+
+      const total = Number(response.headers['content-length'] || 0);
+      let received = 0;
+      const file = fs.createWriteStream(destination);
+
+      response.on('data', (chunk) => {
+        received += chunk.length;
+        const percent = total > 0 ? Math.min(100, (received / total) * 100) : 0;
+        sendUpdateUi('download-progress', { percent, received, total });
+      });
+
+      response.on('error', (error) => {
+        file.destroy();
+        reject(error);
+      });
+
+      file.on('error', reject);
+      file.on('finish', () => {
+        file.close(() => resolve());
+      });
+
+      response.pipe(file);
+    });
+
+    request.on('error', reject);
+    request.setTimeout(120000, () => {
+      request.destroy(new Error('Загрузка установщика превысила лимит времени.'));
+    });
+  });
+}
+
+async function reinstallCurrentVersion() {
+  if (isDev) {
+    sendUpdateUi('repair-error', { message: 'Переустановка доступна в установленной версии SXRON.' });
+    return;
+  }
+
+  if (process.platform !== 'win32') {
+    sendUpdateUi('repair-error', { message: 'Переустановка текущей версии пока доступна только для Windows.' });
+    return;
+  }
+
+  const installerPath = path.join(app.getPath('temp'), `SXRON-Marketplace-${CURRENT_VERSION}-repair.exe`);
+  const url = getCurrentInstallerUrl();
+
+  try {
+    sendUpdateUi('repair-start', { version: CURRENT_VERSION, percent: 0 });
+    await downloadFile(url, installerPath);
+
+    if (!fs.existsSync(installerPath)) {
+      throw new Error('Установщик не был сохранён на диске.');
+    }
+
+    sendUpdateUi('repair-ready', { version: CURRENT_VERSION, percent: 100 });
+
+    const helperPath = path.join(app.getPath('temp'), `sxron-reinstall-${Date.now()}.cmd`);
+    const pid = process.pid;
+    const script = [
+      '@echo off',
+      'setlocal',
+      `set "INSTALLER=${installerPath.replace(/"/g, '""')}"`,
+      `set "APP_PID=${pid}"`,
+      ':wait',
+      'tasklist /FI "PID eq %APP_PID%" 2>NUL | find "%APP_PID%" >NUL',
+      'if not errorlevel 1 (timeout /t 1 /nobreak >NUL & goto wait)',
+      'timeout /t 1 /nobreak >NUL',
+      'start "SXRON Installer" /wait "%INSTALLER%"',
+      'del "%INSTALLER%" >NUL 2>&1',
+      'del "%~f0" >NUL 2>&1',
+    ].join('\r\n');
+
+    fs.writeFileSync(helperPath, script, 'utf8');
+
+    const result = await dialog.showMessageBox({
+      type: 'info',
+      title: 'SXRON — переустановка',
+      message: `Файлы SXRON ${CURRENT_VERSION} готовы к переустановке.`,
+      detail: 'Приложение сейчас закроется. Установщик заменит файлы текущей версии и снова запустит SXRON. Пользовательские данные сохранятся.',
+      buttons: ['Переустановить сейчас', 'Отмена'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    if (result.response !== 0) {
+      try { fs.unlinkSync(installerPath); } catch {}
+      try { fs.unlinkSync(helperPath); } catch {}
+      sendUpdateUi('repair-cancelled');
+      return;
+    }
+
+    sendUpdateUi('repair-installing', { version: CURRENT_VERSION, percent: 100 });
+    spawn('cmd.exe', ['/d', '/c', 'start', '', '/b', helperPath], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    }).unref();
+
+    setTimeout(() => {
+      app.quit();
+    }, 300);
+  } catch (error) {
+    try { fs.unlinkSync(installerPath); } catch {}
+    sendUpdateUi('repair-error', { message: error?.message || String(error) });
+  }
+}
+
 async function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
@@ -196,6 +346,8 @@ async function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  mainWindow = win;
 
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
     console.error('SXRON renderer load failed:', errorCode, errorDescription);
@@ -213,10 +365,19 @@ async function createWindow() {
       return { action: 'deny' };
     }
 
+    if (url === 'sxron://repair-current') {
+      reinstallCurrentVersion();
+      return { action: 'deny' };
+    }
+
     if (/^https?:\/\//i.test(url)) {
       shell.openExternal(url);
     }
     return { action: 'deny' };
+  });
+
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null;
   });
 }
 
