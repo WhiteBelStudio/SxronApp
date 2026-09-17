@@ -72,6 +72,10 @@ export default function App() {
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateVersion, setUpdateVersion] = useState("");
+  const [updateChecking, setUpdateChecking] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState("");
 
   useEffect(() => {
     const resize = () => setIsMobile(window.innerWidth <= 768);
@@ -84,6 +88,36 @@ export default function App() {
     document.documentElement.dataset.sxronAccent = profile.accent;
   }, [profile]);
   useEffect(() => saveFavorites(favorites), [favorites]);
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ event?: string; targetVersion?: string; message?: string }>).detail;
+      if (!detail) return;
+      if (detail.event === "checking") {
+        setUpdateChecking(true);
+        setUpdateMessage("Проверяем наличие новой версии…");
+      } else if (detail.event === "update-required") {
+        setUpdateChecking(false);
+        setUpdateAvailable(true);
+        setUpdateVersion(detail.targetVersion || "");
+        setUpdateMessage(`Доступна новая версия ${detail.targetVersion || ""}.`);
+      } else if (detail.event === "up-to-date") {
+        setUpdateChecking(false);
+        setUpdateAvailable(false);
+        setUpdateVersion("");
+        setUpdateMessage("Установлена последняя версия.");
+      } else if (detail.event === "download-start") {
+        setUpdateChecking(false);
+        setUpdateMessage(`Скачиваем версию ${detail.targetVersion || updateVersion || "новую"}…`);
+      } else if (detail.event === "update-ready") {
+        setUpdateMessage("Обновление загружено. Перезапускаем приложение…");
+      } else if (detail.event === "update-error") {
+        setUpdateChecking(false);
+        setUpdateMessage(detail.message || "Не удалось проверить или установить обновление.");
+      }
+    };
+    window.addEventListener("sxron-updater", handler);
+    return () => window.removeEventListener("sxron-updater", handler);
+  }, [updateVersion]);
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -126,6 +160,16 @@ export default function App() {
   function navigate(next: Page) { setPage(next); setSelectedProduct(null); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function toggleFavorite(id: number) { setFavorites((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); }
   function notify(message: string) { setToast(message); window.setTimeout(() => setToast(""), 2600); }
+  function checkForUpdates() {
+    setUpdateChecking(true);
+    setUpdateMessage("Проверяем наличие новой версии…");
+    try { window.open("sxron://check-updates", "_self"); } catch (error) { setUpdateChecking(false); setUpdateMessage(error instanceof Error ? error.message : "Не удалось запустить проверку."); }
+  }
+  function startUpdate() {
+    setUpdateChecking(true);
+    setUpdateMessage(`Запускаем загрузку версии ${updateVersion || "новой"}…`);
+    try { window.open("sxron://start-update", "_self"); } catch (error) { setUpdateChecking(false); setUpdateMessage(error instanceof Error ? error.message : "Не удалось запустить обновление."); }
+  }
   function handleLocalProductSave(product: Product) {
     const normalized = normalizeProduct(product);
     setProducts((current) => current.some((item) => item.id === normalized.id) ? current.map((item) => item.id === normalized.id ? normalized : item) : [normalized, ...current]);
@@ -175,7 +219,7 @@ export default function App() {
   return <div className={appClass}>
     <header className="sxron-topbar">
       <button className="sxron-brand" onClick={() => navigate("home")} aria-label="SXRON"><span className="sxron-brand__mark">S</span><span>SXRON</span></button>
-      {!isMobile && <nav className="sxron-topnav"><button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}>Главная</button><button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}>Каталог</button><button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}>Избранное</button><button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")}>Профиль</button></nav>}
+      {!isMobile && <nav className="sxron-topnav"><button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}>Главная</button><button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}>Каталог</button><button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}>Избранное</button><button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")} style={{ position: "relative" }}>Профиль{updateAvailable && <span style={{ position: "absolute", top: 2, right: -2, width: 7, height: 7, borderRadius: 99, background: "#20d3c2", boxShadow: "0 0 0 3px rgba(32,211,194,.12)" }} />}</button></nav>}
       <div className="sxron-city-pill">📍 {city.name}</div>
     </header>
 
@@ -183,10 +227,10 @@ export default function App() {
       {page === "home" && <section className="sxron-home"><div className="sxron-hero-card"><div><span className="sxron-kicker">SXRON MARKETPLACE</span><h1>Покупай.<br /><span>Продавай.</span></h1><p>Современный маркетплейс Белореченска. Найди нужное или размести своё объявление.</p><div className="sxron-actions"><button className="sxron-primary" onClick={() => navigate("catalog")}>🛍 Открыть каталог</button><button className="sxron-secondary" onClick={() => { setManageMode("create"); navigate("profile"); }}>＋ Продать</button></div></div><div className="sxron-hero-orb"><span>S</span></div></div><div className="sxron-section-head"><div><span>КАТЕГОРИИ</span><h2>Что ищем?</h2></div><button onClick={() => navigate("catalog")}>Все →</button></div><div className="sxron-category-grid">{categories.slice(0, 8).map((category) => <button key={category.id} className="sxron-category-card" onClick={() => { setSelectedCategory(category.name); navigate("catalog"); }}><strong>{category.icon || "◈"}</strong><span>{category.name}</span></button>)}</div><div className="sxron-section-head"><div><span>ПОСЛЕДНИЕ</span><h2>Новые объявления</h2></div><button onClick={() => navigate("catalog")}>Смотреть все →</button></div><ProductGrid products={products.slice(0, 6)} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /></section>}
       {page === "catalog" && <section className="sxron-page"><div className="sxron-page-head"><div><span>MARKETPLACE</span><h1>Каталог</h1><p>{filteredProducts.length} объявлений</p></div></div><div className="sxron-searchbar"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск товаров и объявлений..." /><button onClick={() => { setSearch(""); setSelectedCategory("Все"); }}>Сбросить</button></div><div className="sxron-filter-scroll"><button className={selectedCategory === "Все" ? "active" : ""} onClick={() => setSelectedCategory("Все")}>Все</button>{categories.map((category) => <button key={category.id} className={selectedCategory === category.name ? "active" : ""} onClick={() => setSelectedCategory(category.name)}>{category.icon || "◈"} {category.name}</button>)}</div>{loading ? <LoadingGrid /> : apiError ? <EmptyState title="Каталог пока не подключён" text={apiError} action="Повторить" onAction={() => window.location.reload()} /> : <ProductGrid products={filteredProducts} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} />}</section>}
       {page === "favorites" && <section className="sxron-page"><div className="sxron-page-head"><div><span>YOUR LIST</span><h1>Избранное</h1><p>{favoriteProducts.length} товаров</p></div></div>{favoriteProducts.length ? <ProductGrid products={favoriteProducts} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /> : <EmptyState title="Здесь пока пусто" text="Нажимай ♡ на понравившихся товарах — они появятся здесь." action="Перейти в каталог" onAction={() => navigate("catalog")} />}</section>}
-      {page === "profile" && <UserProfilePage profile={profile} me={me} products={products} favorites={favorites} managedProducts={managedProducts} admins={admins} adminId={adminId} setAdminId={setAdminId} manageMode={manageMode} setManageMode={setManageMode} editingProduct={editingProduct} setEditingProduct={setEditingProduct} onEditProfile={() => setProfileEditorOpen(true)} onSessions={openSessions} onLogout={handleLogout} onAddAdmin={async () => { const id = Number(adminId); if (!id) return notify("Введите корректный ID"); try { await addAdmin(id); const result = await getAdmins(); setAdmins(result.admins); setAdminId(""); notify("Администратор добавлен"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось добавить администратора"); } }} onDeleteProduct={handleDeleteProduct} onSaveProduct={handleLocalProductSave} onCancelEdit={() => { setManageMode("list"); setEditingProduct(null); }} />}
+      {page === "profile" && <UserProfilePage profile={profile} me={me} products={products} favorites={favorites} managedProducts={managedProducts} admins={admins} adminId={adminId} setAdminId={setAdminId} manageMode={manageMode} setManageMode={setManageMode} editingProduct={editingProduct} setEditingProduct={setEditingProduct} onEditProfile={() => setProfileEditorOpen(true)} onSessions={openSessions} onLogout={handleLogout} onAddAdmin={async () => { const id = Number(adminId); if (!id) return notify("Введите корректный ID"); try { await addAdmin(id); const result = await getAdmins(); setAdmins(result.admins); setAdminId(""); notify("Администратор добавлен"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось добавить администратора"); } }} onDeleteProduct={handleDeleteProduct} onSaveProduct={handleLocalProductSave} onCancelEdit={() => { setManageMode("list"); setEditingProduct(null); }} updateAvailable={updateAvailable} updateVersion={updateVersion} updateChecking={updateChecking} updateMessage={updateMessage} onCheckUpdates={checkForUpdates} onStartUpdate={startUpdate} />}
     </main>
 
-    <nav className="sxron-bottom-nav"><button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}><b>⌂</b><span>Главная</span></button><button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}><b>⌕</b><span>Каталог</span></button><button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}><b>♡</b><span>Избранное</span></button><button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")}><b>◉</b><span>Профиль</span></button></nav>
+    <nav className="sxron-bottom-nav"><button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}><b>⌂</b><span>Главная</span></button><button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}><b>⌕</b><span>Каталог</span></button><button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}><b>♡</b><span>Избранное</span></button><button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")} style={{ position: "relative" }}><b>◉</b><span>Профиль{updateAvailable && <i style={{ position: "absolute", top: 4, right: 22, width: 6, height: 6, borderRadius: 99, background: "#20d3c2" }} />}</span></button></nav>
     {selectedProduct && <ProductModal product={selectedProduct} favorite={favorites.includes(selectedProduct.id)} onFavorite={() => toggleFavorite(selectedProduct.id)} onClose={() => setSelectedProduct(null)} onSeller={() => setSellerProduct(selectedProduct)} />}
     {sellerProduct && <SellerModal product={sellerProduct} onClose={() => setSellerProduct(null)} />}
     {profileEditorOpen && <ProfileCustomizer initial={profile} onClose={() => setProfileEditorOpen(false)} onSave={saveUserProfile} />}
@@ -195,7 +239,7 @@ export default function App() {
   </div>;
 }
 
-function UserProfilePage({ profile, me, products, favorites, managedProducts, admins, adminId, setAdminId, manageMode, setManageMode, editingProduct, setEditingProduct, onEditProfile, onSessions, onLogout, onAddAdmin, onDeleteProduct, onSaveProduct, onCancelEdit }: { profile: ProfileCustomization; me: MeResponse | null; products: Product[]; favorites: number[]; managedProducts: Product[]; admins: AdminUser[]; adminId: string; setAdminId: (v: string) => void; manageMode: "list" | "create" | "edit"; setManageMode: (v: "list" | "create" | "edit") => void; editingProduct: Product | null; setEditingProduct: (p: Product | null) => void; onEditProfile: () => void; onSessions: () => void; onLogout: () => void; onAddAdmin: () => void; onDeleteProduct: (id: number) => void; onSaveProduct: (p: Product) => void; onCancelEdit: () => void }) {
+function UserProfilePage({ profile, me, products, favorites, managedProducts, admins, adminId, setAdminId, manageMode, setManageMode, editingProduct, setEditingProduct, onEditProfile, onSessions, onLogout, onAddAdmin, onDeleteProduct, onSaveProduct, onCancelEdit, updateAvailable, updateVersion, updateChecking, updateMessage, onCheckUpdates, onStartUpdate }: { profile: ProfileCustomization; me: MeResponse | null; products: Product[]; favorites: number[]; managedProducts: Product[]; admins: AdminUser[]; adminId: string; setAdminId: (v: string) => void; manageMode: "list" | "create" | "edit"; setManageMode: (v: "list" | "create" | "edit") => void; editingProduct: Product | null; setEditingProduct: (p: Product | null) => void; onEditProfile: () => void; onSessions: () => void; onLogout: () => void; onAddAdmin: () => void; onDeleteProduct: (id: number) => void; onSaveProduct: (p: Product) => void; onCancelEdit: () => void; updateAvailable: boolean; updateVersion: string; updateChecking: boolean; updateMessage: string; onCheckUpdates: () => void; onStartUpdate: () => void }) {
   const user = me?.user;
   const displayName = profile.displayName || user?.first_name || "Пользователь";
   const initials = displayName.trim().slice(0, 1).toUpperCase() || "S";
@@ -218,6 +262,7 @@ function UserProfilePage({ profile, me, products, favorites, managedProducts, ad
       <div className="user-profile-column">
         <div className="sxron-manage-card"><div className="sxron-card-head"><div><span>ACCOUNT</span><h2>Мой аккаунт</h2></div></div><div className="profile-account-list"><div><span>🪪 ID</span><b>{user?.id ?? "—"}</b></div>{profile.usernameVisible && <div><span>👤 Username</span><b>{user?.username ? `@${user.username}` : "Не указан"}</b></div>}<div><span>📍 Город</span><b>{user?.city?.name || "Белореченск"}</b></div><div><span>✨ Статус профиля</span><b>{profile.status || "Не задан"}</b></div><div><span>🎨 Оформление</span><b>{profile.banner} · {profile.avatarShape}</b></div></div></div>
         <div className="sxron-manage-card profile-security-card"><div className="sxron-card-head"><div><span>SECURITY</span><h2>Безопасность</h2></div></div><button className="profile-action-row" onClick={onSessions}><span><b>💻 Активные устройства</b><small>Просмотр и завершение сессий</small></span><strong>→</strong></button><button className="profile-action-row" onClick={() => window.dispatchEvent(new Event("sxron-open-password-modal"))}><span><b>🔑 Изменить пароль</b><small>Обновить пароль для входа в аккаунт</small></span><strong>→</strong></button><button className="profile-action-row profile-action-danger" onClick={onLogout}><span><b>↪ Выйти из аккаунта</b><small>Завершить текущую сессию</small></span><strong>→</strong></button></div>
+        <div className="sxron-manage-card"><div className="sxron-card-head"><div><span>UPDATES</span><h2>Обновления SXRON</h2></div>{updateAvailable && <span className="sxron-status">● ДОСТУПНО</span>}</div><p style={{ margin: 0, color: "#8a97aa", lineHeight: 1.55 }}>{updateAvailable ? `Доступна новая версия ${updateVersion}.` : updateMessage || "Проверяй наличие новой версии прямо в приложении."}</p>{updateAvailable ? <button className="sxron-primary" style={{ width: "100%", marginTop: 16 }} onClick={onStartUpdate} disabled={updateChecking}>Обновить до {updateVersion}</button> : <button className="sxron-secondary" style={{ width: "100%", marginTop: 16 }} onClick={onCheckUpdates} disabled={updateChecking}>{updateChecking ? "Проверяем…" : "Проверить обновления"}</button>}{updateAvailable && <button className="sxron-secondary" style={{ width: "100%", marginTop: 9 }} onClick={onCheckUpdates} disabled={updateChecking}>Проверить ещё раз</button>}</div>
       </div>
       <div className="user-profile-column">
         <div className="sxron-manage-card"><div className="sxron-card-head"><div><span>SELLER</span><h2>Мои объявления</h2></div><button className="sxron-primary sxron-small" onClick={() => { setEditingProduct(null); setManageMode("create"); }}>＋ Добавить</button></div>{manageMode === "create" || manageMode === "edit" ? <ProductEditor product={editingProduct} userId={user?.id || 0} onCancel={onCancelEdit} onSave={onSaveProduct} /> : <div className="sxron-manage-list">{managedProducts.length ? managedProducts.map((product) => <div className="sxron-manage-row" key={product.id}><div><b>{product.name}</b><span>{product.price.toLocaleString("ru-RU")} ₽ · {productCity(product)}</span></div><div><button onClick={() => { setEditingProduct(product); setManageMode("edit"); }}>✎</button><button onClick={() => onDeleteProduct(product.id)}>⌫</button></div></div>) : <p className="sxron-muted">Ваши объявления появятся здесь.</p>}</div>}</div>
