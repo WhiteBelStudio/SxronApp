@@ -46,24 +46,42 @@ export function getClientIdentifier(): string { return getClientId(); }
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = getAuthToken();
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "X-SXRON-Client-ID": getClientId(),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options?.headers ?? {}),
-    },
-  });
-  if (!response.ok) {
-    let message = `Ошибка API: ${response.status}`;
+  const isReadRequest = !options?.method || options.method.toUpperCase() === "GET";
+  const maxAttempts = isReadRequest ? 3 : 1;
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const data = await response.json();
-      if (typeof data?.detail === "string") message = data.detail;
-    } catch { /* Ответ не содержит JSON. */ }
-    throw new Error(message);
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        cache: isReadRequest ? "no-store" : options?.cache,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": isReadRequest ? "no-cache" : "no-cache",
+          "X-SXRON-Client-ID": getClientId(),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(options?.headers ?? {}),
+        },
+      });
+
+      if (!response.ok) {
+        let message = `Ошибка API: ${response.status}`;
+        try {
+          const data = await response.json();
+          if (typeof data?.detail === "string") message = data.detail;
+        } catch { /* Ответ не содержит JSON. */ }
+        throw new Error(message);
+      }
+      return response.json() as Promise<T>;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts) break;
+      await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+    }
   }
-  return response.json() as Promise<T>;
+
+  if (lastError instanceof Error) throw lastError;
+  throw new Error("Не удалось связаться с сервером SXRON.");
 }
 
 export interface AuthStartResponse {
