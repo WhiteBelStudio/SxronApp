@@ -5,12 +5,14 @@ import uvicorn
 try:
     from server.mail_config import register_mail_config
     from server.public_api import app, init_db
+    import server.admin_center  # noqa: F401 - registers admin control center routes
     from server.auth import register_auth
     from server.session_tracking import register_session_tracking
 except ModuleNotFoundError:
     # PyInstaller may execute this launcher with server/ as its import root.
     from mail_config import register_mail_config
     from public_api import app, init_db
+    import admin_center  # noqa: F401 - registers admin control center routes
     from auth import register_auth
     from session_tracking import register_session_tracking
 
