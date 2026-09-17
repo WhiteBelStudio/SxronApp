@@ -4,13 +4,14 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import AuthGate from "./components/AuthGate";
 import AdminCenter from "./components/AdminCenter";
+import OwnerPasswordBootstrap from "./components/OwnerPasswordBootstrap";
 import PublicSellerProfile from "./components/PublicSellerProfile";
 import LegalCenter from "./components/LegalCenter";
 
 import "./styles/global.css";
 import "./styles/user-profile.css";
 
-const APP_VERSION = "1.1.20";
+const APP_VERSION = "1.2.0";
 
 function syncStaticVersionLabels() {
   document.title = `SXRON Marketplace ${APP_VERSION}`;
@@ -30,6 +31,7 @@ createRoot(rootElement).render(
     <AuthGate>
       <App />
       <AdminCenter />
+      <OwnerPasswordBootstrap />
       <PublicSellerProfile />
       <LegalCenter />
     </AuthGate>
