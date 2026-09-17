@@ -9,6 +9,7 @@ import {
 import App from "./App";
 import AuthGate from "./components/AuthGate";
 import ForcedUpdater from "./components/ForcedUpdater";
+import PublicSellerProfile from "./components/PublicSellerProfile";
 
 import "./styles/global.css";
 import "./styles/user-profile.css";
@@ -24,6 +25,7 @@ createRoot(rootElement).render(
     <AuthGate>
       <App />
       <ForcedUpdater />
+      <PublicSellerProfile />
     </AuthGate>
   </StrictMode>,
 );
