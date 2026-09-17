@@ -39,7 +39,7 @@ def db() -> sqlite3.Connection:
 
 
 def ensure_column(connection: sqlite3.Connection, table: str, column: str, definition: str) -> None:
-    columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table}").fetchall()}
+    columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
     if column not in columns:
         connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
@@ -210,6 +210,11 @@ def user_dict(user: sqlite3.Row, connection: sqlite3.Connection) -> dict[str, An
         city_row = connection.execute("SELECT * FROM cities WHERE id = ?", (user["city_id"],)).fetchone()
         if city_row:
             city = {"id": city_row["id"], "name": city_row["name"], "slug": city_row["slug"]}
+    try:
+        last_seen_dt = datetime.fromisoformat(user["last_seen_at"])
+        is_online = (datetime.now(timezone.utc) - last_seen_dt).total_seconds() < 300
+    except (TypeError, ValueError):
+        is_online = False
     return {
         "id": user["id"],
         "username": user["username"],
@@ -234,7 +239,7 @@ def user_dict(user: sqlite3.Row, connection: sqlite3.Connection) -> dict[str, An
         "rating": None,
         "reviews_count": 0,
         "last_seen_at": user["last_seen_at"],
-        "is_online": (datetime.now(timezone.utc) - datetime.fromisoformat(user["last_seen_at"])).total_seconds() < 300,
+        "is_online": is_online,
         "verified": is_owner(user),
     }
 
