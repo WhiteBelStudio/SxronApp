@@ -119,10 +119,16 @@ jobs:
           if (!(Test-Path $exe)) { throw "Installer not found: $exe" }
           if (!(Test-Path $latest)) { throw 'latest.yml missing' }
 
+          $release = gh release view $tag --json databaseId | ConvertFrom-Json
+          $releaseId = $release.databaseId
+          if (!$releaseId) { throw "Release not found: $tag" }
+          Write-Host "Release ID: $releaseId"
+
+          $uploadUrl = "https://uploads.github.com/repos/WhiteBelStudio/SxronApp/releases/$releaseId/assets?name=$([uri]::EscapeDataString((Split-Path $exe -Leaf)))"
           $uploaded = $false
           for ($attempt = 1; $attempt -le 5; $attempt++) {
             Write-Host "Uploading Windows installer, attempt $attempt/5..."
-            gh release upload $tag $exe --clobber
+            & curl.exe --fail-with-body --http1.1 --retry 3 --retry-delay 10 --retry-all-errors --connect-timeout 30 --max-time 1800 -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'Content-Type: application/octet-stream' --data-binary "@$exe" $uploadUrl
             if ($LASTEXITCODE -eq 0) {
               $uploaded = $true
               break
