@@ -78,11 +78,13 @@ jobs:
         run: npm install --prefer-offline --no-audit --no-fund
 
       - name: Check version
+        id: version
         shell: pwsh
         run: |
           $v = node -p "require('./package.json').version"
           Write-Host "Version $v"
-          if ($v -ne '1.2.0') { throw "Expected 1.2.0" }
+          if ($v -ne '1.2.1') { throw "Expected 1.2.1" }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Build web
         run: npm run build
@@ -95,18 +97,23 @@ jobs:
       - name: Verify installer
         shell: pwsh
         run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $expected = "SXRON-Marketplace-Setup-$version-x64.exe"
           $files = @(Get-ChildItem release/SXRON-Marketplace-Setup-*.exe)
-          if ($files.Count -ne 1) { throw 'Installer missing' }
+          if ($files.Count -ne 1) { throw 'Installer missing or multiple installers found' }
+          if ($files[0].Name -ne $expected) { throw "Unexpected installer name: $($files[0].Name), expected $expected" }
           if ($files[0].Length -lt 1000000) { throw 'Installer invalid' }
           if (!(Test-Path release/latest.yml)) { throw 'latest.yml missing' }
+          $latest = Get-Content release/latest.yml -Raw
+          if ($latest -notmatch [regex]::Escape("version: $version")) { throw 'latest.yml version mismatch' }
 
-      - name: Publish v1.2.0
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v1.2.0
-          name: SXRON Marketplace v1.2.0
+          tag_name: v${{ steps.version.outputs.version }}
+          name: SXRON Marketplace v${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
           overwrite_files: true
