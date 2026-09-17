@@ -28,8 +28,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: Install required Android SDK components
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Install Node dependencies
         run: npm install --no-audit --no-fund
@@ -67,4 +70,5 @@ jobs:
           draft: false
           prerelease: false
           overwrite_files: true
+          generate_release_notes: true
           files: release/SXRON-Marketplace-1.2.3-android.apk
