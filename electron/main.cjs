@@ -28,7 +28,6 @@ function readBuildInfo() {
 }
 
 const BUILD_INFO = readBuildInfo();
-const CURRENT_BUILD = String(BUILD_INFO.version || BUILD_INFO.build || CURRENT_VERSION);
 
 function registerWindowsAssociations() {
   if (process.platform !== 'win32' || isDev) return;
@@ -226,71 +225,46 @@ function downloadFile(url, destination) {
 async function downloadAndInstallGitHubUpdate() {
   if (!latestRelease?.asset) await checkForGitHubUpdate();
   if (!latestRelease?.asset) throw new Error('Обновление не найдено.');
-
   const asset = latestRelease.asset;
   const updateDir = path.join(app.getPath('userData'), 'updates');
   fs.mkdirSync(updateDir, { recursive: true });
   const installerPath = path.join(updateDir, asset.name);
   sendUpdateUi('download-start', { targetVersion: latestRelease.targetVersion });
   await downloadFile(asset.browser_download_url, installerPath);
-
   const expectedDigest = String(asset.digest || '').replace(/^sha256:/i, '').toLowerCase();
   if (expectedDigest) {
-    const hash = crypto.createHash('sha256');
-    const data = fs.readFileSync(installerPath);
-    const actualDigest = hash.update(data).digest('hex').toLowerCase();
-    if (actualDigest !== expectedDigest) {
-      fs.rmSync(installerPath, { force: true });
-      throw new Error('Проверка SHA-256 установщика не прошла. Установка отменена.');
-    }
+    const actualDigest = crypto.createHash('sha256').update(fs.readFileSync(installerPath)).digest('hex').toLowerCase();
+    if (actualDigest !== expectedDigest) { fs.rmSync(installerPath, { force: true }); throw new Error('Проверка SHA-256 установщика не прошла. Установка отменена.'); }
   }
-
-  if (process.platform !== 'win32') {
-    await shell.openPath(installerPath);
-    return;
-  }
-
+  if (process.platform !== 'win32') { await shell.openPath(installerPath); return; }
   const installDir = path.dirname(app.getPath('exe'));
   sendUpdateUi('update-ready', { currentVersion: CURRENT_VERSION, targetVersion: latestRelease.targetVersion, percent: 100 });
-
-  const child = spawn(installerPath, ['--updated', '/S', `/D=${installDir}`, '--force-run'], {
-    detached: true,
-    stdio: 'ignore',
-    windowsHide: true,
-  });
+  const child = spawn(installerPath, ['--updated', '/S', `/D=${installDir}`, '--force-run'], { detached: true, stdio: 'ignore', windowsHide: true });
   child.unref();
   setTimeout(() => app.quit(), 250);
 }
 
 async function createWindow() {
-  const win = new BrowserWindow({
-    width: 1440,
-    height: 920,
-    minWidth: 1000,
-    minHeight: 700,
-    title: `SXRON Marketplace ${CURRENT_VERSION}`,
-    backgroundColor: '#07090f',
-    autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
-  });
+  const win = new BrowserWindow({ width: 1440, height: 920, minWidth: 1000, minHeight: 700, title: `SXRON Marketplace ${CURRENT_VERSION}`, backgroundColor: '#07090f', autoHideMenuBar: true, webPreferences: { contextIsolation: true, nodeIntegration: false } });
   mainWindow = win;
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => console.error('SXRON renderer load failed:', errorCode, errorDescription));
   if (isDev) await win.loadURL('http://localhost:5173');
   else await win.loadFile(path.join(app.getAppPath(), 'dist', 'index.html'));
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url === 'sxron://check-updates') { checkForGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) })); return { action: 'deny' }; }
-    if (url === 'sxron://start-update') { downloadAndInstallGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) })); return { action: 'deny' }; }
+    if (url === 'sxron://check-updates') {
+      checkForGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) }));
+      return { action: 'deny' };
+    }
+    if (url === 'sxron://start-update') {
+      downloadAndInstallGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) }));
+      return { action: 'deny' };
+    }
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
   win.webContents.on('did-finish-load', () => {
     sendUpdateUi('app-version', { version: CURRENT_VERSION });
-    if (!isDev) {
-      setTimeout(() => {
-        checkForGitHubUpdate().catch((error) => console.warn('SXRON automatic update check:', error?.message || error));
-      }, 2200);
-    }
   });
   win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
 }
@@ -308,6 +282,5 @@ app.whenReady().then(async () => {
   }
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow().catch(console.error); });
 });
-
 app.on('before-quit', () => stopApi());
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
