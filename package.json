@@ -19,7 +19,6 @@
     "@capacitor/android": "^7.4.3",
     "@capacitor/core": "^7.4.3",
     "@capacitor/ios": "^7.4.3",
-    "@vitejs/plugin-react": "latest",
     "axios": "latest",
     "lucide-react": "latest",
     "react": "latest",
@@ -28,8 +27,6 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.3",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
     "concurrently": "latest",
     "electron": "latest",
@@ -40,32 +37,10 @@
   "build": {
     "appId": "com.sxron.marketplace",
     "productName": "SXRON Marketplace",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "server-dist/**/*",
-      "package.json"
-    ],
-    "win": {
-      "target": "nsis",
-      "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "WhiteBelStudio",
-        "repo": "SxronApp",
-        "releaseType": "release"
-      }
-    ]
+    "directories": {"output": "release"},
+    "files": ["dist/**/*", "electron/**/*", "server-dist/**/*", "package.json"],
+    "win": {"target": "nsis", "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}"},
+    "nsis": {"oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true},
+    "publish": [{"provider": "github", "owner": "WhiteBelStudio", "repo": "SxronApp", "releaseType": "release"}]
   }
 }
