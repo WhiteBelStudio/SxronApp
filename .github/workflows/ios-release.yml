@@ -1,8 +1,6 @@
 name: SXRON iOS Release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -33,7 +31,7 @@ jobs:
         run: |
           mkdir -p release
           cd ios/build/Build/Products/Debug-iphoneos
-          zip -r ../../../../../../release/SXRON-Marketplace-1.2.3-ios.zip App.app
+          zip -r "$GITHUB_WORKSPACE/release/SXRON-Marketplace-1.2.3-ios.zip" App.app
       - name: Publish iOS build
         uses: softprops/action-gh-release@v2
         env:
