@@ -68,7 +68,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r server/requirements.txt
           python -c "import multipart; print('python-multipart:', multipart.__file__)"
-          python -m pip install pyinstaller pillow cairosvg
+          python -m pip install pyinstaller
 
       - name: Validate SXRON API source
         shell: pwsh
@@ -120,16 +120,6 @@ jobs:
 
       - name: Install Node dependencies
         run: npm install --prefer-offline --no-audit --no-fund
-
-      - name: Generate SXRON application icon
-        shell: pwsh
-        run: |
-          if (Test-Path 'build/sxron-icon.png') { Remove-Item 'build/sxron-icon.png' -Force }
-          if (Test-Path 'build/sxron-icon.ico') { Remove-Item 'build/sxron-icon.ico' -Force }
-          python -c "import cairosvg; cairosvg.svg2png(url='public/sxron-logo.svg',write_to='build/sxron-icon.png',output_width=512,output_height=512)"
-          python -c "from PIL import Image; im=Image.open('build/sxron-icon.png').convert('RGBA'); im.save('build/sxron-icon.ico',sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])"
-          if (-not (Test-Path 'build/sxron-icon.ico')) { throw 'SXRON ICO icon was not created.' }
-          Write-Host 'Official SXRON application icon generated.'
 
       - name: Read app version
         id: version
