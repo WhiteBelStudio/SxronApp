@@ -105,6 +105,7 @@ jobs:
           if (!(Test-Path release/latest.yml)) { throw 'latest.yml missing' }
           $latest = Get-Content release/latest.yml -Raw
           if ($latest -notmatch [regex]::Escape("version: $version")) { throw 'latest.yml version mismatch' }
+          Write-Host "Installer size: $([math]::Round($files[0].Length / 1MB, 2)) MB"
 
       - name: Publish release assets
         shell: pwsh
@@ -114,9 +115,25 @@ jobs:
           $version = '${{ steps.version.outputs.version }}'
           $tag = "v$version"
           $exe = "release/SXRON-Marketplace-Setup-$version-x64.exe"
+          $latest = 'release/latest.yml'
           if (!(Test-Path $exe)) { throw "Installer not found: $exe" }
-          if (!(Test-Path release/latest.yml)) { throw 'latest.yml missing' }
-          gh release upload $tag $exe release/latest.yml --clobber
+          if (!(Test-Path $latest)) { throw 'latest.yml missing' }
+
+          $uploaded = $false
+          for ($attempt = 1; $attempt -le 5; $attempt++) {
+            Write-Host "Uploading Windows installer, attempt $attempt/5..."
+            gh release upload $tag $exe --clobber
+            if ($LASTEXITCODE -eq 0) {
+              $uploaded = $true
+              break
+            }
+            Write-Warning "EXE upload failed with exit code $LASTEXITCODE"
+            if ($attempt -lt 5) { Start-Sleep -Seconds 20 }
+          }
+          if (!$uploaded) { throw 'Windows installer upload failed after 5 attempts' }
+
+          gh release upload $tag $latest --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'latest.yml upload failed' }
 
       - name: Verify published assets
         shell: pwsh
