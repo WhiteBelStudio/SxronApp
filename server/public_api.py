@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 
 import server.main as base
 
 # Keep the API version aligned with the desktop/web package version while
 # retaining server/main.py as the source of the existing application routes.
-base.APP_VERSION = "1.1.5"
+base.APP_VERSION = "1.1.6"
 base.app.version = base.APP_VERSION
 init_db = base.init_db
 
