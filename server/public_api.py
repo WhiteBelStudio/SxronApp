@@ -9,7 +9,7 @@ from pydantic import BaseModel
 import server.main as base
 
 app = base.app
-base.APP_VERSION = "1.1.17"
+base.APP_VERSION = "1.1.19"
 base.app.version = base.APP_VERSION
 init_db = base.init_db
 
