@@ -1,0 +1,168 @@
+name: SXRON Windows Release Hotfix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/launcher.py'
+      - 'server/owner_bootstrap.py'
+      - 'server/**'
+      - 'src/**'
+      - 'electron/**'
+      - 'package.json'
+      - 'index.html'
+      - 'update-manifest.json'
+      - '.github/workflows/windows-release-hotfix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sxron-windows-release-hotfix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: server/requirements.txt
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r server/requirements.txt
+          python -c "import multipart; print('python-multipart:', multipart.__file__)"
+          python -m pip install pyinstaller
+
+      - name: Prepare fixed launcher
+        shell: pwsh
+        run: |
+          $source = Get-Content 'server/launcher.py' -Raw
+          $source = $source.Replace('from server.public_api import app, db, init_db', "from server.public_api import app`n    from server.main import db, init_db")
+          $source = $source.Replace('from public_api import app, db, init_db', "from public_api import app`n    from main import db, init_db")
+          Set-Content -Path 'build/launcher-hotfix.py' -Value $source -Encoding UTF8
+
+      - name: Validate source
+        shell: pwsh
+        run: python -c "import server.main; import server.public_api; print('SXRON API source import: OK')"
+
+      - name: Build bundled API
+        shell: pwsh
+        run: |
+          if (Test-Path backend) { Remove-Item backend -Recurse -Force }
+          if (Test-Path build/pyinstaller) { Remove-Item build/pyinstaller -Recurse -Force }
+          New-Item -ItemType Directory -Path backend | Out-Null
+          New-Item -ItemType Directory -Path build | Out-Null
+          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --hidden-import=multipart --hidden-import=multipart.multipart build/launcher-hotfix.py
+          if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) { throw 'Bundled SXRON API executable was not created.' }
+
+      - name: Smoke test bundled API
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'backend\sxron-api\sxron-api.exe'
+          $smokeData = Join-Path $PWD 'build\smoke-data'
+          $stdout = Join-Path $PWD 'build\smoke-api.stdout.log'
+          $stderr = Join-Path $PWD 'build\smoke-api.stderr.log'
+          if (Test-Path $smokeData) { Remove-Item $smokeData -Recurse -Force }
+          New-Item -ItemType Directory -Path $smokeData | Out-Null
+          $oldDataDir = $env:SXRON_DATA_DIR
+          $env:SXRON_DATA_DIR = $smokeData
+          $proc = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+          $healthy = $false
+          try {
+            for ($i = 0; $i -lt 30; $i++) {
+              Start-Sleep -Seconds 1
+              if ($proc.HasExited) { break }
+              try {
+                $response = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 2
+                if ($response.status -eq 'ok') { $healthy = $true; break }
+              } catch {}
+            }
+            if (-not $healthy) {
+              if (Test-Path $stdout) { Get-Content $stdout }
+              if (Test-Path $stderr) { Get-Content $stderr }
+              throw 'Bundled SXRON API failed the smoke test.'
+            }
+          } finally {
+            if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+            if ($null -eq $oldDataDir) { Remove-Item Env:SXRON_DATA_DIR -ErrorAction SilentlyContinue } else { $env:SXRON_DATA_DIR = $oldDataDir }
+          }
+
+      - name: Install Node dependencies
+        run: npm install --prefer-offline --no-audit --no-fund
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          if ($version -ne '1.2.0') { throw "Expected version 1.2.0, got $version" }
+
+      - name: Build web application
+        run: npm run build
+
+      - name: Write version identity
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $commit = '${{ github.sha }}'
+          $tag = "v$version"
+          @{ version = $version; build = $version; commit = $commit; releaseTag = $tag } | ConvertTo-Json | Set-Content -Path 'dist/build-info.json' -Encoding UTF8
+
+      - name: Build Windows installer
+        run: npx electron-builder --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Verify artifacts
+        shell: pwsh
+        run: |
+          $setup = @(Get-ChildItem 'release/SXRON-Marketplace-Setup-*.exe')
+          if ($setup.Count -ne 1) { throw "Expected exactly one installer, found $($setup.Count)." }
+          if ($setup[0].Length -lt 1000000) { throw 'Installer looks invalid.' }
+          if (-not (Test-Path 'release/latest.yml')) { throw 'latest.yml missing.' }
+
+      - name: Verify checksum
+        shell: pwsh
+        run: |
+          $setup = @(Get-ChildItem 'release/SXRON-Marketplace-Setup-*.exe')
+          $latest = Get-Content 'release/latest.yml' -Raw
+          $fileMatch = [regex]::Match($latest, '(?m)^\s*-\s+url:\s*(.+)$')
+          $shaMatch = [regex]::Match($latest, '(?m)^\s+sha512:\s*(.+)$')
+          if (-not $fileMatch.Success -or -not $shaMatch.Success) { throw 'latest.yml checksum metadata is incomplete.' }
+          if ($fileMatch.Groups[1].Value.Trim() -ne $setup[0].Name) { throw 'latest.yml installer mismatch.' }
+          $hash = [System.Security.Cryptography.SHA512]::Create()
+          try { $actual = [Convert]::ToBase64String($hash.ComputeHash([System.IO.File]::ReadAllBytes($setup[0].FullName))) } finally { $hash.Dispose() }
+          if ($actual -ne $shaMatch.Groups[1].Value.Trim()) { throw 'SHA-512 mismatch.' }
+
+      - name: Create or update v1.2.0 release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: SXRON Marketplace v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          overwrite_files: true
+          files: |
+            release/SXRON-Marketplace-Setup-*.exe
+            release/latest.yml
