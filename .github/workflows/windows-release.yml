@@ -142,13 +142,16 @@ jobs:
         shell: pwsh
         run: |
           gh release view v --repo WhiteBelStudio/SxronApp | Out-Null
-          if ($LASTEXITCODE -eq 0) {
+          $releaseExists = ($LASTEXITCODE -eq 0)
+          $global:LASTEXITCODE = 0
+          if ($releaseExists) {
             Write-Host 'Removing malformed GitHub release tag: v'
             gh release delete v --yes --cleanup-tag --repo WhiteBelStudio/SxronApp
             if ($LASTEXITCODE -ne 0) { throw 'Failed to remove malformed release tag v' }
           } else {
             Write-Host 'Malformed release tag v not present.'
           }
+          $global:LASTEXITCODE = 0
 
       - name: Build web application
         run: npm run build
@@ -217,9 +220,11 @@ jobs:
           if (-not $latest) { throw 'latest.yml missing' }
 
           gh release view $tag --repo WhiteBelStudio/SxronApp | Out-Null
-          if ($LASTEXITCODE -ne 0) {
+          $releaseExists = ($LASTEXITCODE -eq 0)
+          $global:LASTEXITCODE = 0
+          if (-not $releaseExists) {
             Write-Host "Release $tag does not exist yet. Creating it now..."
-            gh release create $tag --title "SXRON Marketplace $version" --notes "SXRON Marketplace $version — desktop redesign and release update."
+            gh release create $tag --title "SXRON Marketplace $version" --notes "SXRON Marketplace $version — desktop redesign and release update." --repo WhiteBelStudio/SxronApp
             if ($LASTEXITCODE -ne 0) { throw "Failed to create release: $tag" }
           }
 
@@ -239,6 +244,7 @@ jobs:
           $version = '${{ steps.version.outputs.version }}'
           $tag = "v$version"
           $assets = gh release view $tag --json assets | ConvertFrom-Json
+          $global:LASTEXITCODE = 0
           $expected = "SXRON-Marketplace-Setup-$version-x64.exe"
           if (!($assets.assets.name -contains $expected)) { throw "Published EXE missing: $expected" }
           if (!($assets.assets.name -contains 'latest.yml')) { throw 'Published latest.yml missing' }
