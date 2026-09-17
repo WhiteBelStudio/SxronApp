@@ -42,8 +42,10 @@ jobs:
       - name: Install Node dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Check version
-        run: test "$(node -p "require('./package.json').version")" = "1.2.3"
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
 
       - name: Build web
         run: npm run build
@@ -61,19 +63,21 @@ jobs:
 
       - name: Verify APK
         run: |
+          VERSION='${{ steps.version.outputs.version }}'
           test -s android/app/build/outputs/apk/debug/app-debug.apk
           mkdir -p release
-          cp android/app/build/outputs/apk/debug/app-debug.apk release/SXRON-Marketplace-1.2.3-android.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk "release/SXRON-Marketplace-${VERSION}-android.apk"
+          ls -lh release
 
       - name: Publish APK
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v1.2.3
-          name: SXRON Marketplace v1.2.3
+          tag_name: v${{ steps.version.outputs.version }}
+          name: SXRON Marketplace v${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
           overwrite_files: true
           generate_release_notes: true
-          files: release/SXRON-Marketplace-1.2.3-android.apk
+          files: release/SXRON-Marketplace-*-android.apk
