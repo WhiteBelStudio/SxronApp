@@ -57,7 +57,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
         cache: isReadRequest ? "no-store" : options?.cache,
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": isReadRequest ? "no-cache" : "no-cache",
+          "Cache-Control": "no-cache",
           "X-SXRON-Client-ID": getClientId(),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(options?.headers ?? {}),
@@ -93,6 +93,28 @@ export interface AuthStartResponse {
   debug_code?: string;
 }
 
+export interface RecoveryStartResponse {
+  accepted: boolean;
+  message: string;
+  challenge_id?: string;
+  destination?: string;
+  expires_in?: number;
+  debug_code?: string;
+}
+
+export interface RecoveryVerifyResponse {
+  verified: boolean;
+  reset_token: string;
+  expires_in: number;
+}
+
+export interface RecoveryResetResponse {
+  authenticated: boolean;
+  session_token: string;
+  user_id: number;
+  message: string;
+}
+
 export interface AuthUser extends User {
   email?: string | null;
   email_verified?: boolean;
@@ -125,6 +147,27 @@ export async function verifyLogin(challengeId: string, code: string): Promise<Au
 export async function setPassword(password: string): Promise<void> { await request("/auth/password/set", { method: "POST", body: JSON.stringify({ password }) }); }
 export async function getAuthMe(): Promise<AuthMeResponse> { return request<AuthMeResponse>("/auth/me"); }
 export async function logout(): Promise<void> { try { await request("/auth/logout", { method: "POST" }); } finally { clearAuthToken(); } }
+
+export async function startOwnerRecovery(email: string): Promise<RecoveryStartResponse> {
+  return request<RecoveryStartResponse>("/auth/recovery/start", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyOwnerRecovery(challengeId: string, code: string): Promise<RecoveryVerifyResponse> {
+  return request<RecoveryVerifyResponse>("/auth/recovery/verify", {
+    method: "POST",
+    body: JSON.stringify({ challenge_id: challengeId, code }),
+  });
+}
+
+export async function resetOwnerPassword(resetToken: string, password: string): Promise<RecoveryResetResponse> {
+  return request<RecoveryResetResponse>("/auth/recovery/reset", {
+    method: "POST",
+    body: JSON.stringify({ reset_token: resetToken, password }),
+  });
+}
 
 export interface SessionInfo {
   id: number;
