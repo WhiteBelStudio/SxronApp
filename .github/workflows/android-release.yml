@@ -28,13 +28,14 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
       - name: Install Node dependencies
         run: npm install --no-audit --no-fund
 
       - name: Check version
-        run: |
-          test "$(node -p "require('./package.json').version")" = "1.2.3"
+        run: test "$(node -p "require('./package.json').version")" = "1.2.3"
 
       - name: Build web
         run: npm run build
