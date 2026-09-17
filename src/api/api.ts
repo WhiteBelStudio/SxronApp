@@ -3,6 +3,7 @@ import type {
   City,
   CreateProductData,
   Product,
+  ProfileAccent,
   User,
 } from "../types";
 
@@ -39,9 +40,7 @@ export function clearAuthToken(): void {
   localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
 }
 
-export function getClientIdentifier(): string {
-  return getClientId();
-}
+export function getClientIdentifier(): string { return getClientId(); }
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = getAuthToken();
@@ -59,9 +58,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     try {
       const data = await response.json();
       if (typeof data?.detail === "string") message = data.detail;
-    } catch {
-      // Ответ не содержит JSON.
-    }
+    } catch { /* Ответ не содержит JSON. */ }
     throw new Error(message);
   }
   return response.json() as Promise<T>;
@@ -98,74 +95,16 @@ export interface AuthResult {
   user_id?: number;
 }
 
-export async function startOwnerLogin(): Promise<AuthResult> {
-  return request<AuthResult>("/auth/owner", { method: "POST" });
-}
-
-export async function startRegistration(
-  method: "email" | "phone",
-  identifier: string,
-  password?: string,
-): Promise<AuthStartResponse> {
-  return request<AuthStartResponse>("/auth/start", {
-    method: "POST",
-    body: JSON.stringify({ method, identifier, ...(password ? { password } : {}) }),
-  });
-}
-
-export async function verifyRegistration(challengeId: string, code: string): Promise<AuthResult> {
-  return request<AuthResult>("/auth/verify", {
-    method: "POST",
-    body: JSON.stringify({ challenge_id: challengeId, code }),
-  });
-}
-
-export async function resendAuthCode(challengeId: string): Promise<AuthStartResponse> {
-  return request<AuthStartResponse>("/auth/resend", {
-    method: "POST",
-    body: JSON.stringify({ challenge_id: challengeId }),
-  });
-}
-
-export async function loginWithPassword(identifier: string, password: string, remember: boolean): Promise<AuthResult> {
-  return request<AuthResult>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ identifier, password, remember }),
-  });
-}
-
-export async function startLogin(identifier: string): Promise<AuthStartResponse> {
-  return request<AuthStartResponse>("/auth/login/start", {
-    method: "POST",
-    body: JSON.stringify({ identifier }),
-  });
-}
-
-export async function verifyLogin(challengeId: string, code: string): Promise<AuthResult> {
-  return request<AuthResult>("/auth/login/verify", {
-    method: "POST",
-    body: JSON.stringify({ challenge_id: challengeId, code }),
-  });
-}
-
-export async function setPassword(password: string): Promise<void> {
-  await request("/auth/password/set", {
-    method: "POST",
-    body: JSON.stringify({ password }),
-  });
-}
-
-export async function getAuthMe(): Promise<AuthMeResponse> {
-  return request<AuthMeResponse>("/auth/me");
-}
-
-export async function logout(): Promise<void> {
-  try {
-    await request("/auth/logout", { method: "POST" });
-  } finally {
-    clearAuthToken();
-  }
-}
+export async function startOwnerLogin(): Promise<AuthResult> { return request<AuthResult>("/auth/owner", { method: "POST" }); }
+export async function startRegistration(method: "email" | "phone", identifier: string, password?: string): Promise<AuthStartResponse> { return request<AuthStartResponse>("/auth/start", { method: "POST", body: JSON.stringify({ method, identifier, ...(password ? { password } : {}) }) }); }
+export async function verifyRegistration(challengeId: string, code: string): Promise<AuthResult> { return request<AuthResult>("/auth/verify", { method: "POST", body: JSON.stringify({ challenge_id: challengeId, code }) }); }
+export async function resendAuthCode(challengeId: string): Promise<AuthStartResponse> { return request<AuthStartResponse>("/auth/resend", { method: "POST", body: JSON.stringify({ challenge_id: challengeId }) }); }
+export async function loginWithPassword(identifier: string, password: string, remember: boolean): Promise<AuthResult> { return request<AuthResult>("/auth/login", { method: "POST", body: JSON.stringify({ identifier, password, remember }) }); }
+export async function startLogin(identifier: string): Promise<AuthStartResponse> { return request<AuthStartResponse>("/auth/login/start", { method: "POST", body: JSON.stringify({ identifier }) }); }
+export async function verifyLogin(challengeId: string, code: string): Promise<AuthResult> { return request<AuthResult>("/auth/login/verify", { method: "POST", body: JSON.stringify({ challenge_id: challengeId, code }) }); }
+export async function setPassword(password: string): Promise<void> { await request("/auth/password/set", { method: "POST", body: JSON.stringify({ password }) }); }
+export async function getAuthMe(): Promise<AuthMeResponse> { return request<AuthMeResponse>("/auth/me"); }
+export async function logout(): Promise<void> { try { await request("/auth/logout", { method: "POST" }); } finally { clearAuthToken(); } }
 
 export interface SessionInfo {
   id: number;
@@ -185,26 +124,11 @@ export interface SessionInfo {
   first_seen_at?: string | null;
   last_seen_at?: string | null;
 }
-
-export interface SessionsResponse {
-  sessions: SessionInfo[];
-}
-
-export async function getSessions(): Promise<SessionsResponse> {
-  return request<SessionsResponse>("/auth/sessions");
-}
-
-export async function revokeSession(sessionId: number): Promise<{ ok: boolean }> {
-  return request<{ ok: boolean }>(`/auth/sessions/${sessionId}`, { method: "DELETE" });
-}
-
-export async function revokeAllSessions(): Promise<{ ok: boolean }> {
-  return request<{ ok: boolean }>("/auth/sessions/revoke-all", { method: "POST" });
-}
-
-export async function getAdminSessions(): Promise<SessionsResponse> {
-  return request<SessionsResponse>("/admin/sessions");
-}
+export interface SessionsResponse { sessions: SessionInfo[]; }
+export async function getSessions(): Promise<SessionsResponse> { return request<SessionsResponse>("/auth/sessions"); }
+export async function revokeSession(sessionId: number): Promise<{ ok: boolean }> { return request<{ ok: boolean }>(`/auth/sessions/${sessionId}`, { method: "DELETE" }); }
+export async function revokeAllSessions(): Promise<{ ok: boolean }> { return request<{ ok: boolean }>("/auth/sessions/revoke-all", { method: "POST" }); }
+export async function getAdminSessions(): Promise<SessionsResponse> { return request<SessionsResponse>("/admin/sessions"); }
 
 export async function getProducts(params?: { search?: string; category?: string; city?: string }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
@@ -214,70 +138,32 @@ export async function getProducts(params?: { search?: string; category?: string;
   const query = searchParams.toString();
   return request<Product[]>(`/products${query ? `?${query}` : ""}`);
 }
+export async function getProduct(productId: number): Promise<Product> { return request<Product>(`/products/${productId}`); }
+export async function createProduct(data: CreateProductData): Promise<Product> { return request<Product>("/products", { method: "POST", body: JSON.stringify(data) }); }
+export async function getCategories(): Promise<Category[]> { return request<Category[]>("/categories"); }
+export async function getCities(): Promise<City[]> { return request<City[]>("/cities"); }
+export async function checkHealth(): Promise<{ status: string; app: string; version: string }> { return request("/health"); }
 
-export async function getProduct(productId: number): Promise<Product> {
-  return request<Product>(`/products/${productId}`);
+export interface AdminUser { id: number; username: string | null; first_name: string | null; last_name: string | null; role: "owner" | "admin"; added_at: string; }
+export interface MeResponse { user: User; is_admin: boolean; is_owner: boolean; }
+export interface AuthMeResponse { user: AuthUser; is_admin: boolean; is_owner: boolean; }
+export interface AdminsResponse { admins: AdminUser[]; }
+export interface AdminMutationResponse { ok: boolean; message: string; admin?: AdminUser | null; }
+
+export interface ProfileUpdateData {
+  display_name?: string;
+  bio?: string;
+  avatar_url?: string | null;
+  profile_accent?: ProfileAccent;
+  username_visible?: boolean;
+  badges_visible?: boolean;
+  city_id?: number | null;
 }
 
-export async function createProduct(data: CreateProductData): Promise<Product> {
-  return request<Product>("/products", { method: "POST", body: JSON.stringify(data) });
-}
-
-export async function getCategories(): Promise<Category[]> {
-  return request<Category[]>("/categories");
-}
-
-export async function getCities(): Promise<City[]> {
-  return request<City[]>("/cities");
-}
-
-export async function checkHealth(): Promise<{ status: string; app: string; version: string }> {
-  return request("/health");
-}
-
-export interface AdminUser {
-  id: number;
-  username: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  role: "owner" | "admin";
-  added_at: string;
-}
-
-export interface MeResponse {
-  user: User;
-  is_admin: boolean;
-  is_owner: boolean;
-}
-
-export interface AuthMeResponse {
-  user: AuthUser;
-  is_admin: boolean;
-  is_owner: boolean;
-}
-
-export interface AdminsResponse {
-  admins: AdminUser[];
-}
-
-export interface AdminMutationResponse {
-  ok: boolean;
-  message: string;
-  admin?: AdminUser | null;
-}
-
-export async function getMe(): Promise<MeResponse> {
-  return request<MeResponse>("/me");
-}
-
-export async function getAdmins(): Promise<AdminsResponse> {
-  return request<AdminsResponse>("/admins");
-}
-
-export async function addAdmin(userId: number): Promise<AdminMutationResponse> {
-  return request<AdminMutationResponse>("/admins/add", { method: "POST", body: JSON.stringify({ user_id: userId }) });
-}
-
-export async function removeAdmin(userId: number): Promise<AdminMutationResponse> {
-  return request<AdminMutationResponse>("/admins/remove", { method: "POST", body: JSON.stringify({ user_id: userId }) });
-}
+export interface ProfileResponse { user: User; is_admin: boolean; is_owner: boolean; }
+export async function getMe(): Promise<MeResponse> { return request<MeResponse>("/me"); }
+export async function getProfile(): Promise<ProfileResponse> { return request<ProfileResponse>("/me/profile"); }
+export async function updateProfile(data: ProfileUpdateData): Promise<ProfileResponse> { return request<ProfileResponse>("/me/profile", { method: "PUT", body: JSON.stringify(data) }); }
+export async function getAdmins(): Promise<AdminsResponse> { return request<AdminsResponse>("/admins"); }
+export async function addAdmin(userId: number): Promise<AdminMutationResponse> { return request<AdminMutationResponse>("/admins/add", { method: "POST", body: JSON.stringify({ user_id: userId }) }); }
+export async function removeAdmin(userId: number): Promise<AdminMutationResponse> { return request<AdminMutationResponse>("/admins/remove", { method: "POST", body: JSON.stringify({ user_id: userId }) }); }
