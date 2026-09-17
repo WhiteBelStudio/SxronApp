@@ -182,6 +182,39 @@ function stopApi() {
   apiProcess = null;
 }
 
+function injectUpdatesButton(win) {
+  if (isDev) return;
+
+  win.webContents.executeJavaScript(`(() => {
+    if (document.getElementById('sxron-updates-button')) return;
+    const button = document.createElement('button');
+    button.id = 'sxron-updates-button';
+    button.type = 'button';
+    button.textContent = '↻  Обновления';
+    Object.assign(button.style, {
+      position: 'fixed',
+      left: '18px',
+      top: '18px',
+      zIndex: '2147483647',
+      padding: '10px 15px',
+      border: '1px solid rgba(94, 234, 212, .30)',
+      borderRadius: '12px',
+      color: '#f8fafc',
+      background: 'linear-gradient(135deg, rgba(32,211,194,.20), rgba(128,103,245,.24))',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      boxShadow: '0 10px 35px rgba(0,0,0,.28)',
+      font: '700 13px Inter, system-ui, sans-serif',
+      cursor: 'pointer',
+      transition: 'transform .18s ease, filter .18s ease',
+    });
+    button.onmouseenter = () => { button.style.transform = 'translateY(-1px)'; button.style.filter = 'brightness(1.12)'; };
+    button.onmouseleave = () => { button.style.transform = 'translateY(0)'; button.style.filter = 'none'; };
+    button.onclick = () => window.open('sxron://check-updates');
+    document.body.appendChild(button);
+  })();`).catch((error) => console.warn('SXRON updates button:', error?.message || error));
+}
+
 async function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
@@ -201,6 +234,10 @@ async function createWindow() {
     console.error('SXRON renderer load failed:', errorCode, errorDescription);
   });
 
+  win.webContents.on('did-finish-load', () => {
+    injectUpdatesButton(win);
+  });
+
   if (isDev) {
     await win.loadURL('http://localhost:5173');
   } else {
@@ -208,6 +245,11 @@ async function createWindow() {
   }
 
   win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url === 'sxron://check-updates') {
+      setupAutoUpdater().then(() => autoUpdater.checkForUpdates().catch((error) => console.warn('SXRON manual update check:', error?.message || error)));
+      return { action: 'deny' };
+    }
+
     if (/^https?:\/\//i.test(url)) {
       shell.openExternal(url);
     }
