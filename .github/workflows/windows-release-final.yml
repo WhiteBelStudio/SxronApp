@@ -1,0 +1,116 @@
+name: SXRON Windows Release Final
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sxron-final-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install -r server/requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Fix launcher in build workspace
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          $s = Get-Content server/launcher.py -Raw
+          $s = $s -replace 'from server.public_api import app, db, init_db', "from server.public_api import app`n    from server.main import db, init_db"
+          $s = $s -replace 'from public_api import app, db, init_db', "from public_api import app`n    from main import db, init_db"
+          Set-Content build/launcher.py $s -Encoding UTF8
+          python -m py_compile build/launcher.py
+
+      - name: Build API
+        shell: pwsh
+        run: |
+          Remove-Item backend -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path backend | Out-Null
+          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --hidden-import=multipart --hidden-import=multipart.multipart build/launcher.py
+          if (!(Test-Path backend/sxron-api/sxron-api.exe)) { throw 'API executable missing' }
+
+      - name: API smoke test
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build/smoke-data | Out-Null
+          $env:SXRON_DATA_DIR = (Resolve-Path build/smoke-data).Path
+          $p = Start-Process backend/sxron-api/sxron-api.exe -WorkingDirectory (Resolve-Path backend/sxron-api).Path -PassThru
+          $ok = $false
+          try {
+            for ($i = 0; $i -lt 30; $i++) {
+              Start-Sleep 1
+              if ($p.HasExited) { break }
+              try {
+                $r = Invoke-RestMethod http://127.0.0.1:8000/health -TimeoutSec 2
+                if ($r.status -eq 'ok') { $ok = $true; break }
+              } catch {}
+            }
+          } finally {
+            if (!$p.HasExited) { Stop-Process $p.Id -Force }
+          }
+          if (!$ok) { throw 'API smoke test failed' }
+
+      - name: Install Node dependencies
+        run: npm install --prefer-offline --no-audit --no-fund
+
+      - name: Check version
+        shell: pwsh
+        run: |
+          $v = node -p "require('./package.json').version"
+          Write-Host "Version $v"
+          if ($v -ne '1.2.0') { throw "Expected 1.2.0" }
+
+      - name: Build web
+        run: npm run build
+
+      - name: Build installer
+        run: npx electron-builder --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Verify installer
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem release/SXRON-Marketplace-Setup-*.exe)
+          if ($files.Count -ne 1) { throw 'Installer missing' }
+          if ($files[0].Length -lt 1000000) { throw 'Installer invalid' }
+          if (!(Test-Path release/latest.yml)) { throw 'latest.yml missing' }
+
+      - name: Publish v1.2.0
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v1.2.0
+          name: SXRON Marketplace v1.2.0
+          draft: false
+          prerelease: false
+          overwrite_files: true
+          generate_release_notes: true
+          files: |
+            release/SXRON-Marketplace-Setup-*.exe
+            release/latest.yml
