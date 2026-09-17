@@ -8,7 +8,7 @@ import os
 os.environ.setdefault("SXRON_DATA_DIR", "/tmp/sxron-data")
 os.environ.setdefault("SXRON_CORS_ORIGINS", "*")
 
-from server.main import app as fastapi_app
+from server.public_api import app as fastapi_app
 
 
 async def app(scope, receive, send):
