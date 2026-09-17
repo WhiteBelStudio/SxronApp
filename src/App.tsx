@@ -1,58 +1,38 @@
 /// <reference types="vite/client" />
-import { useEffect, useMemo, useState } from "react";
-import type { City, Page, Product, ProfileCustomization } from "./types";
-import { getAdmins, getCategories, getMe, getProducts, type AdminUser, type MeResponse } from "./api/api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { City, Page, Product, ProfileAccent, ProfileCustomization, User } from "./types";
+import { addAdmin, getAdmins, getCategories, getMe, getProducts, getProfile, getSessions, logout, revokeAllSessions, revokeSession, updateProfile, type AdminUser, type MeResponse, type SessionInfo } from "./api/api";
 import "./styles/global.css";
 import "./styles/profile.css";
 import "./styles/marketplace.css";
 
-const DEFAULT_PROFILE: ProfileCustomization = {
-  displayName: "",
-  bio: "",
-  avatar: "✦",
-  accent: "cyan",
-  usernameVisible: true,
-  badgesVisible: true,
-};
+const DEFAULT_PROFILE: ProfileCustomization = { displayName: "", bio: "", avatar: "✦", accent: "cyan", usernameVisible: true, badgesVisible: true };
+const AVATARS = ["✦", "S", "◈", "◆", "●", "✚", "⚡", "★", "☁", "♢", "⌂", "◎", "❖", "◇", "⬢", "✧"];
 
-function loadProfile(): ProfileCustomization {
-  try {
-    const raw = localStorage.getItem("sxron_profile_customization");
-    return raw ? { ...DEFAULT_PROFILE, ...JSON.parse(raw) } : DEFAULT_PROFILE;
-  } catch {
-    return DEFAULT_PROFILE;
-  }
-}
-
-function loadFavorites(): number[] {
-  try {
-    return JSON.parse(localStorage.getItem("sxron_favorites") || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function saveFavorites(ids: number[]) {
-  try { localStorage.setItem("sxron_favorites", JSON.stringify(ids)); } catch { /* ignore */ }
-}
-
-function normalizeProduct(product: Product): Product {
+function profileFromUser(user: User): ProfileCustomization {
   return {
-    ...product,
-    price: Number(product.price) || 0,
-    description: product.description || "Описание отсутствует.",
+    displayName: user.display_name || "",
+    bio: user.bio || "",
+    avatar: user.avatar_url || "✦",
+    accent: user.profile_accent || "cyan",
+    usernameVisible: user.username_visible !== false,
+    badgesVisible: user.badges_visible !== false,
   };
 }
 
-function productCity(product: Product) {
-  return typeof product.city === "string" ? product.city : product.city?.name || "Белореченск";
+function loadProfile(): ProfileCustomization {
+  try { return { ...DEFAULT_PROFILE, ...JSON.parse(localStorage.getItem("sxron_profile_customization") || "null") }; } catch { return DEFAULT_PROFILE; }
 }
+function loadFavorites(): number[] { try { return JSON.parse(localStorage.getItem("sxron_favorites") || "[]"); } catch { return []; } }
+function saveFavorites(ids: number[]) { try { localStorage.setItem("sxron_favorites", JSON.stringify(ids)); } catch { /* ignore */ } }
+function normalizeProduct(product: Product): Product { return { ...product, price: Number(product.price) || 0, description: product.description || "Описание отсутствует." }; }
+function productCity(product: Product) { return typeof product.city === "string" ? product.city : product.city?.name || "Белореченск"; }
 
 export default function App() {
   const [page, setPage] = useState<Page>("home");
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth <= 768);
   const [city] = useState<City>({ id: 1, name: "Белореченск" });
-  const [profile] = useState<ProfileCustomization>(() => loadProfile());
+  const [profile, setProfile] = useState<ProfileCustomization>(() => loadProfile());
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<{ id: number; name: string; slug?: string; icon?: string }[]>([]);
   const [favorites, setFavorites] = useState<number[]>(() => loadFavorites());
@@ -68,177 +48,133 @@ export default function App() {
   const [manageMode, setManageMode] = useState<"list" | "create" | "edit">("list");
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [toast, setToast] = useState("");
+  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
 
-  useEffect(() => {
-    const resize = () => setIsMobile(window.innerWidth <= 768);
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, []);
-
-  useEffect(() => {
-    try { localStorage.setItem("sxron_profile_customization", JSON.stringify(profile)); } catch { /* ignore */ }
-    document.documentElement.dataset.sxronAccent = profile.accent;
-  }, [profile]);
-
+  useEffect(() => { const resize = () => setIsMobile(window.innerWidth <= 768); resize(); window.addEventListener("resize", resize); return () => window.removeEventListener("resize", resize); }, []);
+  useEffect(() => { try { localStorage.setItem("sxron_profile_customization", JSON.stringify(profile)); } catch { /* ignore */ } document.documentElement.dataset.sxronAccent = profile.accent; }, [profile]);
   useEffect(() => saveFavorites(favorites), [favorites]);
-
   useEffect(() => {
     let alive = true;
-    (async () => {
-      setLoading(true);
-      try {
-        const [productData, categoryData] = await Promise.all([
-          getProducts({ city: city.name }),
-          getCategories(),
-        ]);
-        if (!alive) return;
-        setProducts(productData.map(normalizeProduct));
-        setCategories(categoryData);
-        setApiError("");
-      } catch (error) {
-        if (!alive) return;
-        setApiError(error instanceof Error ? error.message : "Не удалось загрузить каталог.");
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
+    (async () => { setLoading(true); try {
+      const [productData, categoryData] = await Promise.all([getProducts({ city: city.name }), getCategories()]);
+      if (!alive) return; setProducts(productData.map(normalizeProduct)); setCategories(categoryData); setApiError("");
+    } catch (error) { if (alive) setApiError(error instanceof Error ? error.message : "Не удалось загрузить каталог."); }
+    finally { if (alive) setLoading(false); } })();
     return () => { alive = false; };
   }, [city.name]);
-
-  useEffect(() => {
-    getMe().then(setMe).catch(() => setMe(null));
-  }, []);
-
-  useEffect(() => {
-    if (!me?.is_admin) return;
-    getAdmins().then((result) => setAdmins(result.admins)).catch(() => undefined);
-  }, [me?.is_admin]);
+  useEffect(() => { getMe().then((result) => { setMe(result); setProfile((current) => result.user.display_name || result.user.avatar_url || result.user.bio ? profileFromUser(result.user) : current); }).catch(() => setMe(null)); }, []);
+  useEffect(() => { if (!me?.is_admin) return; getAdmins().then((result) => setAdmins(result.admins)).catch(() => undefined); }, [me?.is_admin]);
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
     return products.filter((product) => {
       const category = product.category || "Без категории";
-      const categoryMatch = selectedCategory === "Все" || category === selectedCategory;
-      const searchMatch = !query || `${product.name} ${product.description} ${category} ${productCity(product)}`.toLowerCase().includes(query);
-      return categoryMatch && searchMatch;
+      return (selectedCategory === "Все" || category === selectedCategory) && (!query || `${product.name} ${product.description} ${category} ${productCity(product)}`.toLowerCase().includes(query));
     });
   }, [products, search, selectedCategory]);
-
   const favoriteProducts = products.filter((product) => favorites.includes(product.id));
   const managedProducts = products.filter((product) => Boolean(product.created_by && me?.user.id === product.created_by));
 
-  function navigate(next: Page) {
-    setPage(next);
-    setSelectedProduct(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  function navigate(next: Page) { setPage(next); setSelectedProduct(null); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function toggleFavorite(id: number) { setFavorites((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); }
+  function notify(message: string) { setToast(message); window.setTimeout(() => setToast(""), 2600); }
+  function handleLocalProductSave(product: Product) { const normalized = normalizeProduct(product); setProducts((current) => current.some((item) => item.id === normalized.id) ? current.map((item) => item.id === normalized.id ? normalized : item) : [normalized, ...current]); setEditingProduct(null); setManageMode("list"); notify("Объявление сохранено"); }
+  function handleDeleteProduct(id: number) { setProducts((current) => current.filter((product) => product.id !== id)); setFavorites((current) => current.filter((item) => item !== id)); setSelectedProduct(null); notify("Объявление удалено"); }
+  async function refreshProfile() { try { const result = await getProfile(); setMe({ user: result.user, is_admin: result.is_admin, is_owner: result.is_owner }); setProfile(profileFromUser(result.user)); } catch { /* keep current profile */ } }
+  async function saveUserProfile(next: ProfileCustomization) {
+    const result = await updateProfile({ display_name: next.displayName.trim(), bio: next.bio.trim(), avatar_url: next.avatar, profile_accent: next.accent, username_visible: next.usernameVisible, badges_visible: next.badgesVisible });
+    setProfile(profileFromUser(result.user)); setMe({ user: result.user, is_admin: result.is_admin, is_owner: result.is_owner }); setProfileEditorOpen(false); notify("Профиль обновлён");
   }
-
-  function toggleFavorite(id: number) {
-    setFavorites((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
-  }
-
-  function notify(message: string) {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2600);
-  }
-
-  function handleLocalProductSave(product: Product) {
-    const normalized = normalizeProduct(product);
-    setProducts((current) => {
-      const exists = current.some((item) => item.id === normalized.id);
-      return exists ? current.map((item) => item.id === normalized.id ? normalized : item) : [normalized, ...current];
-    });
-    setEditingProduct(null);
-    setManageMode("list");
-    notify("Объявление сохранено");
-  }
-
-  function handleDeleteProduct(id: number) {
-    setProducts((current) => current.filter((product) => product.id !== id));
-    setFavorites((current) => current.filter((item) => item !== id));
-    setSelectedProduct(null);
-    notify("Объявление удалено");
-  }
+  async function openSessions() { try { const result = await getSessions(); setSessions(result.sessions); setSessionsOpen(true); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось загрузить сессии"); } }
+  async function removeSession(id: number) { try { await revokeSession(id); setSessions((current) => current.filter((session) => session.id !== id)); notify("Сессия завершена"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось завершить сессию"); } }
+  async function removeAllSessions() { try { await revokeAllSessions(); setSessions([]); notify("Другие сессии завершены"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось завершить сессии"); } }
+  async function handleLogout() { await logout(); window.location.reload(); }
 
   const appClass = isMobile ? "sxron-shell sxron-shell--mobile" : "sxron-shell";
+  return <div className={appClass}>
+    <header className="sxron-topbar">
+      <button className="sxron-brand" onClick={() => navigate("home")} aria-label="SXRON"><span className="sxron-brand__mark">S</span><span>SXRON</span></button>
+      {!isMobile && <nav className="sxron-topnav"><button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}>Главная</button><button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}>Каталог</button><button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}>Избранное</button><button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")}>Профиль</button></nav>}
+      <div className="sxron-city-pill">📍 {city.name}</div>
+    </header>
 
-  return (
-    <div className={appClass}>
-      <header className="sxron-topbar">
-        <button className="sxron-brand" onClick={() => navigate("home")} aria-label="SXRON">
-          <span className="sxron-brand__mark">S</span>
-          <span>SXRON</span>
-        </button>
-        {!isMobile && (
-          <nav className="sxron-topnav">
-            <button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}>Главная</button>
-            <button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}>Каталог</button>
-            <button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}>Избранное</button>
-            {me?.is_admin && <button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")}>Админ</button>}
-          </nav>
-        )}
-        <div className="sxron-city-pill">📍 {city.name}</div>
-      </header>
+    <main className="sxron-content">
+      {page === "home" && <section className="sxron-home"><div className="sxron-hero-card"><div><span className="sxron-kicker">SXRON MARKETPLACE</span><h1>Покупай.<br /><span>Продавай.</span></h1><p>Современный маркетплейс Белореченска. Найди нужное или размести своё объявление.</p><div className="sxron-actions"><button className="sxron-primary" onClick={() => navigate("catalog")}>🛍 Открыть каталог</button><button className="sxron-secondary" onClick={() => { setManageMode("create"); navigate("profile"); }}>＋ Продать</button></div></div><div className="sxron-hero-orb"><span>S</span></div></div><div className="sxron-section-head"><div><span>КАТЕГОРИИ</span><h2>Что ищем?</h2></div><button onClick={() => navigate("catalog")}>Все →</button></div><div className="sxron-category-grid">{categories.slice(0, 8).map((category) => <button key={category.id} className="sxron-category-card" onClick={() => { setSelectedCategory(category.name); navigate("catalog"); }}><strong>{category.icon || "◈"}</strong><span>{category.name}</span></button>)}</div><div className="sxron-section-head"><div><span>ПОСЛЕДНИЕ</span><h2>Новые объявления</h2></div><button onClick={() => navigate("catalog")}>Смотреть все →</button></div><ProductGrid products={products.slice(0, 6)} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /></section>}
+      {page === "catalog" && <section className="sxron-page"><div className="sxron-page-head"><div><span>MARKETPLACE</span><h1>Каталог</h1><p>{filteredProducts.length} объявлений</p></div></div><div className="sxron-searchbar"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск товаров и объявлений..." /><button onClick={() => { setSearch(""); setSelectedCategory("Все"); }}>Сбросить</button></div><div className="sxron-filter-scroll"><button className={selectedCategory === "Все" ? "active" : ""} onClick={() => setSelectedCategory("Все")}>Все</button>{categories.map((category) => <button key={category.id} className={selectedCategory === category.name ? "active" : ""} onClick={() => setSelectedCategory(category.name)}>{category.icon || "◈"} {category.name}</button>)}</div>{loading ? <LoadingGrid /> : apiError ? <EmptyState title="Каталог пока не подключён" text={apiError} action="Повторить" onAction={() => window.location.reload()} /> : <ProductGrid products={filteredProducts} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} />}</section>}
+      {page === "favorites" && <section className="sxron-page"><div className="sxron-page-head"><div><span>YOUR LIST</span><h1>Избранное</h1><p>{favoriteProducts.length} товаров</p></div></div>{favoriteProducts.length ? <ProductGrid products={favoriteProducts} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /> : <EmptyState title="Здесь пока пусто" text="Нажимай ♡ на понравившихся товарах — они появятся здесь." action="Перейти в каталог" onAction={() => navigate("catalog")} />}</section>}
+      {page === "profile" && <UserProfilePage profile={profile} me={me} products={products} favorites={favorites} managedProducts={managedProducts} admins={admins} adminId={adminId} setAdminId={setAdminId} manageMode={manageMode} setManageMode={setManageMode} editingProduct={editingProduct} setEditingProduct={setEditingProduct} onEditProfile={() => setProfileEditorOpen(true)} onSessions={openSessions} onLogout={handleLogout} onAddAdmin={async () => { const id = Number(adminId); if (!id) return notify("Введите корректный ID"); try { await addAdmin(id); const result = await getAdmins(); setAdmins(result.admins); setAdminId(""); notify("Администратор добавлен"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось добавить администратора"); } }} onDeleteProduct={handleDeleteProduct} onSaveProduct={handleLocalProductSave} onCancelEdit={() => { setManageMode("list"); setEditingProduct(null); }} />}
+    </main>
 
-      <main className="sxron-content">
-        {page === "home" && (
-          <section className="sxron-home">
-            <div className="sxron-hero-card">
-              <div>
-                <span className="sxron-kicker">SXRON MARKETPLACE</span>
-                <h1>Покупай.<br /><span>Продавай.</span></h1>
-                <p>Современный маркетплейс Белореченска. Найди нужное или размести своё объявление.</p>
-                <div className="sxron-actions">
-                  <button className="sxron-primary" onClick={() => navigate("catalog")}>🛍 Открыть каталог</button>
-                  <button className="sxron-secondary" onClick={() => { setManageMode("create"); navigate("profile"); }}>＋ Продать</button>
-                </div>
-              </div>
-              <div className="sxron-hero-orb"><span>S</span></div>
-            </div>
+    <nav className="sxron-bottom-nav"><button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}><b>⌂</b><span>Главная</span></button><button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}><b>⌕</b><span>Каталог</span></button><button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}><b>♡</b><span>Избранное</span></button><button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")}><b>◉</b><span>Профиль</span></button></nav>
+    {selectedProduct && <ProductModal product={selectedProduct} favorite={favorites.includes(selectedProduct.id)} onFavorite={() => toggleFavorite(selectedProduct.id)} onClose={() => setSelectedProduct(null)} onSeller={() => setSellerProduct(selectedProduct)} />}
+    {sellerProduct && <SellerModal product={sellerProduct} onClose={() => setSellerProduct(null)} />}
+    {profileEditorOpen && <ProfileCustomizer initial={profile} onClose={() => setProfileEditorOpen(false)} onSave={saveUserProfile} />}
+    {sessionsOpen && <SessionsModal sessions={sessions} onClose={() => setSessionsOpen(false)} onRevoke={removeSession} onRevokeAll={removeAllSessions} />}
+    {toast && <div className="sxron-toast">✓ {toast}</div>}
+  </div>;
+}
 
-            <div className="sxron-section-head"><div><span>КАТЕГОРИИ</span><h2>Что ищем?</h2></div><button onClick={() => navigate("catalog")}>Все →</button></div>
-            <div className="sxron-category-grid">
-              {categories.slice(0, 8).map((category) => (
-                <button key={category.id} className="sxron-category-card" onClick={() => { setSelectedCategory(category.name); navigate("catalog"); }}>
-                  <strong>{category.icon || "◈"}</strong><span>{category.name}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="sxron-section-head"><div><span>ПОСЛЕДНИЕ</span><h2>Новые объявления</h2></div><button onClick={() => navigate("catalog")}>Смотреть все →</button></div>
-            <ProductGrid products={products.slice(0, 6)} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} />
-          </section>
-        )}
-
-        {page === "catalog" && (
-          <section className="sxron-page">
-            <div className="sxron-page-head"><div><span>MARKETPLACE</span><h1>Каталог</h1><p>{filteredProducts.length} объявлений</p></div></div>
-            <div className="sxron-searchbar"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск товаров и объявлений..." /><button onClick={() => { setSearch(""); setSelectedCategory("Все"); }}>Сбросить</button></div>
-            <div className="sxron-filter-scroll"><button className={selectedCategory === "Все" ? "active" : ""} onClick={() => setSelectedCategory("Все")}>Все</button>{categories.map((category) => <button key={category.id} className={selectedCategory === category.name ? "active" : ""} onClick={() => setSelectedCategory(category.name)}>{category.icon || "◈"} {category.name}</button>)}</div>
-            {loading ? <LoadingGrid /> : apiError ? <EmptyState title="Каталог пока не подключён" text={apiError} action="Повторить" onAction={() => window.location.reload()} /> : <ProductGrid products={filteredProducts} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} />}
-          </section>
-        )}
-
-        {page === "favorites" && (
-          <section className="sxron-page"><div className="sxron-page-head"><div><span>YOUR LIST</span><h1>Избранное</h1><p>{favoriteProducts.length} товаров</p></div></div>{favoriteProducts.length ? <ProductGrid products={favoriteProducts} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /> : <EmptyState title="Здесь пока пусто" text="Нажимай ♡ на понравившихся товарах — они появятся здесь." action="Перейти в каталог" onAction={() => navigate("catalog")} />}</section>
-        )}
-
-        {page === "profile" && (
-          <section className="sxron-page"><div className="sxron-profile-banner"><div className="sxron-avatar">{profile.avatar.startsWith("data:image/") ? <img src={profile.avatar} alt="" /> : profile.avatar}</div><div><span>УПРАВЛЕНИЕ</span><h1>{profile.displayName || me?.user.first_name || "Мой профиль"}</h1><p>{me?.is_owner ? "Владелец SXRON" : me?.is_admin ? "Администратор" : "Профиль продавца"}</p></div></div>
-            {me?.is_admin && <div className="sxron-admin-card"><div className="sxron-card-head"><div><span>ADMIN</span><h2>Админ-раздел</h2></div><span className="sxron-status">● ONLINE</span></div><div className="sxron-admin-stats"><div><b>{products.length}</b><span>Товаров</span></div><div><b>{favorites.length}</b><span>Избранных</span></div><div><b>{admins.length}</b><span>Админов</span></div></div>{me.is_owner && <div className="sxron-admin-manage"><input value={adminId} onChange={(event) => setAdminId(event.target.value)} placeholder="Telegram ID администратора" /><button onClick={() => { const id = Number(adminId); if (!id) return notify("Введите корректный Telegram ID"); notify("Запрос на добавление подготовлен"); setAdminId(""); }}>Добавить</button></div>}{admins.length > 0 && <div className="sxron-admin-list">{admins.map((admin) => <div key={admin.id}><span>{admin.first_name || "Пользователь"} {admin.username ? `@${admin.username}` : ""}</span><b>{admin.role === "owner" ? "OWNER" : "ADMIN"}</b></div>)}</div>}</div>}
-            <div className="sxron-manage-card"><div className="sxron-card-head"><div><span>SELLER</span><h2>Мои объявления</h2></div><button className="sxron-primary sxron-small" onClick={() => { setEditingProduct(null); setManageMode("create"); }}>＋ Добавить</button></div>{manageMode === "create" || manageMode === "edit" ? <ProductEditor product={editingProduct} userId={me?.user.id || 0} onCancel={() => { setManageMode("list"); setEditingProduct(null); }} onSave={handleLocalProductSave} /> : <div className="sxron-manage-list">{managedProducts.length ? managedProducts.map((product) => <div className="sxron-manage-row" key={product.id}><div><b>{product.name}</b><span>{product.price.toLocaleString("ru-RU")} ₽ · {productCity(product)}</span></div><div><button onClick={() => { setEditingProduct(product); setManageMode("edit"); }}>✎</button><button onClick={() => handleDeleteProduct(product.id)}>⌫</button></div></div>) : <p className="sxron-muted">Ваши объявления появятся здесь.</p>}</div>}</div>
-          </section>
-        )}
-      </main>
-
-      <nav className="sxron-bottom-nav"><button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}><b>⌂</b><span>Главная</span></button><button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}><b>⌕</b><span>Каталог</span></button><button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}><b>♡</b><span>Избранное</span></button><button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")}><b>◉</b><span>Профиль</span></button></nav>
-
-      {selectedProduct && <ProductModal product={selectedProduct} favorite={favorites.includes(selectedProduct.id)} onFavorite={() => toggleFavorite(selectedProduct.id)} onClose={() => setSelectedProduct(null)} onSeller={() => setSellerProduct(selectedProduct)} />}
-      {sellerProduct && <SellerModal product={sellerProduct} onClose={() => setSellerProduct(null)} />}
-      {toast && <div className="sxron-toast">✓ {toast}</div>}
+function UserProfilePage({ profile, me, products, favorites, managedProducts, admins, adminId, setAdminId, manageMode, setManageMode, editingProduct, setEditingProduct, onEditProfile, onSessions, onLogout, onAddAdmin, onDeleteProduct, onSaveProduct, onCancelEdit }: { profile: ProfileCustomization; me: MeResponse | null; products: Product[]; favorites: number[]; managedProducts: Product[]; admins: AdminUser[]; adminId: string; setAdminId: (v: string) => void; manageMode: "list" | "create" | "edit"; setManageMode: (v: "list" | "create" | "edit") => void; editingProduct: Product | null; setEditingProduct: (p: Product | null) => void; onEditProfile: () => void; onSessions: () => void; onLogout: () => void; onAddAdmin: () => void; onDeleteProduct: (id: number) => void; onSaveProduct: (p: Product) => void; onCancelEdit: () => void }) {
+  const user = me?.user;
+  const displayName = profile.displayName || user?.first_name || "Пользователь";
+  const initials = displayName.trim().slice(0, 1).toUpperCase() || "S";
+  const joined = user?.created_at ? new Date(user.created_at).toLocaleDateString("ru-RU", { month: "long", year: "numeric" }) : "недавно";
+  return <section className="sxron-page sxron-user-profile">
+    <div className="user-profile-hero">
+      <div className="user-profile-cover" />
+      <div className="user-profile-main">
+        <div className="user-profile-avatar">{profile.avatar.startsWith("data:image/") ? <img src={profile.avatar} alt="" /> : profile.avatar || initials}</div>
+        <div className="user-profile-heading"><div className="user-profile-name-row"><h1>{displayName}</h1>{profile.badgesVisible && user?.verified && <span className="user-profile-badge">✓ Проверен</span>}{user?.is_online && <span className="user-profile-online">● Онлайн</span>}</div>{profile.usernameVisible && user?.username && <p>@{user.username}</p>}<span className="user-profile-joined">На SXRON с {joined}</span></div>
+        <button className="desktop-profile-header-button" onClick={onEditProfile}>✎ Настроить профиль</button>
+      </div>
+      {profile.bio && <p className="user-profile-bio">{profile.bio}</p>}
+      <div className="user-profile-stats"><div><b>{user?.listings_count ?? managedProducts.length}</b><span>Объявлений</span></div><div><b>{favorites.length}</b><span>Избранных</span></div><div><b>{user?.views_count ?? 0}</b><span>Просмотров</span></div><div><b>{user?.reviews_count ?? 0}</b><span>Отзывов</span></div></div>
     </div>
-  );
+
+    <div className="user-profile-grid">
+      <div className="user-profile-column">
+        <div className="sxron-manage-card"><div className="sxron-card-head"><div><span>ACCOUNT</span><h2>Мой аккаунт</h2></div></div><div className="profile-account-list"><div><span>🪪 ID</span><b>{user?.id ?? "—"}</b></div>{profile.usernameVisible && <div><span>👤 Username</span><b>{user?.username ? `@${user.username}` : "Не указан"}</b></div>}<div><span>📍 Город</span><b>{user?.city?.name || "Белореченск"}</b></div><div><span>🟢 Статус</span><b>Активен</b></div></div></div>
+        <div className="sxron-manage-card profile-security-card"><div className="sxron-card-head"><div><span>SECURITY</span><h2>Безопасность</h2></div></div><button className="profile-action-row" onClick={onSessions}><span><b>💻 Активные устройства</b><small>Просмотр и завершение сессий</small></span><strong>→</strong></button><button className="profile-action-row profile-action-danger" onClick={onLogout}><span><b>↪ Выйти из аккаунта</b><small>Завершить текущую сессию</small></span><strong>→</strong></button></div>
+      </div>
+      <div className="user-profile-column">
+        <div className="sxron-manage-card"><div className="sxron-card-head"><div><span>SELLER</span><h2>Мои объявления</h2></div><button className="sxron-primary sxron-small" onClick={() => { setEditingProduct(null); setManageMode("create"); }}>＋ Добавить</button></div>{manageMode === "create" || manageMode === "edit" ? <ProductEditor product={editingProduct} userId={user?.id || 0} onCancel={onCancelEdit} onSave={onSaveProduct} /> : <div className="sxron-manage-list">{managedProducts.length ? managedProducts.map((product) => <div className="sxron-manage-row" key={product.id}><div><b>{product.name}</b><span>{product.price.toLocaleString("ru-RU")} ₽ · {productCity(product)}</span></div><div><button onClick={() => { setEditingProduct(product); setManageMode("edit"); }}>✎</button><button onClick={() => onDeleteProduct(product.id)}>⌫</button></div></div>) : <p className="sxron-muted">Ваши объявления появятся здесь.</p>}</div>}</div>
+      </div>
+    </div>
+
+    {me?.is_admin && <div className="sxron-admin-card"><div className="sxron-card-head"><div><span>ADMIN</span><h2>Админ-раздел</h2></div><span className="sxron-status">● ONLINE</span></div><div className="sxron-admin-stats"><div><b>{products.length}</b><span>Товаров</span></div><div><b>{favorites.length}</b><span>Избранных</span></div><div><b>{admins.length}</b><span>Админов</span></div></div>{me.is_owner && <div className="sxron-admin-manage"><input value={adminId} onChange={(event) => setAdminId(event.target.value)} placeholder="ID пользователя" /><button onClick={onAddAdmin}>Добавить</button></div>}{admins.length > 0 && <div className="sxron-admin-list">{admins.map((admin) => <div key={admin.id}><span>{admin.first_name || "Пользователь"} {admin.username ? `@${admin.username}` : ""}</span><b>{admin.role === "owner" ? "OWNER" : "ADMIN"}</b></div>)}</div>}</div>}
+  </section>;
+}
+
+function ProfileCustomizer({ initial, onClose, onSave }: { initial: ProfileCustomization; onClose: () => void; onSave: (profile: ProfileCustomization) => Promise<void> }) {
+  const [draft, setDraft] = useState<ProfileCustomization>(initial);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const update = <K extends keyof ProfileCustomization>(key: K, value: ProfileCustomization[K]) => setDraft((current) => ({ ...current, [key]: value }));
+  function uploadAvatar(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]; if (!file) return;
+    if (!file.type.startsWith("image/")) { setError("Можно выбрать только изображение."); return; }
+    if (file.size > 1_500_000) { setError("Аватар должен быть не больше 1.5 МБ."); return; }
+    const reader = new FileReader(); reader.onload = () => { if (typeof reader.result === "string") { update("avatar", reader.result); setError(""); } }; reader.readAsDataURL(file);
+  }
+  async function submit() { setSaving(true); setError(""); try { await onSave(draft); } catch (err) { setError(err instanceof Error ? err.message : "Не удалось сохранить профиль."); } finally { setSaving(false); } }
+  return <div className="profile-customizer-backdrop" onClick={onClose}><div className="profile-customizer" onClick={(event) => event.stopPropagation()}>
+    <div className="profile-customizer__header"><div><span className="profile-customizer__eyebrow">SXRON IDENTITY</span><h2>Настройка профиля</h2><p>Сделай профиль своим — имя, аватар, описание и приватность.</p></div><button className="profile-customizer__close" onClick={onClose}>×</button></div>
+    <div className="profile-customizer__preview"><div className="profile-customizer__preview-avatar">{draft.avatar.startsWith("data:image/") ? <img src={draft.avatar} alt="" /> : draft.avatar}</div><div><strong>{draft.displayName || "Пользователь"}</strong><span>SXRON Marketplace</span><p>{draft.bio || "Добавь короткое описание о себе."}</p></div></div>
+    <label className="profile-customizer__field"><span>Отображаемое имя</span><input maxLength={60} value={draft.displayName} onChange={(e) => update("displayName", e.target.value)} placeholder="Например, Nikitinka" /><small>{draft.displayName.length}/60</small></label>
+    <label className="profile-customizer__field"><span>О себе</span><textarea maxLength={500} rows={4} value={draft.bio} onChange={(e) => update("bio", e.target.value)} placeholder="Расскажи немного о себе..." /><small>{draft.bio.length}/500</small></label>
+    <div className="profile-customizer__group"><span className="profile-customizer__label">Аватар</span><div className="profile-customizer__avatars">{AVATARS.map((avatar) => <button key={avatar} className={draft.avatar === avatar ? "is-active" : ""} onClick={() => update("avatar", avatar)}>{avatar}</button>)}</div><div className="profile-customizer__avatar-upload"><button className="profile-customizer__upload-button" onClick={() => fileRef.current?.click()}><span className="profile-customizer__upload-icon">↑</span><span><strong>Загрузить свой аватар</strong><small>PNG, JPG, WEBP · до 1.5 МБ</small></span></button><input ref={fileRef} className="profile-customizer__file-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadAvatar} />{draft.avatar.startsWith("data:image/") && <button className="profile-customizer__remove-avatar" onClick={() => update("avatar", "✦")}>Удалить фото</button>}</div></div>
+    <div className="profile-customizer__group"><span className="profile-customizer__label">Цвет профиля</span><div className="profile-customizer__accents">{(["cyan", "violet", "blue", "sunset"] as ProfileAccent[]).map((accent) => <button key={accent} data-accent={accent} className={draft.accent === accent ? "is-active" : ""} onClick={() => update("accent", accent)}><i />{accent === "cyan" ? "SXRON" : accent === "violet" ? "Violet" : accent === "blue" ? "Blue" : "Sunset"}</button>)}</div></div>
+    <div className="profile-customizer__group"><span className="profile-customizer__label">Приватность</span><label className="profile-customizer__switch"><span><strong>Показывать username</strong><small>Другие пользователи увидят @username в профиле.</small></span><input type="checkbox" checked={draft.usernameVisible} onChange={(e) => update("usernameVisible", e.target.checked)} /><i /></label><label className="profile-customizer__switch"><span><strong>Показывать значки</strong><small>Публичные отметки и статус профиля.</small></span><input type="checkbox" checked={draft.badgesVisible} onChange={(e) => update("badgesVisible", e.target.checked)} /><i /></label></div>
+    {error && <p className="profile-customizer__error">{error}</p>}
+    <div className="profile-customizer__actions"><button className="profile-customizer__cancel" onClick={onClose} disabled={saving}>Отмена</button><button className="profile-customizer__save" onClick={submit} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить профиль"}</button></div>
+  </div></div>;
+}
+
+function SessionsModal({ sessions, onClose, onRevoke, onRevokeAll }: { sessions: SessionInfo[]; onClose: () => void; onRevoke: (id: number) => void; onRevokeAll: () => void }) {
+  return <div className="profile-customizer-backdrop" onClick={onClose}><div className="profile-customizer sessions-modal" onClick={(event) => event.stopPropagation()}><div className="profile-customizer__header"><div><span className="profile-customizer__eyebrow">SECURITY</span><h2>Активные устройства</h2><p>Сессии, с которых открыт ваш аккаунт.</p></div><button className="profile-customizer__close" onClick={onClose}>×</button></div><div className="sessions-list">{sessions.length ? sessions.map((session) => <div className="session-row" key={session.id}><div className="session-icon">{session.device?.toLowerCase().includes("mobile") ? "📱" : "💻"}</div><div className="session-info"><b>{session.device || session.platform || "Устройство"}</b><span>{session.client_type || "SXRON"} · вход {new Date(session.created_at).toLocaleDateString("ru-RU")}</span><small>{session.ip_address || "IP скрыт"}</small></div><button onClick={() => onRevoke(session.id)}>Завершить</button></div>) : <div className="sessions-empty">Активных сессий не найдено.</div>}</div>{sessions.length > 1 && <button className="profile-customizer__cancel sessions-revoke-all" onClick={onRevokeAll}>Завершить остальные сессии</button>}</div></div>;
 }
 
 function ProductGrid({ products, favorites, onFavorite, onProduct, onSeller }: { products: Product[]; favorites: number[]; onFavorite: (id: number) => void; onProduct: (product: Product) => void; onSeller: (product: Product) => void }) {
@@ -246,23 +182,8 @@ function ProductGrid({ products, favorites, onFavorite, onProduct, onSeller }: {
   return <div className="sxron-product-grid">{products.map((product) => <article className="sxron-product-card" key={product.id} onClick={() => onProduct(product)}><div className="sxron-product-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}<button onClick={(event) => { event.stopPropagation(); onFavorite(product.id); }} className={favorites.includes(product.id) ? "liked" : ""}>{favorites.includes(product.id) ? "♥" : "♡"}</button></div><div className="sxron-product-body"><span>{product.category || "Без категории"}</span><h3>{product.name}</h3><strong>{product.price.toLocaleString("ru-RU")} ₽</strong><small>📍 {productCity(product)} · <button onClick={(event) => { event.stopPropagation(); onSeller(product); }}>Продавец</button></small></div></article>)}</div>;
 }
 
-function ProductModal({ product, favorite, onFavorite, onClose, onSeller }: { product: Product; favorite: boolean; onFavorite: () => void; onClose: () => void; onSeller: () => void }) {
-  return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-product-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-detail-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}</div><div className="sxron-detail-content"><span>{product.category || "Без категории"}</span><h2>{product.name}</h2><strong className="sxron-detail-price">{product.price.toLocaleString("ru-RU")} ₽</strong><p>{product.description}</p><div className="sxron-detail-meta"><span>📍 {productCity(product)}</span>{product.condition && <span>◈ {product.condition}</span>}{product.delivery && <span>🚚 {product.delivery}</span>}</div><div className="sxron-detail-actions"><button className="sxron-primary" onClick={onSeller}>👤 Профиль продавца</button><button className="sxron-secondary" onClick={onFavorite}>{favorite ? "♥ В избранном" : "♡ В избранное"}</button></div></div></div></div>;
-}
-
-function SellerModal({ product, onClose }: { product: Product; onClose: () => void }) {
-  return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-seller-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-seller-avatar">{(product.name || "S").charAt(0).toUpperCase()}</div><span>ПРОДАВЕЦ</span><h2>Продавец SXRON</h2><div className="sxron-rating">★★★★★ <b>Новый профиль</b></div><p>Профиль продавца и его объявления будут загружаться из SXRON API.</p><div className="sxron-seller-stats"><div><b>—</b><span>Рейтинг</span></div><div><b>—</b><span>Отзывы</span></div><div><b>—</b><span>Объявления</span></div></div><button className="sxron-primary">💬 Написать продавцу</button></div></div>;
-}
-
-function ProductEditor({ product, userId, onCancel, onSave }: { product: Product | null; userId: number; onCancel: () => void; onSave: (product: Product) => void }) {
-  const [name, setName] = useState(product?.name || "");
-  const [description, setDescription] = useState(product?.description || "");
-  const [price, setPrice] = useState(String(product?.price || ""));
-  const [category, setCategory] = useState(product?.category || "");
-  const [city, setCity] = useState(productCity(product || { city: "Белореченск" } as Product));
-  return <div className="sxron-editor"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" /><input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Цена, ₽" /><div className="sxron-editor-row"><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Категория" /><input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" /></div><div className="sxron-editor-actions"><button className="sxron-secondary" onClick={onCancel}>Отмена</button><button className="sxron-primary" onClick={() => { if (!name.trim() || !Number(price)) return; onSave({ ...(product || {} as Product), id: product?.id || Date.now(), name: name.trim(), description: description.trim(), price: Number(price.replace(/\s/g, "").replace(",", ".")), category: category.trim() || "Без категории", city, created_by: userId, available: true }); }}>Сохранить</button></div></div>;
-}
-
+function ProductModal({ product, favorite, onFavorite, onClose, onSeller }: { product: Product; favorite: boolean; onFavorite: () => void; onClose: () => void; onSeller: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-product-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-detail-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}</div><div className="sxron-detail-content"><span>{product.category || "Без категории"}</span><h2>{product.name}</h2><strong className="sxron-detail-price">{product.price.toLocaleString("ru-RU")} ₽</strong><p>{product.description}</p><div className="sxron-detail-meta"><span>📍 {productCity(product)}</span>{product.condition && <span>◈ {product.condition}</span>}{product.delivery && <span>🚚 {product.delivery}</span>}</div><div className="sxron-detail-actions"><button className="sxron-primary" onClick={onSeller}>👤 Профиль продавца</button><button className="sxron-secondary" onClick={onFavorite}>{favorite ? "♥ В избранном" : "♡ В избранное"}</button></div></div></div></div>; }
+function SellerModal({ product, onClose }: { product: Product; onClose: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-seller-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-seller-avatar">{(product.name || "S").charAt(0).toUpperCase()}</div><span>ПРОДАВЕЦ</span><h2>Продавец SXRON</h2><div className="sxron-rating">★★★★★ <b>Новый профиль</b></div><p>Профиль продавца и его объявления будут загружаться из SXRON API.</p><div className="sxron-seller-stats"><div><b>—</b><span>Рейтинг</span></div><div><b>—</b><span>Отзывы</span></div><div><b>—</b><span>Объявления</span></div></div><button className="sxron-primary">💬 Написать продавцу</button></div></div>; }
+function ProductEditor({ product, userId, onCancel, onSave }: { product: Product | null; userId: number; onCancel: () => void; onSave: (product: Product) => void }) { const [name, setName] = useState(product?.name || ""); const [description, setDescription] = useState(product?.description || ""); const [price, setPrice] = useState(String(product?.price || "")); const [category, setCategory] = useState(product?.category || ""); const [city, setCity] = useState(productCity(product || { city: "Белореченск" } as Product)); return <div className="sxron-editor"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" /><input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Цена, ₽" /><div className="sxron-editor-row"><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Категория" /><input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" /></div><div className="sxron-editor-actions"><button className="sxron-secondary" onClick={onCancel}>Отмена</button><button className="sxron-primary" onClick={() => { if (!name.trim() || !Number(price)) return; onSave({ ...(product || {} as Product), id: product?.id || Date.now(), name: name.trim(), description: description.trim(), price: Number(price.replace(/\s/g, "").replace(",", ".")), category: category.trim() || "Без категории", city, created_by: userId, available: true }); }}>Сохранить</button></div></div>; }
 function LoadingGrid() { return <div className="sxron-product-grid">{Array.from({ length: 6 }).map((_, index) => <div className="sxron-skeleton" key={index}><div /><span /><span /></div>)}</div>; }
-
 function EmptyState({ title, text, action, onAction }: { title: string; text: string; action?: string; onAction?: () => void }) { return <div className="sxron-empty"><div>◈</div><h2>{title}</h2><p>{text}</p>{action && <button className="sxron-primary" onClick={onAction}>{action}</button>}</div>; }
