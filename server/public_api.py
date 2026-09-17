@@ -8,7 +8,7 @@ from fastapi import Header, HTTPException
 import server.main as base
 
 app = base.app
-base.APP_VERSION = "1.1.7"
+base.APP_VERSION = "1.1.9"
 base.app.version = base.APP_VERSION
 init_db = base.init_db
 
