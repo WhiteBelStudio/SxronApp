@@ -25,8 +25,8 @@ DEBUG_AUTH = os.getenv("SXRON_AUTH_DEBUG", "false").lower() in {"1", "true", "ye
 OWNER_CLIENT_ID = os.getenv("SXRON_OWNER_CLIENT_ID", "sxron-owner-nikitinka7644").strip()
 OWNER_EMAIL = os.getenv("SXRON_OWNER_EMAIL", "neoneonhorizon@gmail.com").strip().lower()
 OWNER_USERNAME = os.getenv("SXRON_OWNER_USERNAME", "Nikitinka7644").strip()
-OWNER_PASSWORD_HASH = os.getenv("SXRON_OWNER_PASSWORD_HASH", "LahGsY3KZ/gBOErMzzQJKOr1RBnhMfcWl3dtgisYczAO0BrQ7xGI4TYklefzf8Bo546mkmyXaI6iQHD2wskasw==")
-OWNER_PASSWORD_SALT = os.getenv("SXRON_OWNER_PASSWORD_SALT", "tVHMH4nq28Lrr43pWOwrLA==")
+OWNER_PASSWORD_HASH = os.getenv("SXRON_OWNER_PASSWORD_HASH", "").strip()
+OWNER_PASSWORD_SALT = os.getenv("SXRON_OWNER_PASSWORD_SALT", "").strip()
 
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 PHONE_RE = re.compile(r"^\+[1-9]\d{7,14}$")
@@ -301,14 +301,20 @@ def register_auth(app: FastAPI) -> None:
         if not owner:
             connection.execute(
                 "INSERT INTO users(client_id, username, first_name, email, email_verified, auth_method, password_hash, password_salt, created_at, last_seen_at) VALUES (?, ?, ?, ?, 1, 'owner', ?, ?, ?, ?)",
-                (OWNER_CLIENT_ID, OWNER_USERNAME, OWNER_USERNAME, OWNER_EMAIL, OWNER_PASSWORD_HASH, OWNER_PASSWORD_SALT, timestamp, timestamp),
+                (OWNER_CLIENT_ID, OWNER_USERNAME, OWNER_USERNAME, OWNER_EMAIL, OWNER_PASSWORD_HASH or None, OWNER_PASSWORD_SALT or None, timestamp, timestamp),
             )
             owner = connection.execute("SELECT * FROM users WHERE email = ?", (OWNER_EMAIL,)).fetchone()
         else:
-            connection.execute(
-                "UPDATE users SET client_id = ?, username = ?, first_name = ?, email_verified = 1, auth_method = 'owner', password_hash = ?, password_salt = ?, last_seen_at = ? WHERE id = ?",
-                (OWNER_CLIENT_ID, OWNER_USERNAME, OWNER_USERNAME, OWNER_PASSWORD_HASH, OWNER_PASSWORD_SALT, timestamp, owner["id"]),
-            )
+            if OWNER_PASSWORD_HASH and OWNER_PASSWORD_SALT:
+                connection.execute(
+                    "UPDATE users SET client_id = ?, username = ?, first_name = ?, email_verified = 1, auth_method = 'owner', password_hash = ?, password_salt = ?, last_seen_at = ? WHERE id = ?",
+                    (OWNER_CLIENT_ID, OWNER_USERNAME, OWNER_USERNAME, OWNER_PASSWORD_HASH, OWNER_PASSWORD_SALT, timestamp, owner["id"]),
+                )
+            else:
+                connection.execute(
+                    "UPDATE users SET client_id = ?, username = ?, first_name = ?, email_verified = 1, auth_method = 'owner', last_seen_at = ? WHERE id = ?",
+                    (OWNER_CLIENT_ID, OWNER_USERNAME, OWNER_USERNAME, timestamp, owner["id"]),
+                )
             owner = connection.execute("SELECT * FROM users WHERE id = ?", (owner["id"],)).fetchone()
         connection.execute("INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)", (owner["id"], timestamp))
 
