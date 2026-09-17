@@ -15,7 +15,7 @@ import PublicSellerProfile from "./components/PublicSellerProfile";
 import "./styles/global.css";
 import "./styles/user-profile.css";
 
-const APP_VERSION = "1.1.7";
+const APP_VERSION = "1.1.11";
 
 function syncStaticVersionLabels() {
   document.title = `SXRON Marketplace ${APP_VERSION}`;
