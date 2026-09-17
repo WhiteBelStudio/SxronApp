@@ -64,8 +64,6 @@ try:
 except ModuleNotFoundError:
     from password_recovery import register as register_password_recovery
 
-register_password_recovery(app)
-
 try:
     import server.owner_bootstrap  # noqa: F401 - registers the one-time 1.2.0 owner password bootstrap
 except ModuleNotFoundError:
