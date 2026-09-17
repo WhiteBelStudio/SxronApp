@@ -193,8 +193,9 @@ function injectUpdatesButton(win) {
     button.textContent = '↻  Обновления';
     Object.assign(button.style, {
       position: 'fixed',
-      left: '18px',
+      right: '18px',
       top: '18px',
+      left: 'auto',
       zIndex: '2147483647',
       padding: '10px 15px',
       border: '1px solid rgba(94, 234, 212, .30)',
