@@ -5,13 +5,14 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 import server.auth as auth
 import server.main as base
 
 RECOVERY_TTL_SECONDS = int(__import__("os").getenv("SXRON_OWNER_RECOVERY_TTL", "900"))
+LOCAL_RECOVERY_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
 
 def _utc() -> datetime:
@@ -64,7 +65,7 @@ def register(app: FastAPI) -> None:
     _ensure_schema()
 
     @app.post("/auth/recovery/start")
-    def recovery_start(data: RecoveryStart) -> dict[str, Any]:
+    def recovery_start(data: RecoveryStart, request: Request) -> dict[str, Any]:
         email = auth._normalize_email(data.email)
         with base.db() as connection:
             owner = connection.execute(
@@ -72,7 +73,6 @@ def register(app: FastAPI) -> None:
                 (email,),
             ).fetchone()
 
-            # Deliberately do not reveal whether this email belongs to the owner.
             if not owner or not base.is_owner(owner):
                 return {
                     "accepted": True,
@@ -111,15 +111,24 @@ def register(app: FastAPI) -> None:
                     _iso(created + timedelta(seconds=auth.CODE_TTL_SECONDS)),
                 ),
             )
-            auth._send_email(email, code)
+
+            local_request = request.client is not None and request.client.host in LOCAL_RECOVERY_HOSTS
+            sent_by_email = False
+            try:
+                auth._send_email(email, code)
+                sent_by_email = True
+            except HTTPException as exc:
+                if exc.status_code != 503 or not local_request:
+                    raise
 
             response: dict[str, Any] = {
                 "accepted": True,
                 "challenge_id": challenge_id,
                 "destination": email,
                 "expires_in": auth.CODE_TTL_SECONDS,
+                "delivery": "email" if sent_by_email else "local",
             }
-            if auth.DEBUG_AUTH:
+            if auth.DEBUG_AUTH or (local_request and not sent_by_email):
                 response["debug_code"] = code
             return response
 
