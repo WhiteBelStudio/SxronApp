@@ -133,16 +133,15 @@ jobs:
       - name: Build web application
         run: npm run build
 
-      - name: Write build identity
+      - name: Write version identity
         shell: pwsh
         run: |
           $version = '${{ steps.version.outputs.version }}'
-          $build = '${{ github.run_number }}'
           $commit = '${{ github.sha }}'
-          $tag = "v$version-build-$build"
-          $info = @{ version = $version; build = "$version-build-$build"; run = [int]$build; commit = $commit; releaseTag = $tag } | ConvertTo-Json
+          $tag = "v$version"
+          $info = @{ version = $version; build = $version; commit = $commit; releaseTag = $tag } | ConvertTo-Json
           Set-Content -Path 'dist/build-info.json' -Value $info -Encoding UTF8
-          Write-Host "Build identity: $tag / $commit"
+          Write-Host "Version identity: $tag / $commit"
 
       - name: Clean Windows release directory
         shell: pwsh
@@ -190,8 +189,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.version.outputs.version }}-build-${{ github.run_number }}
-          name: SXRON Marketplace v${{ steps.version.outputs.version }} build ${{ github.run_number }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: SXRON Marketplace v${{ steps.version.outputs.version }}
           generate_release_notes: true
           draft: false
           prerelease: false
