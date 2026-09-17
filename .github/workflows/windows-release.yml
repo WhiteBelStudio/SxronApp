@@ -188,84 +188,6 @@ jobs:
           if ($actual -ne $expected) { throw "SHA-512 mismatch: latest.yml=$expected actual=$actual" }
           Write-Host "SHA-512 verified: $actual"
 
-      - name: Prepare streaming release uploader
-        shell: pwsh
-        run: |
-          @'
-          const fs = require('fs');
-          const https = require('https');
-          const { URL } = require('url');
-
-          const token = process.env.GH_TOKEN;
-          const owner = 'WhiteBelStudio';
-          const repo = 'SxronApp';
-          const releaseId = process.env.RELEASE_ID;
-
-          function request(method, url, headers = {}, input = null) {
-            return new Promise((resolve, reject) => {
-              const u = new URL(url);
-              const req = https.request({
-                hostname: u.hostname,
-                port: 443,
-                path: u.pathname + u.search,
-                method,
-                headers: {
-                  'User-Agent': 'SXRON-release-uploader',
-                  'Authorization': `Bearer ${token}`,
-                  'Accept': 'application/vnd.github+json',
-                  ...headers
-                },
-                timeout: 0
-              }, res => {
-                let body = '';
-                res.setEncoding('utf8');
-                res.on('data', chunk => body += chunk);
-                res.on('end', () => resolve({ status: res.statusCode || 0, body }));
-              });
-              req.on('error', reject);
-              req.setTimeout(0);
-              if (input) {
-                input.on('error', reject);
-                input.pipe(req);
-              } else {
-                req.end();
-              }
-            });
-          }
-
-          async function upload(file) {
-            const stat = fs.statSync(file.path);
-            const url = `https://uploads.github.com/repos/${owner}/${repo}/releases/${releaseId}/assets?name=${encodeURIComponent(file.name)}`;
-            for (let attempt = 1; attempt <= 5; attempt++) {
-              console.log(`Streaming upload ${file.name}, attempt ${attempt}/5 (${stat.size} bytes)`);
-              try {
-                const result = await request('POST', url, {
-                  'Content-Type': file.contentType,
-                  'Content-Length': stat.size
-                }, fs.createReadStream(file.path));
-                console.log(`GitHub upload response: HTTP ${result.status}`);
-                if (result.status >= 200 && result.status < 300) return;
-                console.log(result.body.slice(0, 2000));
-                if (result.status >= 400 && result.status < 500 && result.status !== 429) {
-                  throw new Error(`GitHub rejected upload with HTTP ${result.status}`);
-                }
-              } catch (error) {
-                console.log(`Upload attempt failed: ${error.message}`);
-              }
-              if (attempt < 5) await new Promise(r => setTimeout(r, attempt * 15000));
-            }
-            throw new Error(`Failed to upload ${file.name} after 5 attempts`);
-          }
-
-          async function main() {
-            if (!token || !releaseId) throw new Error('GH_TOKEN or RELEASE_ID is missing');
-            await upload({ path: process.env.EXE_PATH, name: process.env.EXE_NAME, contentType: 'application/octet-stream' });
-            await upload({ path: process.env.LATEST_PATH, name: 'latest.yml', contentType: 'text/yaml' });
-          }
-
-          main().catch(error => { console.error(error); process.exit(1); });
-          '@ | Set-Content -Path build/release-uploader.cjs -Encoding UTF8
-
       - name: Publish Windows release assets
         shell: pwsh
         env:
@@ -273,26 +195,66 @@ jobs:
         run: |
           $version = '${{ steps.version.outputs.version }}'
           $tag = "v$version"
-          $exe = "release/SXRON-Marketplace-Setup-$version-x64.exe"
-          $latest = 'release/latest.yml'
-          if (!(Test-Path $exe)) { throw "Installer not found: $exe" }
-          if (!(Test-Path $latest)) { throw 'latest.yml missing' }
+          $exe = (Get-ChildItem "release/SXRON-Marketplace-Setup-$version-x64.exe").FullName
+          $latest = (Resolve-Path 'release/latest.yml').Path
 
           $release = gh api "repos/WhiteBelStudio/SxronApp/releases/tags/$tag" | ConvertFrom-Json
           if (!$release.id) { throw "Release not found: $tag" }
-          $assetName = Split-Path $exe -Leaf
-          $existing = $release.assets | Where-Object { $_.name -eq $assetName -or $_.name -eq 'latest.yml' }
-          foreach ($asset in $existing) {
-            Write-Host "Removing old asset: $($asset.name) ($($asset.id))"
-            gh api --method DELETE "repos/WhiteBelStudio/SxronApp/releases/assets/$($asset.id)"
-            if ($LASTEXITCODE -ne 0) { throw "Failed to remove old asset: $($asset.name)" }
+
+          $uploadBase = "https://uploads.github.com/repos/WhiteBelStudio/SxronApp/releases/$($release.id)/assets"
+
+          function Get-ReleaseAsset($name) {
+            $items = gh api "repos/WhiteBelStudio/SxronApp/releases/$($release.id)/assets?per_page=100" | ConvertFrom-Json
+            return @($items | Where-Object { $_.name -eq $name })
           }
 
-          $env:RELEASE_ID = [string]$release.id
-          $env:EXE_PATH = (Resolve-Path $exe).Path
-          $env:EXE_NAME = $assetName
-          $env:LATEST_PATH = (Resolve-Path $latest).Path
-          node build/release-uploader.cjs
+          function Remove-ReleaseAsset($name) {
+            foreach ($asset in (Get-ReleaseAsset $name)) {
+              Write-Host "Removing old asset: $($asset.name) ($($asset.id))"
+              gh api --method DELETE "repos/WhiteBelStudio/SxronApp/releases/assets/$($asset.id)"
+              if ($LASTEXITCODE -ne 0) { throw "Failed to remove old asset: $($asset.name)" }
+            }
+          }
+
+          function Upload-ReleaseAsset($path, $name, $contentType) {
+            $url = "$uploadBase?name=$([uri]::EscapeDataString($name))"
+            Write-Host "Uploading $name from $path"
+            Write-Host "Using curl HTTP/1.1 streaming upload."
+
+            & curl.exe `
+              --http1.1 `
+              --fail-with-body `
+              --silent `
+              --show-error `
+              --request POST `
+              --header "Authorization: Bearer $env:GH_TOKEN" `
+              --header 'Accept: application/vnd.github+json' `
+              --header 'User-Agent: SXRON-GitHub-Actions' `
+              --header "Content-Type: $contentType" `
+              --data-binary "@$path" `
+              $url
+
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -eq 0) {
+              Write-Host "Upload completed: $name"
+              return
+            }
+
+            Write-Host "curl exited with code $exitCode. Checking GitHub release assets before failing..."
+            if (Get-ReleaseAsset $name) {
+              Write-Host "GitHub already contains $name; treating the upload as successful."
+              return
+            }
+
+            throw "Failed to upload release asset '$name' (curl exit code $exitCode)."
+          }
+
+          $exeName = Split-Path $exe -Leaf
+          Remove-ReleaseAsset $exeName
+          Remove-ReleaseAsset 'latest.yml'
+
+          Upload-ReleaseAsset $exe $exeName 'application/octet-stream'
+          Upload-ReleaseAsset $latest 'latest.yml' 'text/yaml'
 
       - name: Verify published Windows assets
         env:
