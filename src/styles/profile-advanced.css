@@ -1,0 +1,40 @@
+/* =========================================================
+   SXRON ADVANCED PROFILE CUSTOMIZATION
+   ========================================================= */
+.user-profile-cover{position:relative;min-height:150px;overflow:hidden;border-radius:24px 24px 0 0;background:#111827}
+.user-profile-cover::before,.user-profile-cover::after{content:"";position:absolute;border-radius:999px;filter:blur(18px);opacity:.72}
+.user-profile-cover::before{width:280px;height:180px;left:8%;top:-80px;background:rgba(66,228,210,.55)}
+.user-profile-cover::after{width:340px;height:210px;right:4%;top:-100px;background:rgba(139,99,255,.55)}
+.user-profile-cover--aurora{background:linear-gradient(135deg,#091923,#16253d 52%,#1b1732)}
+.user-profile-cover--violet{background:linear-gradient(135deg,#170c2d,#3b1d6b 48%,#16112a)}
+.user-profile-cover--ocean{background:linear-gradient(135deg,#071a25,#0b4770 48%,#12244c)}
+.user-profile-cover--sunset{background:linear-gradient(135deg,#2b1014,#71362a 50%,#32152f)}
+.user-profile-cover-orb{position:absolute;width:110px;height:110px;right:22%;bottom:-56px;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.32),rgba(255,255,255,0) 65%);border:1px solid rgba(255,255,255,.1);box-shadow:0 0 70px rgba(66,228,210,.12)}
+.user-profile-avatar--circle{border-radius:50% !important}
+.user-profile-avatar--square{border-radius:9px !important}
+.user-profile-status{display:inline-flex;margin-top:8px;padding:6px 10px;border:1px solid color-mix(in srgb,var(--sxron-accent-a) 20%,transparent);border-radius:10px;background:color-mix(in srgb,var(--sxron-accent-a) 8%,transparent);color:#b8eee8;font-size:10px;font-weight:800}
+html[data-sxron-accent="violet"] .user-profile-status{color:#decaff}
+html[data-sxron-accent="blue"] .user-profile-status{color:#c9ddff}
+html[data-sxron-accent="sunset"] .user-profile-status{color:#ffe0cf}
+.profile-customizer__preview--rich{align-items:flex-start}
+.profile-customizer__preview-avatar--circle{border-radius:50% !important}
+.profile-customizer__preview-avatar--square{border-radius:9px !important}
+.profile-customizer__banners{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.profile-customizer__banner{position:relative;min-height:66px;padding:9px 10px;border:1px solid rgba(255,255,255,.08);border-radius:14px;display:flex;align-items:flex-end;justify-content:flex-start;color:#f4f7fb;background:#182033;overflow:hidden;font-size:10px;font-weight:900;cursor:pointer}
+.profile-customizer__banner span{position:absolute;inset:0;background:radial-gradient(circle at 20% 20%,rgba(255,255,255,.22),transparent 35%);pointer-events:none}
+.profile-customizer__banner--aurora{background:linear-gradient(135deg,#091923,#16253d 52%,#1b1732)}
+.profile-customizer__banner--violet{background:linear-gradient(135deg,#170c2d,#3b1d6b 48%,#16112a)}
+.profile-customizer__banner--ocean{background:linear-gradient(135deg,#071a25,#0b4770 48%,#12244c)}
+.profile-customizer__banner--sunset{background:linear-gradient(135deg,#2b1014,#71362a 50%,#32152f)}
+.profile-customizer__banner.is-active{border-color:color-mix(in srgb,var(--sxron-accent-a) 60%,transparent);box-shadow:0 0 0 2px color-mix(in srgb,var(--sxron-accent-a) 12%,transparent),0 12px 30px rgba(0,0,0,.18)}
+.profile-customizer__shapes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.profile-customizer__shapes button{min-height:62px;border:1px solid rgba(255,255,255,.08);border-radius:13px;background:rgba(255,255,255,.035);color:#dbe2ee;font-size:10px;font-weight:850;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.profile-customizer__shapes button.is-active{border-color:color-mix(in srgb,var(--sxron-accent-a) 55%,transparent);background:color-mix(in srgb,var(--sxron-accent-a) 7%,rgba(255,255,255,.03))}
+.profile-shape-demo{width:26px;height:26px;display:block;background:linear-gradient(135deg,var(--sxron-accent-a),var(--sxron-accent-b));box-shadow:0 7px 18px color-mix(in srgb,var(--sxron-accent-a) 18%,transparent)}
+.profile-shape-demo--rounded{border-radius:8px}
+.profile-shape-demo--circle{border-radius:50%}
+.profile-shape-demo--square{border-radius:2px}
+@media(max-width:600px){
+  .user-profile-cover{min-height:124px;border-radius:18px 18px 0 0}
+  .profile-customizer__banners{grid-template-columns:1fr}
+}
