@@ -127,6 +127,7 @@ jobs:
         shell: pwsh
         run: |
           $version = node -p "require('./package.json').version"
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid SXRON version: '$version'" }
           "version=$version" >> $env:GITHUB_OUTPUT
           Write-Host "SXRON version: $version"
 
@@ -134,6 +135,20 @@ jobs:
         shell: pwsh
         run: |
           if ('${{ steps.version.outputs.version }}' -ne '1.2.5') { throw "Expected SXRON 1.2.5, got ${{ steps.version.outputs.version }}" }
+
+      - name: Clean invalid release tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          gh release view v --repo WhiteBelStudio/SxronApp | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host 'Removing malformed GitHub release tag: v'
+            gh release delete v --yes --cleanup-tag --repo WhiteBelStudio/SxronApp
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to remove malformed release tag v' }
+          } else {
+            Write-Host 'Malformed release tag v not present.'
+          }
 
       - name: Build web application
         run: npm run build
