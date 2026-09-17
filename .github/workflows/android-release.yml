@@ -43,7 +43,7 @@ jobs:
       - name: Read version
         id: version
         shell: bash
-        run: echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(node -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
 
       - name: Build web
         run: npm run build
@@ -68,14 +68,26 @@ jobs:
           ls -lh release
 
       - name: Publish APK
-        uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: SXRON Marketplace v${{ steps.version.outputs.version }}
-          draft: false
-          prerelease: false
-          overwrite_files: true
-          generate_release_notes: true
-          files: release/SXRON-Marketplace-*-android.apk
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          TAG="v${VERSION}"
+          APK="release/SXRON-Marketplace-${VERSION}-android.apk"
+
+          test -s "$APK"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "SXRON Marketplace ${VERSION}" --notes "SXRON Marketplace ${VERSION}"
+          gh release upload "$TAG" "$APK" --clobber
+
+      - name: Verify published APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          TAG="v${VERSION}"
+          EXPECTED="SXRON-Marketplace-${VERSION}-android.apk"
+          ASSETS="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+          echo "$ASSETS"
+          grep -Fx "$EXPECTED" <<< "$ASSETS"
