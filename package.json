@@ -40,6 +40,12 @@
     "productName": "SXRON Marketplace",
     "directories": {"output": "release"},
     "files": ["dist/**/*", "electron/**/*", "server-dist/**/*", "package.json"],
+    "extraResources": [
+      {
+        "from": "backend/sxron-api",
+        "to": "backend/sxron-api"
+      }
+    ],
     "win": {"target": "nsis", "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}"},
     "nsis": {"oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true},
     "publish": [{"provider": "github", "owner": "WhiteBelStudio", "repo": "SxronApp", "releaseType": "release"}]
