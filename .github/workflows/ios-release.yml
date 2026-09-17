@@ -1,0 +1,45 @@
+name: SXRON iOS Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm install --no-audit --no-fund
+      - name: Check version
+        run: test "$(node -p "require('./package.json').version")" = "1.2.3"
+      - run: npm run build
+      - name: Add iOS project
+        run: if [ ! -d ios ]; then npx cap add ios; fi
+      - run: npx cap sync ios
+      - name: Build iOS app
+        working-directory: ios
+        run: xcodebuild -workspace App/App.xcworkspace -scheme App -configuration Debug -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+      - name: Package iOS build
+        run: |
+          mkdir -p release
+          cd ios/build/Build/Products/Debug-iphoneos
+          zip -r ../../../../../../release/SXRON-Marketplace-1.2.3-ios.zip App.app
+      - name: Publish iOS build
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v1.2.3
+          name: SXRON Marketplace v1.2.3
+          overwrite_files: true
+          files: release/SXRON-Marketplace-1.2.3-ios.zip
