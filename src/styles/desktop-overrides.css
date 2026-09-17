@@ -1,4 +1,5 @@
 /* SXRON 1.2.4 — desktop visual system based on the official logo */
+/* Release build marker: official desktop branding + vector app icon */
 @media (min-width: 769px) {
   :root { --sxron-neon:#18d8d0; --sxron-violet:#923cff; --sxron-blue:#218ff0; }
   body { background:radial-gradient(900px 560px at 6% 0%,rgba(24,216,208,.10),transparent 64%),radial-gradient(900px 600px at 100% 0%,rgba(146,60,255,.12),transparent 66%),#050812; }
