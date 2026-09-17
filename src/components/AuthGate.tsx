@@ -149,7 +149,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       <div style={cardStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
           <div style={{ width: 48, height: 48, borderRadius: 15, display: "grid", placeItems: "center", fontWeight: 900, fontSize: 20, background: "linear-gradient(135deg,#19d8d0,#7a4dff)" }}>S</div>
-          <div><div style={{ fontSize: 21, fontWeight: 800 }}>SXRON Marketplace</div><div style={{ opacity: .6, fontSize: 13 }}>Версия 1.0.16 · безопасный вход</div></div>
+          <div><div style={{ fontSize: 21, fontWeight: 800 }}>SXRON Marketplace</div><div style={{ opacity: .6, fontSize: 13 }}>Версия 1.1.10 · безопасный вход</div></div>
         </div>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
