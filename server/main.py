@@ -10,7 +10,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.4"
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("SXRON_DATA_DIR", BASE_DIR / "data"))
 DB_PATH = DATA_DIR / "sxron.db"
@@ -39,7 +39,7 @@ def db() -> sqlite3.Connection:
 
 
 def ensure_column(connection: sqlite3.Connection, table: str, column: str, definition: str) -> None:
-    columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
+    columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table}").fetchall()}
     if column not in columns:
         connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
@@ -99,14 +99,24 @@ def init_db() -> None:
         )
         for column, definition in [
             ("display_name", "TEXT"),
+            ("profile_status", "TEXT NOT NULL DEFAULT ''"),
             ("profile_accent", "TEXT NOT NULL DEFAULT 'cyan'"),
+            ("profile_banner", "TEXT NOT NULL DEFAULT 'aurora'"),
+            ("avatar_shape", "TEXT NOT NULL DEFAULT 'rounded'"),
             ("username_visible", "INTEGER NOT NULL DEFAULT 1"),
             ("badges_visible", "INTEGER NOT NULL DEFAULT 1"),
+            ("activity_visible", "INTEGER NOT NULL DEFAULT 1"),
         ]:
             ensure_column(connection, "users", column, definition)
         connection.execute("INSERT OR IGNORE INTO cities(name, slug) VALUES (?, ?)", ("Белореченск", "belorechensk"))
         connection.execute("INSERT OR IGNORE INTO cities(name, slug) VALUES (?, ?)", ("Хутор Кубанский", "khutor-kubanskiy"))
-        for name, slug, icon in [("Электроника", "electronics", "▣"), ("Одежда", "clothes", "◈"), ("Дом", "home", "⌂"), ("Транспорт", "transport", "◆"), ("Разное", "other", "✦")]:
+        for name, slug, icon in [
+            ("Электроника", "electronics", "▣"),
+            ("Одежда", "clothes", "◈"),
+            ("Дом", "home", "⌂"),
+            ("Транспорт", "transport", "◆"),
+            ("Разное", "other", "✦"),
+        ]:
             connection.execute("INSERT OR IGNORE INTO categories(name, slug, icon) VALUES (?, ?, ?)", (name, slug, icon))
         if OWNER_CLIENT_ID:
             row = connection.execute("SELECT id FROM users WHERE client_id = ?", (OWNER_CLIENT_ID,)).fetchone()
@@ -126,7 +136,10 @@ def current_user(client_id: str | None) -> sqlite3.Row:
             connection.execute("UPDATE users SET last_seen_at = ? WHERE id = ?", (now(), row["id"]))
             return connection.execute("SELECT * FROM users WHERE id = ?", (row["id"],)).fetchone()
         timestamp = now()
-        cursor = connection.execute("INSERT INTO users(client_id, first_name, created_at, last_seen_at) VALUES (?, 'Пользователь', ?, ?)", (client_id, timestamp, timestamp))
+        cursor = connection.execute(
+            "INSERT INTO users(client_id, first_name, created_at, last_seen_at) VALUES (?, 'Пользователь', ?, ?)",
+            (client_id, timestamp, timestamp),
+        )
         user_id = cursor.lastrowid
         if OWNER_CLIENT_ID and client_id == OWNER_CLIENT_ID:
             connection.execute("INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)", (user_id, now()))
@@ -167,10 +180,14 @@ class AdminMutation(BaseModel):
 class ProfileUpdate(BaseModel):
     display_name: str | None = Field(default=None, max_length=60)
     bio: str | None = Field(default=None, max_length=500)
+    profile_status: str | None = Field(default=None, max_length=80)
     avatar_url: str | None = Field(default=None, max_length=2_000_000)
     profile_accent: str | None = Field(default=None, pattern="^(cyan|violet|blue|sunset)$")
+    profile_banner: str | None = Field(default=None, pattern="^(aurora|violet|ocean|sunset)$")
+    avatar_shape: str | None = Field(default=None, pattern="^(rounded|circle|square)$")
     username_visible: bool | None = None
     badges_visible: bool | None = None
+    activity_visible: bool | None = None
     city_id: int | None = None
 
 
@@ -187,6 +204,7 @@ def health() -> dict[str, str]:
 def user_dict(user: sqlite3.Row, connection: sqlite3.Connection) -> dict[str, Any]:
     listings = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ?", (user["id"],)).fetchone()[0]
     active = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ? AND available = 1", (user["id"],)).fetchone()[0]
+    sold = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ? AND status = 'sold'", (user["id"],)).fetchone()[0]
     city = None
     if user["city_id"]:
         city_row = connection.execute("SELECT * FROM cities WHERE id = ?", (user["city_id"],)).fetchone()
@@ -202,17 +220,21 @@ def user_dict(user: sqlite3.Row, connection: sqlite3.Connection) -> dict[str, An
         "created_at": user["created_at"],
         "bio": user["bio"],
         "display_name": user["display_name"] or user["first_name"] or "Пользователь",
+        "profile_status": user["profile_status"] or "",
         "profile_accent": user["profile_accent"] or "cyan",
+        "profile_banner": user["profile_banner"] or "aurora",
+        "avatar_shape": user["avatar_shape"] or "rounded",
         "username_visible": bool(user["username_visible"]),
         "badges_visible": bool(user["badges_visible"]),
+        "activity_visible": bool(user["activity_visible"]),
         "listings_count": listings,
         "active_listings_count": active,
-        "sold_count": 0,
+        "sold_count": sold,
         "views_count": 0,
         "rating": None,
         "reviews_count": 0,
         "last_seen_at": user["last_seen_at"],
-        "is_online": True,
+        "is_online": (datetime.now(timezone.utc) - datetime.fromisoformat(user["last_seen_at"])).total_seconds() < 300,
         "verified": is_owner(user),
     }
 
@@ -229,7 +251,26 @@ def product_dict(row: sqlite3.Row) -> dict[str, Any]:
             category_row = connection.execute("SELECT * FROM categories WHERE id = ?", (row["category_id"],)).fetchone()
             if category_row:
                 category = category_row["name"]
-    return {"id": row["id"], "name": row["name"], "description": row["description"], "price": row["price"], "category_id": row["category_id"], "category": category, "city_id": row["city_id"], "city": city, "condition": row["condition"], "delivery": row["delivery"], "photo_url": row["photo_url"], "status": row["status"], "available": bool(row["available"]), "is_available": bool(row["available"]), "created_by": row["created_by"], "seller_id": row["created_by"], "created_at": row["created_at"], "updated_at": row["updated_at"]}
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "description": row["description"],
+        "price": row["price"],
+        "category_id": row["category_id"],
+        "category": category,
+        "city_id": row["city_id"],
+        "city": city,
+        "condition": row["condition"],
+        "delivery": row["delivery"],
+        "photo_url": row["photo_url"],
+        "status": row["status"],
+        "available": bool(row["available"]),
+        "is_available": bool(row["available"]),
+        "created_by": row["created_by"],
+        "seller_id": row["created_by"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
 
 
 @app.get("/products")
@@ -275,7 +316,10 @@ def create_product(data: ProductCreate, x_sxron_client_id: str | None = Header(d
             row = connection.execute("SELECT id FROM cities WHERE LOWER(name) = LOWER(?)", (data.city,)).fetchone()
             city_id = row["id"] if row else None
         timestamp = now()
-        cursor = connection.execute("INSERT INTO products(name, description, price, category_id, city_id, condition, delivery, photo_url, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (data.name.strip(), data.description.strip(), data.price, category_id, city_id, data.condition, data.delivery, data.photo_url, user["id"], timestamp, timestamp))
+        cursor = connection.execute(
+            "INSERT INTO products(name, description, price, category_id, city_id, condition, delivery, photo_url, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (data.name.strip(), data.description.strip(), data.price, category_id, city_id, data.condition, data.delivery, data.photo_url, user["id"], timestamp, timestamp),
+        )
         row = connection.execute("SELECT * FROM products WHERE id = ?", (cursor.lastrowid,)).fetchone()
     return product_dict(row)
 
@@ -310,6 +354,23 @@ def get_profile(x_sxron_client_id: str | None = Header(default=None)) -> dict[st
     return {"user": data, "is_admin": is_admin(user["id"]), "is_owner": is_owner(user)}
 
 
+@app.get("/users/{user_id}/profile")
+def public_profile(user_id: int) -> dict[str, Any]:
+    with db() as connection:
+        user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="Профиль не найден")
+        data = user_dict(user, connection)
+        if not data["username_visible"]:
+            data["username"] = None
+        if not data["badges_visible"]:
+            data["verified"] = False
+        if not data["activity_visible"]:
+            data["is_online"] = False
+            data["last_seen_at"] = None
+        return {"user": data}
+
+
 @app.put("/me/profile")
 def update_profile(data: ProfileUpdate, x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
     user = current_user(x_sxron_client_id)
@@ -318,14 +379,22 @@ def update_profile(data: ProfileUpdate, x_sxron_client_id: str | None = Header(d
         updates["display_name"] = data.display_name.strip()
     if data.bio is not None:
         updates["bio"] = data.bio.strip()
+    if data.profile_status is not None:
+        updates["profile_status"] = data.profile_status.strip()
     if data.avatar_url is not None:
         updates["avatar_url"] = data.avatar_url
     if data.profile_accent is not None:
         updates["profile_accent"] = data.profile_accent
+    if data.profile_banner is not None:
+        updates["profile_banner"] = data.profile_banner
+    if data.avatar_shape is not None:
+        updates["avatar_shape"] = data.avatar_shape
     if data.username_visible is not None:
         updates["username_visible"] = int(data.username_visible)
     if data.badges_visible is not None:
         updates["badges_visible"] = int(data.badges_visible)
+    if data.activity_visible is not None:
+        updates["activity_visible"] = int(data.activity_visible)
     if data.city_id is not None:
         with db() as connection:
             if not connection.execute("SELECT 1 FROM cities WHERE id = ?", (data.city_id,)).fetchone():
