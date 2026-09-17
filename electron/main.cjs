@@ -244,8 +244,34 @@ async function downloadAndInstallGitHubUpdate() {
   setTimeout(() => app.quit(), 250);
 }
 
+function installWindowChrome(win) {
+  win.webContents.executeJavaScript(`(() => {
+    if (document.getElementById('sxron-window-chrome')) return;
+    const style = document.createElement('style');
+    style.id = 'sxron-window-chrome-style';
+    style.textContent = \`#sxron-window-chrome{position:fixed;top:0;left:0;right:0;height:40px;z-index:2147483647;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 14px;background:rgba(7,9,15,.96);border-bottom:1px solid rgba(255,255,255,.055);backdrop-filter:blur(18px);-webkit-app-region:drag;font-family:Inter,system-ui,sans-serif}#sxron-window-chrome .sxron-chrome-title{display:flex;align-items:center;gap:8px;color:#8f9aae;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}#sxron-window-chrome .sxron-chrome-mark{width:20px;height:20px;border-radius:7px;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:950;background:linear-gradient(135deg,#20d3c2,#8067f5);box-shadow:0 4px 18px rgba(32,211,194,.18)}#sxron-window-chrome .sxron-chrome-actions{height:100%;display:flex;align-items:center;-webkit-app-region:no-drag}#sxron-window-chrome button{width:42px;height:30px;margin-left:2px;border:0;border-radius:8px;background:transparent;color:#8f9aae;font-size:14px;cursor:pointer;display:grid;place-items:center}#sxron-window-chrome button:hover{background:rgba(255,255,255,.07);color:#fff}#sxron-window-chrome button.sxron-close:hover{background:#e5484d;color:#fff}body{padding-top:40px!important}\`; 
+    document.head.appendChild(style);
+    const bar = document.createElement('div');
+    bar.id = 'sxron-window-chrome';
+    bar.innerHTML = '<div class="sxron-chrome-title"><span class="sxron-chrome-mark">S</span><span>SXRON MARKETPLACE</span></div><div class="sxron-chrome-actions"><button data-action="minimize" aria-label="Свернуть">−</button><button data-action="maximize" aria-label="Развернуть">□</button><button data-action="close" class="sxron-close" aria-label="Закрыть">×</button></div>';
+    bar.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => window.open('sxron://' + button.dataset.action)));
+    document.body.appendChild(bar);
+  })()` ).catch(() => {});
+}
+
 async function createWindow() {
-  const win = new BrowserWindow({ width: 1440, height: 920, minWidth: 1000, minHeight: 700, title: `SXRON Marketplace ${CURRENT_VERSION}`, backgroundColor: '#07090f', autoHideMenuBar: true, webPreferences: { contextIsolation: true, nodeIntegration: false } });
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 920,
+    minWidth: 1000,
+    minHeight: 700,
+    title: `SXRON Marketplace ${CURRENT_VERSION}`,
+    backgroundColor: '#07090f',
+    autoHideMenuBar: true,
+    frame: false,
+    roundedCorners: true,
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
   mainWindow = win;
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => console.error('SXRON renderer load failed:', errorCode, errorDescription));
   if (isDev) await win.loadURL('http://localhost:5173');
@@ -260,10 +286,23 @@ async function createWindow() {
       downloadAndInstallGitHubUpdate().catch((error) => sendUpdateUi('update-error', { message: error?.message || String(error) }));
       return { action: 'deny' };
     }
+    if (url === 'sxron://minimize') {
+      win.minimize();
+      return { action: 'deny' };
+    }
+    if (url === 'sxron://maximize') {
+      if (win.isMaximized()) win.unmaximize(); else win.maximize();
+      return { action: 'deny' };
+    }
+    if (url === 'sxron://close') {
+      win.close();
+      return { action: 'deny' };
+    }
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
   win.webContents.on('did-finish-load', () => {
+    installWindowChrome(win);
     sendUpdateUi('app-version', { version: CURRENT_VERSION });
   });
   win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
