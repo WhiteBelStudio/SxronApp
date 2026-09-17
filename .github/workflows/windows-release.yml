@@ -217,7 +217,11 @@ jobs:
           if (-not $latest) { throw 'latest.yml missing' }
 
           gh release view $tag --repo WhiteBelStudio/SxronApp | Out-Null
-          if ($LASTEXITCODE -ne 0) { throw "Release not found: $tag" }
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Release $tag does not exist yet. Creating it now..."
+            gh release create $tag --title "SXRON Marketplace $version" --notes "SXRON Marketplace $version — desktop redesign and release update."
+            if ($LASTEXITCODE -ne 0) { throw "Failed to create release: $tag" }
+          }
 
           Write-Host "Uploading $($exe.Name) with GitHub CLI..."
           gh release upload $tag $exe.FullName --clobber --repo WhiteBelStudio/SxronApp
