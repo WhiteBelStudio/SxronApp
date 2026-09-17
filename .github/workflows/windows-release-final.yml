@@ -1,6 +1,7 @@
 name: SXRON Windows Release Final
 
 # Release pipeline: build and publish the Windows installer for the current release.
+# Rebuild trigger: keep Windows 1.2.5 release pipeline runnable from current main.
 
 on:
   push:
