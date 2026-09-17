@@ -6,18 +6,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-APP_VERSION = "1.0.19"
+APP_VERSION = "1.1.1"
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("SXRON_DATA_DIR", BASE_DIR / "data"))
 DB_PATH = DATA_DIR / "sxron.db"
 OWNER_CLIENT_ID = os.getenv("SXRON_OWNER_CLIENT_ID", "sxron-owner-nikitinka7644").strip()
 
 app = FastAPI(title="SXRON API", version=APP_VERSION)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in os.getenv("SXRON_CORS_ORIGINS", "*").split(",") if origin.strip()],
@@ -37,6 +36,12 @@ def db() -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
+
+
+def ensure_column(connection: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def init_db() -> None:
@@ -92,6 +97,13 @@ def init_db() -> None:
             );
             """
         )
+        for column, definition in [
+            ("display_name", "TEXT"),
+            ("profile_accent", "TEXT NOT NULL DEFAULT 'cyan'"),
+            ("username_visible", "INTEGER NOT NULL DEFAULT 1"),
+            ("badges_visible", "INTEGER NOT NULL DEFAULT 1"),
+        ]:
+            ensure_column(connection, "users", column, definition)
         connection.execute("INSERT OR IGNORE INTO cities(name, slug) VALUES (?, ?)", ("Белореченск", "belorechensk"))
         connection.execute("INSERT OR IGNORE INTO cities(name, slug) VALUES (?, ?)", ("Хутор Кубанский", "khutor-kubanskiy"))
         for name, slug, icon in [("Электроника", "electronics", "▣"), ("Одежда", "clothes", "◈"), ("Дом", "home", "⌂"), ("Транспорт", "transport", "◆"), ("Разное", "other", "✦")]:
@@ -152,6 +164,16 @@ class AdminMutation(BaseModel):
     user_id: int
 
 
+class ProfileUpdate(BaseModel):
+    display_name: str | None = Field(default=None, max_length=60)
+    bio: str | None = Field(default=None, max_length=500)
+    avatar_url: str | None = Field(default=None, max_length=2_000_000)
+    profile_accent: str | None = Field(default=None, pattern="^(cyan|violet|blue|sunset)$")
+    username_visible: bool | None = None
+    badges_visible: bool | None = None
+    city_id: int | None = None
+
+
 @app.on_event("startup")
 def startup() -> None:
     init_db()
@@ -160,6 +182,39 @@ def startup() -> None:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "app": "SXRON API", "version": APP_VERSION}
+
+
+def user_dict(user: sqlite3.Row, connection: sqlite3.Connection) -> dict[str, Any]:
+    listings = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ?", (user["id"],)).fetchone()[0]
+    active = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ? AND available = 1", (user["id"],)).fetchone()[0]
+    city = None
+    if user["city_id"]:
+        city_row = connection.execute("SELECT * FROM cities WHERE id = ?", (user["city_id"],)).fetchone()
+        if city_row:
+            city = {"id": city_row["id"], "name": city_row["name"], "slug": city_row["slug"]}
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "first_name": user["first_name"],
+        "last_name": user["last_name"],
+        "avatar_url": user["avatar_url"],
+        "city": city,
+        "created_at": user["created_at"],
+        "bio": user["bio"],
+        "display_name": user["display_name"] or user["first_name"] or "Пользователь",
+        "profile_accent": user["profile_accent"] or "cyan",
+        "username_visible": bool(user["username_visible"]),
+        "badges_visible": bool(user["badges_visible"]),
+        "listings_count": listings,
+        "active_listings_count": active,
+        "sold_count": 0,
+        "views_count": 0,
+        "rating": None,
+        "reviews_count": 0,
+        "last_seen_at": user["last_seen_at"],
+        "is_online": True,
+        "verified": is_owner(user),
+    }
 
 
 def product_dict(row: sqlite3.Row) -> dict[str, Any]:
@@ -243,10 +298,47 @@ def cities() -> list[dict[str, Any]]:
 def me(x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
     user = current_user(x_sxron_client_id)
     with db() as connection:
-        listings = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ?", (user["id"],)).fetchone()[0]
-        active = connection.execute("SELECT COUNT(*) FROM products WHERE created_by = ? AND available = 1", (user["id"],)).fetchone()[0]
-    user_data = {"id": user["id"], "username": user["username"], "first_name": user["first_name"], "last_name": user["last_name"], "avatar_url": user["avatar_url"], "city": None, "created_at": user["created_at"], "bio": user["bio"], "listings_count": listings, "active_listings_count": active, "sold_count": 0, "views_count": 0, "rating": None, "reviews_count": 0, "last_seen_at": user["last_seen_at"], "is_online": True, "verified": is_owner(user)}
-    return {"user": user_data, "is_admin": is_admin(user["id"]), "is_owner": is_owner(user)}
+        data = user_dict(user, connection)
+    return {"user": data, "is_admin": is_admin(user["id"]), "is_owner": is_owner(user)}
+
+
+@app.get("/me/profile")
+def get_profile(x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
+    user = current_user(x_sxron_client_id)
+    with db() as connection:
+        data = user_dict(user, connection)
+    return {"user": data, "is_admin": is_admin(user["id"]), "is_owner": is_owner(user)}
+
+
+@app.put("/me/profile")
+def update_profile(data: ProfileUpdate, x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
+    user = current_user(x_sxron_client_id)
+    updates: dict[str, Any] = {}
+    if data.display_name is not None:
+        updates["display_name"] = data.display_name.strip()
+    if data.bio is not None:
+        updates["bio"] = data.bio.strip()
+    if data.avatar_url is not None:
+        updates["avatar_url"] = data.avatar_url
+    if data.profile_accent is not None:
+        updates["profile_accent"] = data.profile_accent
+    if data.username_visible is not None:
+        updates["username_visible"] = int(data.username_visible)
+    if data.badges_visible is not None:
+        updates["badges_visible"] = int(data.badges_visible)
+    if data.city_id is not None:
+        with db() as connection:
+            if not connection.execute("SELECT 1 FROM cities WHERE id = ?", (data.city_id,)).fetchone():
+                raise HTTPException(status_code=400, detail="Город не найден")
+        updates["city_id"] = data.city_id
+    if updates:
+        with db() as connection:
+            assignments = ", ".join(f"{key} = ?" for key in updates)
+            connection.execute(f"UPDATE users SET {assignments}, last_seen_at = ? WHERE id = ?", [*updates.values(), now(), user["id"]])
+    with db() as connection:
+        fresh = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+        result = user_dict(fresh, connection)
+    return {"user": result, "is_admin": is_admin(user["id"]), "is_owner": is_owner(user)}
 
 
 @app.get("/admins")
@@ -287,5 +379,4 @@ def remove_admin(data: AdminMutation, x_sxron_client_id: str | None = Header(def
 
 
 from server.auth import register_auth
-
 register_auth(app)
