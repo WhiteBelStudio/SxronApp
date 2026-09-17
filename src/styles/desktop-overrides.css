@@ -1,45 +1,276 @@
-/* SXRON 1.2.4 — desktop visual system based on the official logo */
-/* Release build marker: official desktop branding + vector app icon */
+/* SXRON 1.2.5 — Windows desktop visual system */
+/* Desktop target: the supplied SXRON marketplace reference — native app feel, dense 3-column marketplace layout. */
 @media (min-width: 769px) {
-  :root { --sxron-neon:#18d8d0; --sxron-violet:#923cff; --sxron-blue:#218ff0; }
-  body { background:radial-gradient(900px 560px at 6% 0%,rgba(24,216,208,.10),transparent 64%),radial-gradient(900px 600px at 100% 0%,rgba(146,60,255,.12),transparent 66%),#050812; }
-  .sxron-shell { min-height:100vh; padding-bottom:0; background:linear-gradient(180deg,rgba(4,7,14,.72),rgba(4,7,14,.96)),radial-gradient(700px 500px at 42% 10%,rgba(24,216,208,.035),transparent 70%); }
-  .sxron-topbar { position:fixed; inset:0 auto 0 0; z-index:100; width:252px; height:100vh; padding:28px 18px 22px; display:flex; flex-direction:column; align-items:stretch; gap:22px; border:0; border-right:1px solid rgba(255,255,255,.075); background:linear-gradient(180deg,rgba(5,9,18,.97),rgba(7,11,21,.94)); box-shadow:16px 0 55px rgba(0,0,0,.22); backdrop-filter:blur(24px) saturate(140%); }
-  .sxron-brand { width:100%; min-height:116px; justify-content:flex-start; padding:0 8px; border:0; }
-  .sxron-brand__mark { width:190px; height:116px; border-radius:0; background:url('/sxron-logo.svg') center/contain no-repeat !important; box-shadow:none !important; color:transparent; font-size:0; }
-  .sxron-brand > span:last-child { display:none; }
-  .sxron-topnav { width:100%; display:grid; gap:7px; padding-top:8px; }
-  .sxron-topnav::before { content:'НАВИГАЦИЯ'; display:block; margin:0 12px 6px; color:#5f6f89; font-size:9px; font-weight:950; letter-spacing:.18em; }
-  .sxron-topnav button { min-height:48px; padding:0 14px; border:1px solid transparent; border-radius:13px; text-align:left; color:#9ba9bd; background:transparent; font-size:13px; font-weight:800; }
-  .sxron-topnav button:hover { color:#fff; border-color:rgba(84,224,214,.13); background:rgba(84,224,214,.055); }
-  .sxron-topnav button.active { color:#fff; border-color:rgba(76,224,214,.28); background:linear-gradient(100deg,rgba(19,210,202,.18),rgba(122,62,255,.16)); box-shadow:inset 3px 0 0 #25d9cf,0 10px 28px rgba(40,70,150,.14); }
-  .sxron-city-pill { margin:auto 2px 0; min-height:44px; display:flex; align-items:center; padding:0 13px; border:1px solid rgba(255,255,255,.08); border-radius:13px; color:#b8c3d5; background:rgba(255,255,255,.035); font-size:12px; font-weight:750; }
-  .sxron-content { width:auto; max-width:none; margin:0 0 0 252px; padding:30px 42px 70px; }
-  .sxron-home,.sxron-page { width:min(1320px,100%); margin:0 auto; }
-  .sxron-hero-card { min-height:520px; padding:62px 68px; border:1px solid rgba(98,185,255,.16); border-radius:28px; background:radial-gradient(520px 420px at 82% 48%,rgba(141,65,255,.16),transparent 68%),radial-gradient(520px 420px at 55% 12%,rgba(23,215,207,.09),transparent 72%),linear-gradient(145deg,rgba(16,24,40,.94),rgba(6,11,21,.96)); box-shadow:0 28px 90px rgba(0,0,0,.27),inset 0 1px rgba(255,255,255,.045); }
-  .sxron-hero-card::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(135deg,transparent 35%,rgba(44,142,255,.04) 50%,transparent 65%); }
-  .sxron-kicker { color:#62e9df; letter-spacing:.2em; }
-  .sxron-hero-card h1 { max-width:720px; margin:17px 0 20px; font-size:clamp(62px,6.4vw,96px); line-height:.9; letter-spacing:-5px; }
-  .sxron-hero-card p { max-width:610px; font-size:17px; color:#98a6ba; }
-  .sxron-actions { margin-top:28px; }
-  .sxron-primary { background:linear-gradient(100deg,#14cfe0 0%,#2e8df2 47%,#9a38ff 100%); box-shadow:0 13px 38px rgba(46,141,242,.16); }
-  .sxron-hero-orb { width:370px; height:370px; flex-basis:370px; border-radius:28px; background:radial-gradient(circle at 50% 45%,rgba(38,225,215,.07),transparent 62%),rgba(3,8,17,.28) url('/sxron-logo.svg') center/88% auto no-repeat; border:1px solid rgba(88,195,255,.14); box-shadow:0 0 0 16px rgba(69,150,255,.025),0 35px 100px rgba(0,0,0,.38),0 0 80px rgba(93,65,255,.10); }
-  .sxron-hero-orb span { display:none; }
-  .sxron-section-head { margin:58px 0 18px; }
-  .sxron-section-head h2 { font-size:28px; letter-spacing:-.7px; }
-  .sxron-category-grid { grid-template-columns:repeat(8,minmax(0,1fr)); gap:11px; }
-  .sxron-category-card { min-height:142px; padding:16px; border-radius:17px; background:linear-gradient(145deg,rgba(17,27,43,.82),rgba(8,13,24,.86)); box-shadow:inset 0 1px rgba(255,255,255,.035); }
-  .sxron-category-card:hover { border-color:rgba(84,224,214,.27); transform:translateY(-4px); }
-  .sxron-category-card strong { color:#65e9df; font-size:24px; }
-  .sxron-product-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-  .sxron-product-card { border-radius:18px; border-color:rgba(105,166,230,.14); background:linear-gradient(145deg,rgba(15,23,38,.9),rgba(7,12,22,.92)); }
-  .sxron-product-card:hover { border-color:rgba(84,224,214,.26); }
-  .sxron-product-image { height:220px; }
-  .sxron-product-body { padding:15px; }
-  .sxron-product-body h3 { font-size:15px; }
-  .sxron-page-head { padding:25px 27px; border:1px solid rgba(105,166,230,.14); border-radius:20px; background:linear-gradient(145deg,rgba(16,24,40,.86),rgba(7,12,22,.9)); }
-  .sxron-page-head h1 { font-size:38px; }
-  .sxron-searchbar { box-shadow:0 15px 45px rgba(0,0,0,.15); }
-  .sxron-bottom-nav { display:none !important; }
-  .sxron-toast { left:calc(50% + 126px); }
+  :root {
+    --sxron-neon: #16d9ee;
+    --sxron-violet: #8d32ff;
+    --sxron-blue: #277ff0;
+    --sxron-bg: #020712;
+    --sxron-panel: rgba(5, 14, 29, .92);
+    --sxron-line: rgba(74, 174, 255, .22);
+    --sxron-text: #f4f8ff;
+    --sxron-muted: #8295b3;
+  }
+
+  html, body, #root { min-height: 100%; }
+  body {
+    margin: 0;
+    overflow-x: hidden;
+    background:
+      radial-gradient(900px 650px at 20% -10%, rgba(0, 213, 255, .105), transparent 68%),
+      radial-gradient(850px 620px at 100% 0%, rgba(119, 36, 255, .13), transparent 70%),
+      #020711;
+    color: var(--sxron-text);
+  }
+
+  .sxron-shell {
+    min-height: 100vh;
+    padding: 0;
+    background:
+      linear-gradient(180deg, rgba(1, 6, 15, .42), rgba(1, 5, 13, .88)),
+      radial-gradient(850px 600px at 55% 5%, rgba(17, 137, 255, .035), transparent 72%);
+  }
+
+  /* Left desktop navigation */
+  .sxron-topbar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 100;
+    width: 282px;
+    height: 100vh;
+    box-sizing: border-box;
+    padding: 20px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    border: 0;
+    border-right: 1px solid rgba(86, 166, 239, .17);
+    border-radius: 0;
+    background:
+      linear-gradient(180deg, rgba(2, 9, 20, .985), rgba(3, 10, 20, .96)),
+      radial-gradient(360px 500px at 0% 0%, rgba(0, 217, 238, .08), transparent 72%);
+    box-shadow: 18px 0 65px rgba(0, 0, 0, .30);
+    backdrop-filter: blur(22px) saturate(145%);
+  }
+
+  .sxron-brand {
+    width: 100%;
+    height: 92px;
+    min-height: 92px;
+    justify-content: flex-start;
+    padding: 0 6px;
+    border: 0;
+    background: transparent;
+  }
+  .sxron-brand__mark {
+    width: 220px;
+    height: 86px;
+    border-radius: 0;
+    background: url('/sxron-logo.svg') left center / contain no-repeat !important;
+    box-shadow: none !important;
+    color: transparent;
+    font-size: 0;
+  }
+  .sxron-brand > span:last-child { display: none; }
+
+  .sxron-topnav {
+    width: 100%;
+    display: grid;
+    gap: 6px;
+    padding-top: 8px;
+  }
+  .sxron-topnav::before {
+    content: 'НАВИГАЦИЯ';
+    display: block;
+    margin: 0 12px 7px;
+    color: #5f7492;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .18em;
+  }
+  .sxron-topnav button {
+    min-height: 48px;
+    padding: 0 16px;
+    border: 1px solid transparent;
+    border-radius: 13px;
+    text-align: left;
+    color: #a7b8d1;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 800;
+    transition: .18s ease;
+  }
+  .sxron-topnav button:hover {
+    color: #fff;
+    border-color: rgba(38, 213, 235, .16);
+    background: rgba(27, 192, 221, .06);
+    transform: translateX(2px);
+  }
+  .sxron-topnav button.active {
+    color: #fff;
+    border-color: rgba(43, 218, 232, .30);
+    background: linear-gradient(100deg, rgba(17, 213, 225, .20), rgba(122, 47, 255, .22));
+    box-shadow: inset 3px 0 0 #19dce7, 0 10px 30px rgba(31, 91, 176, .15);
+  }
+
+  .sxron-city-pill {
+    margin: auto 2px 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 13px;
+    border: 1px solid rgba(96, 155, 216, .14);
+    border-radius: 13px;
+    color: #aab9ce;
+    background: rgba(255, 255, 255, .035);
+    font-size: 12px;
+    font-weight: 750;
+  }
+
+  /* Main desktop canvas */
+  .sxron-content {
+    width: auto;
+    max-width: none;
+    margin: 0 0 0 282px;
+    padding: 28px 34px 54px;
+    box-sizing: border-box;
+  }
+  .sxron-home, .sxron-page {
+    width: min(1320px, 100%);
+    margin: 0 auto;
+  }
+
+  /* Compact marketplace hero like the reference */
+  .sxron-hero-card {
+    min-height: 226px;
+    padding: 34px 42px;
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    overflow: hidden;
+    border: 1px solid rgba(60, 173, 255, .28);
+    border-radius: 21px;
+    background:
+      linear-gradient(135deg, rgba(7, 23, 49, .96), rgba(4, 11, 25, .98)),
+      radial-gradient(520px 300px at 78% 50%, rgba(132, 45, 255, .24), transparent 70%),
+      radial-gradient(480px 300px at 40% 0%, rgba(0, 218, 237, .11), transparent 72%);
+    box-shadow: 0 26px 70px rgba(0, 0, 0, .30), inset 0 1px rgba(255, 255, 255, .045);
+  }
+  .sxron-hero-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(135deg, transparent 34%, rgba(0, 180, 255, .08) 49%, transparent 51%),
+      repeating-linear-gradient(135deg, transparent 0 54px, rgba(79, 90, 255, .06) 55px 56px, transparent 57px 108px);
+  }
+  .sxron-kicker {
+    color: #69eef2;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .22em;
+  }
+  .sxron-hero-card h1 {
+    max-width: 700px;
+    margin: 10px 0 8px;
+    font-size: clamp(38px, 4.3vw, 66px);
+    line-height: .93;
+    letter-spacing: -3px;
+  }
+  .sxron-hero-card p {
+    max-width: 600px;
+    margin: 0;
+    font-size: 14px;
+    color: #8ea3c2;
+  }
+  .sxron-actions { margin-top: 17px; }
+  .sxron-primary {
+    background: linear-gradient(100deg, #13d8df 0%, #278ff4 48%, #9638ff 100%);
+    box-shadow: 0 12px 32px rgba(30, 141, 238, .20);
+  }
+  .sxron-hero-orb {
+    width: 245px;
+    height: 190px;
+    flex: 0 0 245px;
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at 50% 45%, rgba(38, 225, 215, .10), transparent 62%),
+      rgba(3, 8, 17, .20) url('/sxron-logo.svg') center / 90% auto no-repeat;
+    border: 1px solid rgba(88, 195, 255, .12);
+    box-shadow: 0 0 70px rgba(93, 65, 255, .10), 0 28px 75px rgba(0, 0, 0, .34);
+  }
+  .sxron-hero-orb span { display: none; }
+
+  .sxron-section-head { margin: 30px 0 13px; }
+  .sxron-section-head h2 {
+    font-size: 23px;
+    letter-spacing: -.55px;
+  }
+  .sxron-category-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .sxron-category-card {
+    min-height: 102px;
+    padding: 13px 10px;
+    border-radius: 15px;
+    border-color: rgba(68, 165, 231, .17);
+    background: linear-gradient(145deg, rgba(10, 24, 43, .90), rgba(4, 12, 25, .93));
+    box-shadow: inset 0 1px rgba(255, 255, 255, .035);
+  }
+  .sxron-category-card:hover {
+    border-color: rgba(55, 224, 232, .34);
+    transform: translateY(-3px);
+    box-shadow: 0 13px 35px rgba(0, 0, 0, .22), 0 0 25px rgba(24, 211, 220, .06);
+  }
+  .sxron-category-card strong { color: #36e1ed; font-size: 22px; }
+  .sxron-category-card span { color: #dce7f6; font-size: 12px; font-weight: 750; }
+
+  .sxron-product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .sxron-product-card {
+    border-radius: 16px;
+    border-color: rgba(77, 160, 222, .19);
+    background: linear-gradient(145deg, rgba(10, 22, 39, .94), rgba(3, 10, 21, .96));
+    box-shadow: 0 15px 38px rgba(0, 0, 0, .17), inset 0 1px rgba(255, 255, 255, .035);
+  }
+  .sxron-product-card:hover {
+    border-color: rgba(52, 219, 231, .32);
+    transform: translateY(-3px);
+  }
+  .sxron-product-image { height: 190px; }
+  .sxron-product-body { padding: 13px; }
+  .sxron-product-body h3 { font-size: 14px; }
+
+  .sxron-page-head {
+    padding: 22px 24px;
+    border: 1px solid rgba(78, 166, 229, .18);
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(11, 24, 42, .90), rgba(4, 11, 22, .94));
+  }
+  .sxron-page-head h1 { font-size: 34px; }
+  .sxron-searchbar {
+    box-shadow: 0 14px 45px rgba(0, 0, 0, .17);
+    border-color: rgba(69, 171, 239, .22);
+  }
+
+  /* Keep the Windows app dense and never turn it into a mobile/web sheet. */
+  .sxron-bottom-nav { display: none !important; }
+  .sxron-toast { left: calc(50% + 141px); }
+}
+
+@media (min-width: 1200px) {
+  .sxron-content { padding-left: 36px; padding-right: 36px; }
+  .sxron-home, .sxron-page { width: min(1370px, 100%); }
+}
+
+@media (min-width: 1500px) {
+  .sxron-content { padding-left: 42px; padding-right: 42px; }
+  .sxron-home, .sxron-page { width: min(1440px, 100%); }
+  .sxron-hero-card { min-height: 238px; }
+  .sxron-product-image { height: 205px; }
 }
