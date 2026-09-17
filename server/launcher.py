@@ -31,10 +31,7 @@ except ModuleNotFoundError:
 # auth.py reads the SMTP_* variables when sending verification messages.
 register_mail_config(app)
 
-# The historical auth bootstrap contained a fallback password hash in source.
-# Never let that fallback overwrite a password that has already been set through
-# normal login or owner recovery. Existing owner credentials are preserved;
-# a first install only uses explicit SXRON_OWNER_PASSWORD_HASH/SALT values.
+# Never let a legacy fallback password overwrite a password already stored in DB.
 owner_email = os.getenv("SXRON_OWNER_EMAIL", auth_module.OWNER_EMAIL).strip().lower()
 env_password_hash = os.getenv("SXRON_OWNER_PASSWORD_HASH", "").strip()
 env_password_salt = os.getenv("SXRON_OWNER_PASSWORD_SALT", "").strip()
@@ -53,12 +50,25 @@ else:
 
 register_auth(app)
 
+# Public API historically carried its own version constant; override it with
+# the actual packaged release version before health/version endpoints are used.
+try:
+    import server.release_version  # noqa: F401
+except ModuleNotFoundError:
+    import release_version  # noqa: F401
+
 try:
     from server.password_recovery import register as register_password_recovery
 except ModuleNotFoundError:
     from password_recovery import register as register_password_recovery
 
 register_password_recovery(app)
+
+try:
+    import server.owner_bootstrap  # noqa: F401 - registers the one-time 1.2.0 owner password bootstrap
+except ModuleNotFoundError:
+    import owner_bootstrap  # noqa: F401
+
 register_session_tracking(app)
 
 
