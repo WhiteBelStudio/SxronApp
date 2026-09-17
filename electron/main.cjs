@@ -172,20 +172,21 @@ async function checkForGitHubUpdate() {
     const release = await githubRequest(GITHUB_LATEST_RELEASE_URL);
     const asset = findInstallerAsset(release);
     if (!asset) throw new Error('В последней GitHub-сборке не найден Windows-установщик SXRON.');
+
     const tagBuild = String(release.tag_name || '').replace(/^v/, '');
-    const targetBuild = tagBuild.startsWith(`${CURRENT_VERSION}-build-`) ? tagBuild : String(release.target_commitish || tagBuild);
-    const sameVersion = String(release.name || '').includes(CURRENT_VERSION) || tagBuild.startsWith(CURRENT_VERSION);
+    const targetBuild = tagBuild;
+    const sameVersion = tagBuild.startsWith(`${CURRENT_VERSION}-build-`);
     const buildChanged = targetBuild !== CURRENT_BUILD;
-    const versionChanged = sameVersion ? false : tagBuild !== CURRENT_VERSION;
+    const versionChanged = !sameVersion && tagBuild !== CURRENT_VERSION;
     const available = buildChanged || versionChanged;
 
     latestRelease = { release, asset, targetBuild };
     sendUpdateUi(available ? 'update-required' : 'up-to-date', {
       currentVersion: CURRENT_VERSION,
       currentBuild: CURRENT_BUILD,
-      targetVersion: CURRENT_VERSION,
+      targetVersion: sameVersion ? CURRENT_VERSION : tagBuild.split('-build-')[0] || tagBuild,
       targetBuild,
-      releaseName: release.name || `SXRON Marketplace ${CURRENT_VERSION}`,
+      releaseName: release.name || `SXRON Marketplace ${tagBuild}`,
       releaseNotes: release.body || '',
       available,
     });
@@ -284,7 +285,14 @@ async function createWindow() {
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
-  win.webContents.on('did-finish-load', () => sendUpdateUi('app-version', { version: CURRENT_VERSION, build: CURRENT_BUILD }));
+  win.webContents.on('did-finish-load', () => {
+    sendUpdateUi('app-version', { version: CURRENT_VERSION, build: CURRENT_BUILD });
+    if (!isDev) {
+      setTimeout(() => {
+        checkForGitHubUpdate().catch((error) => console.warn('SXRON automatic update check:', error?.message || error));
+      }, 2200);
+    }
+  });
   win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
 }
 
