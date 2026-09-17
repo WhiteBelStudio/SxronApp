@@ -1,27 +1,48 @@
 /// <reference types="vite/client" />
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { City, Page, Product, ProfileAccent, ProfileCustomization, User } from "./types";
+import type { AvatarShape, City, Page, Product, ProfileAccent, ProfileBanner, ProfileCustomization, User } from "./types";
 import { addAdmin, getAdmins, getCategories, getMe, getProducts, getProfile, getSessions, logout, revokeAllSessions, revokeSession, updateProfile, type AdminUser, type MeResponse, type SessionInfo } from "./api/api";
 import "./styles/global.css";
 import "./styles/profile.css";
 import "./styles/marketplace.css";
 
-const DEFAULT_PROFILE: ProfileCustomization = { displayName: "", bio: "", avatar: "✦", accent: "cyan", usernameVisible: true, badgesVisible: true };
+const DEFAULT_PROFILE: ProfileCustomization = {
+  displayName: "",
+  bio: "",
+  status: "",
+  avatar: "✦",
+  accent: "cyan",
+  banner: "aurora",
+  avatarShape: "rounded",
+  usernameVisible: true,
+  badgesVisible: true,
+  activityVisible: true,
+};
 const AVATARS = ["✦", "S", "◈", "◆", "●", "✚", "⚡", "★", "☁", "♢", "⌂", "◎", "❖", "◇", "⬢", "✧"];
+const BANNERS: ProfileBanner[] = ["aurora", "violet", "ocean", "sunset"];
+const SHAPES: AvatarShape[] = ["rounded", "circle", "square"];
 
 function profileFromUser(user: User): ProfileCustomization {
   return {
     displayName: user.display_name || "",
     bio: user.bio || "",
+    status: user.profile_status || "",
     avatar: user.avatar_url || "✦",
     accent: user.profile_accent || "cyan",
+    banner: user.profile_banner || "aurora",
+    avatarShape: user.avatar_shape || "rounded",
     usernameVisible: user.username_visible !== false,
     badgesVisible: user.badges_visible !== false,
+    activityVisible: user.activity_visible !== false,
   };
 }
 
 function loadProfile(): ProfileCustomization {
-  try { return { ...DEFAULT_PROFILE, ...JSON.parse(localStorage.getItem("sxron_profile_customization") || "null") }; } catch { return DEFAULT_PROFILE; }
+  try {
+    return { ...DEFAULT_PROFILE, ...JSON.parse(localStorage.getItem("sxron_profile_customization") || "null") };
+  } catch {
+    return DEFAULT_PROFILE;
+  }
 }
 function loadFavorites(): number[] { try { return JSON.parse(localStorage.getItem("sxron_favorites") || "[]"); } catch { return []; } }
 function saveFavorites(ids: number[]) { try { localStorage.setItem("sxron_favorites", JSON.stringify(ids)); } catch { /* ignore */ } }
@@ -52,20 +73,45 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [sessionsOpen, setSessionsOpen] = useState(false);
 
-  useEffect(() => { const resize = () => setIsMobile(window.innerWidth <= 768); resize(); window.addEventListener("resize", resize); return () => window.removeEventListener("resize", resize); }, []);
-  useEffect(() => { try { localStorage.setItem("sxron_profile_customization", JSON.stringify(profile)); } catch { /* ignore */ } document.documentElement.dataset.sxronAccent = profile.accent; }, [profile]);
+  useEffect(() => {
+    const resize = () => setIsMobile(window.innerWidth <= 768);
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("sxron_profile_customization", JSON.stringify(profile)); } catch { /* ignore */ }
+    document.documentElement.dataset.sxronAccent = profile.accent;
+  }, [profile]);
   useEffect(() => saveFavorites(favorites), [favorites]);
   useEffect(() => {
     let alive = true;
-    (async () => { setLoading(true); try {
-      const [productData, categoryData] = await Promise.all([getProducts({ city: city.name }), getCategories()]);
-      if (!alive) return; setProducts(productData.map(normalizeProduct)); setCategories(categoryData); setApiError("");
-    } catch (error) { if (alive) setApiError(error instanceof Error ? error.message : "Не удалось загрузить каталог."); }
-    finally { if (alive) setLoading(false); } })();
+    (async () => {
+      setLoading(true);
+      try {
+        const [productData, categoryData] = await Promise.all([getProducts({ city: city.name }), getCategories()]);
+        if (!alive) return;
+        setProducts(productData.map(normalizeProduct));
+        setCategories(categoryData);
+        setApiError("");
+      } catch (error) {
+        if (alive) setApiError(error instanceof Error ? error.message : "Не удалось загрузить каталог.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
     return () => { alive = false; };
   }, [city.name]);
-  useEffect(() => { getMe().then((result) => { setMe(result); setProfile((current) => result.user.display_name || result.user.avatar_url || result.user.bio ? profileFromUser(result.user) : current); }).catch(() => setMe(null)); }, []);
-  useEffect(() => { if (!me?.is_admin) return; getAdmins().then((result) => setAdmins(result.admins)).catch(() => undefined); }, [me?.is_admin]);
+  useEffect(() => {
+    getMe().then((result) => {
+      setMe(result);
+      setProfile((current) => result.user.display_name || result.user.avatar_url || result.user.bio || result.user.profile_status ? profileFromUser(result.user) : current);
+    }).catch(() => setMe(null));
+  }, []);
+  useEffect(() => {
+    if (!me?.is_admin) return;
+    getAdmins().then((result) => setAdmins(result.admins)).catch(() => undefined);
+  }, [me?.is_admin]);
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -80,16 +126,49 @@ export default function App() {
   function navigate(next: Page) { setPage(next); setSelectedProduct(null); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function toggleFavorite(id: number) { setFavorites((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); }
   function notify(message: string) { setToast(message); window.setTimeout(() => setToast(""), 2600); }
-  function handleLocalProductSave(product: Product) { const normalized = normalizeProduct(product); setProducts((current) => current.some((item) => item.id === normalized.id) ? current.map((item) => item.id === normalized.id ? normalized : item) : [normalized, ...current]); setEditingProduct(null); setManageMode("list"); notify("Объявление сохранено"); }
-  function handleDeleteProduct(id: number) { setProducts((current) => current.filter((product) => product.id !== id)); setFavorites((current) => current.filter((item) => item !== id)); setSelectedProduct(null); notify("Объявление удалено"); }
-  async function refreshProfile() { try { const result = await getProfile(); setMe({ user: result.user, is_admin: result.is_admin, is_owner: result.is_owner }); setProfile(profileFromUser(result.user)); } catch { /* keep current profile */ } }
-  async function saveUserProfile(next: ProfileCustomization) {
-    const result = await updateProfile({ display_name: next.displayName.trim(), bio: next.bio.trim(), avatar_url: next.avatar, profile_accent: next.accent, username_visible: next.usernameVisible, badges_visible: next.badgesVisible });
-    setProfile(profileFromUser(result.user)); setMe({ user: result.user, is_admin: result.is_admin, is_owner: result.is_owner }); setProfileEditorOpen(false); notify("Профиль обновлён");
+  function handleLocalProductSave(product: Product) {
+    const normalized = normalizeProduct(product);
+    setProducts((current) => current.some((item) => item.id === normalized.id) ? current.map((item) => item.id === normalized.id ? normalized : item) : [normalized, ...current]);
+    setEditingProduct(null);
+    setManageMode("list");
+    notify("Объявление сохранено");
   }
-  async function openSessions() { try { const result = await getSessions(); setSessions(result.sessions); setSessionsOpen(true); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось загрузить сессии"); } }
-  async function removeSession(id: number) { try { await revokeSession(id); setSessions((current) => current.filter((session) => session.id !== id)); notify("Сессия завершена"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось завершить сессию"); } }
-  async function removeAllSessions() { try { await revokeAllSessions(); setSessions([]); notify("Другие сессии завершены"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось завершить сессии"); } }
+  function handleDeleteProduct(id: number) {
+    setProducts((current) => current.filter((product) => product.id !== id));
+    setFavorites((current) => current.filter((item) => item !== id));
+    setSelectedProduct(null);
+    notify("Объявление удалено");
+  }
+  async function saveUserProfile(next: ProfileCustomization) {
+    const result = await updateProfile({
+      display_name: next.displayName.trim(),
+      bio: next.bio.trim(),
+      profile_status: next.status.trim(),
+      avatar_url: next.avatar,
+      profile_accent: next.accent,
+      profile_banner: next.banner,
+      avatar_shape: next.avatarShape,
+      username_visible: next.usernameVisible,
+      badges_visible: next.badgesVisible,
+      activity_visible: next.activityVisible,
+    });
+    setProfile(profileFromUser(result.user));
+    setMe({ user: result.user, is_admin: result.is_admin, is_owner: result.is_owner });
+    setProfileEditorOpen(false);
+    notify("Профиль обновлён");
+  }
+  async function openSessions() {
+    try { const result = await getSessions(); setSessions(result.sessions); setSessionsOpen(true); }
+    catch (error) { notify(error instanceof Error ? error.message : "Не удалось загрузить сессии"); }
+  }
+  async function removeSession(id: number) {
+    try { await revokeSession(id); setSessions((current) => current.filter((session) => session.id !== id)); notify("Сессия завершена"); }
+    catch (error) { notify(error instanceof Error ? error.message : "Не удалось завершить сессию"); }
+  }
+  async function removeAllSessions() {
+    try { await revokeAllSessions(); setSessions([]); notify("Другие сессии завершены"); }
+    catch (error) { notify(error instanceof Error ? error.message : "Не удалось завершить сессии"); }
+  }
   async function handleLogout() { await logout(); window.location.reload(); }
 
   const appClass = isMobile ? "sxron-shell sxron-shell--mobile" : "sxron-shell";
@@ -121,12 +200,14 @@ function UserProfilePage({ profile, me, products, favorites, managedProducts, ad
   const displayName = profile.displayName || user?.first_name || "Пользователь";
   const initials = displayName.trim().slice(0, 1).toUpperCase() || "S";
   const joined = user?.created_at ? new Date(user.created_at).toLocaleDateString("ru-RU", { month: "long", year: "numeric" }) : "недавно";
+  const coverClass = `user-profile-cover user-profile-cover--${profile.banner}`;
+  const avatarClass = `user-profile-avatar user-profile-avatar--${profile.avatarShape}`;
   return <section className="sxron-page sxron-user-profile">
     <div className="user-profile-hero">
-      <div className="user-profile-cover" />
+      <div className={coverClass}><span className="user-profile-cover-orb" /></div>
       <div className="user-profile-main">
-        <div className="user-profile-avatar">{profile.avatar.startsWith("data:image/") ? <img src={profile.avatar} alt="" /> : profile.avatar || initials}</div>
-        <div className="user-profile-heading"><div className="user-profile-name-row"><h1>{displayName}</h1>{profile.badgesVisible && user?.verified && <span className="user-profile-badge">✓ Проверен</span>}{user?.is_online && <span className="user-profile-online">● Онлайн</span>}</div>{profile.usernameVisible && user?.username && <p>@{user.username}</p>}<span className="user-profile-joined">На SXRON с {joined}</span></div>
+        <div className={avatarClass}>{profile.avatar.startsWith("data:image/") ? <img src={profile.avatar} alt="" /> : profile.avatar || initials}</div>
+        <div className="user-profile-heading"><div className="user-profile-name-row"><h1>{displayName}</h1>{profile.badgesVisible && user?.verified && <span className="user-profile-badge">✓ Проверен</span>}{profile.activityVisible && user?.is_online && <span className="user-profile-online">● Онлайн</span>}</div>{profile.usernameVisible && user?.username && <p>@{user.username}</p>}<span className="user-profile-joined">На SXRON с {joined}</span>{profile.status && <span className="user-profile-status">{profile.status}</span>}</div>
         <button className="desktop-profile-header-button" onClick={onEditProfile}>✎ Настроить профиль</button>
       </div>
       {profile.bio && <p className="user-profile-bio">{profile.bio}</p>}
@@ -135,7 +216,7 @@ function UserProfilePage({ profile, me, products, favorites, managedProducts, ad
 
     <div className="user-profile-grid">
       <div className="user-profile-column">
-        <div className="sxron-manage-card"><div className="sxron-card-head"><div><span>ACCOUNT</span><h2>Мой аккаунт</h2></div></div><div className="profile-account-list"><div><span>🪪 ID</span><b>{user?.id ?? "—"}</b></div>{profile.usernameVisible && <div><span>👤 Username</span><b>{user?.username ? `@${user.username}` : "Не указан"}</b></div>}<div><span>📍 Город</span><b>{user?.city?.name || "Белореченск"}</b></div><div><span>🟢 Статус</span><b>Активен</b></div></div></div>
+        <div className="sxron-manage-card"><div className="sxron-card-head"><div><span>ACCOUNT</span><h2>Мой аккаунт</h2></div></div><div className="profile-account-list"><div><span>🪪 ID</span><b>{user?.id ?? "—"}</b></div>{profile.usernameVisible && <div><span>👤 Username</span><b>{user?.username ? `@${user.username}` : "Не указан"}</b></div>}<div><span>📍 Город</span><b>{user?.city?.name || "Белореченск"}</b></div><div><span>✨ Статус профиля</span><b>{profile.status || "Не задан"}</b></div><div><span>🎨 Оформление</span><b>{profile.banner} · {profile.avatarShape}</b></div></div></div>
         <div className="sxron-manage-card profile-security-card"><div className="sxron-card-head"><div><span>SECURITY</span><h2>Безопасность</h2></div></div><button className="profile-action-row" onClick={onSessions}><span><b>💻 Активные устройства</b><small>Просмотр и завершение сессий</small></span><strong>→</strong></button><button className="profile-action-row profile-action-danger" onClick={onLogout}><span><b>↪ Выйти из аккаунта</b><small>Завершить текущую сессию</small></span><strong>→</strong></button></div>
       </div>
       <div className="user-profile-column">
@@ -161,13 +242,16 @@ function ProfileCustomizer({ initial, onClose, onSave }: { initial: ProfileCusto
   }
   async function submit() { setSaving(true); setError(""); try { await onSave(draft); } catch (err) { setError(err instanceof Error ? err.message : "Не удалось сохранить профиль."); } finally { setSaving(false); } }
   return <div className="profile-customizer-backdrop" onClick={onClose}><div className="profile-customizer" onClick={(event) => event.stopPropagation()}>
-    <div className="profile-customizer__header"><div><span className="profile-customizer__eyebrow">SXRON IDENTITY</span><h2>Настройка профиля</h2><p>Сделай профиль своим — имя, аватар, описание и приватность.</p></div><button className="profile-customizer__close" onClick={onClose}>×</button></div>
-    <div className="profile-customizer__preview"><div className="profile-customizer__preview-avatar">{draft.avatar.startsWith("data:image/") ? <img src={draft.avatar} alt="" /> : draft.avatar}</div><div><strong>{draft.displayName || "Пользователь"}</strong><span>SXRON Marketplace</span><p>{draft.bio || "Добавь короткое описание о себе."}</p></div></div>
+    <div className="profile-customizer__header"><div><span className="profile-customizer__eyebrow">SXRON IDENTITY</span><h2>Настройка профиля</h2><p>Полная кастомизация профиля — внешний вид, статус и приватность.</p></div><button className="profile-customizer__close" onClick={onClose}>×</button></div>
+    <div className="profile-customizer__preview profile-customizer__preview--rich"><div className={`profile-customizer__preview-avatar profile-customizer__preview-avatar--${draft.avatarShape}`}>{draft.avatar.startsWith("data:image/") ? <img src={draft.avatar} alt="" /> : draft.avatar}</div><div><strong>{draft.displayName || "Пользователь"}</strong><span>{draft.status || "SXRON Marketplace"}</span><p>{draft.bio || "Добавь короткое описание о себе."}</p></div></div>
     <label className="profile-customizer__field"><span>Отображаемое имя</span><input maxLength={60} value={draft.displayName} onChange={(e) => update("displayName", e.target.value)} placeholder="Например, Nikitinka" /><small>{draft.displayName.length}/60</small></label>
+    <label className="profile-customizer__field"><span>Статус</span><input maxLength={80} value={draft.status} onChange={(e) => update("status", e.target.value)} placeholder="Например: На связи · Белореченск" /><small>{draft.status.length}/80</small></label>
     <label className="profile-customizer__field"><span>О себе</span><textarea maxLength={500} rows={4} value={draft.bio} onChange={(e) => update("bio", e.target.value)} placeholder="Расскажи немного о себе..." /><small>{draft.bio.length}/500</small></label>
-    <div className="profile-customizer__group"><span className="profile-customizer__label">Аватар</span><div className="profile-customizer__avatars">{AVATARS.map((avatar) => <button key={avatar} className={draft.avatar === avatar ? "is-active" : ""} onClick={() => update("avatar", avatar)}>{avatar}</button>)}</div><div className="profile-customizer__avatar-upload"><button className="profile-customizer__upload-button" onClick={() => fileRef.current?.click()}><span className="profile-customizer__upload-icon">↑</span><span><strong>Загрузить свой аватар</strong><small>PNG, JPG, WEBP · до 1.5 МБ</small></span></button><input ref={fileRef} className="profile-customizer__file-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadAvatar} />{draft.avatar.startsWith("data:image/") && <button className="profile-customizer__remove-avatar" onClick={() => update("avatar", "✦")}>Удалить фото</button>}</div></div>
-    <div className="profile-customizer__group"><span className="profile-customizer__label">Цвет профиля</span><div className="profile-customizer__accents">{(["cyan", "violet", "blue", "sunset"] as ProfileAccent[]).map((accent) => <button key={accent} data-accent={accent} className={draft.accent === accent ? "is-active" : ""} onClick={() => update("accent", accent)}><i />{accent === "cyan" ? "SXRON" : accent === "violet" ? "Violet" : accent === "blue" ? "Blue" : "Sunset"}</button>)}</div></div>
-    <div className="profile-customizer__group"><span className="profile-customizer__label">Приватность</span><label className="profile-customizer__switch"><span><strong>Показывать username</strong><small>Другие пользователи увидят @username в профиле.</small></span><input type="checkbox" checked={draft.usernameVisible} onChange={(e) => update("usernameVisible", e.target.checked)} /><i /></label><label className="profile-customizer__switch"><span><strong>Показывать значки</strong><small>Публичные отметки и статус профиля.</small></span><input type="checkbox" checked={draft.badgesVisible} onChange={(e) => update("badgesVisible", e.target.checked)} /><i /></label></div>
+    <div className="profile-customizer__group"><span className="profile-customizer__label">Аватар</span><div className="profile-customizer__avatars">{AVATARS.map((avatar) => <button type="button" key={avatar} className={draft.avatar === avatar ? "is-active" : ""} onClick={() => update("avatar", avatar)}>{avatar}</button>)}</div><div className="profile-customizer__avatar-upload"><button type="button" className="profile-customizer__upload-button" onClick={() => fileRef.current?.click()}><span className="profile-customizer__upload-icon">↑</span><span><strong>Загрузить свой аватар</strong><small>PNG, JPG, WEBP · до 1.5 МБ</small></span></button><input ref={fileRef} className="profile-customizer__file-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadAvatar} />{draft.avatar.startsWith("data:image/") && <button type="button" className="profile-customizer__remove-avatar" onClick={() => update("avatar", "✦")}>Удалить фото</button>}</div></div>
+    <div className="profile-customizer__group"><span className="profile-customizer__label">Цвет профиля</span><div className="profile-customizer__accents">{(["cyan", "violet", "blue", "sunset"] as ProfileAccent[]).map((accent) => <button type="button" key={accent} data-accent={accent} className={draft.accent === accent ? "is-active" : ""} onClick={() => update("accent", accent)}><i />{accent === "cyan" ? "SXRON" : accent === "violet" ? "Violet" : accent === "blue" ? "Blue" : "Sunset"}</button>)}</div></div>
+    <div className="profile-customizer__group"><span className="profile-customizer__label">Обложка профиля</span><div className="profile-customizer__banners">{BANNERS.map((banner) => <button type="button" key={banner} data-banner={banner} className={`profile-customizer__banner profile-customizer__banner--${banner} ${draft.banner === banner ? "is-active" : ""}`} onClick={() => update("banner", banner)}><span />{banner === "aurora" ? "Aurora" : banner === "violet" ? "Violet" : banner === "ocean" ? "Ocean" : "Sunset"}</button>)}</div></div>
+    <div className="profile-customizer__group"><span className="profile-customizer__label">Форма аватара</span><div className="profile-customizer__shapes">{SHAPES.map((shape) => <button type="button" key={shape} className={draft.avatarShape === shape ? "is-active" : ""} onClick={() => update("avatarShape", shape)}><span className={`profile-shape-demo profile-shape-demo--${shape}`} />{shape === "rounded" ? "Rounded" : shape === "circle" ? "Circle" : "Square"}</button>)}</div></div>
+    <div className="profile-customizer__group"><span className="profile-customizer__label">Приватность</span><label className="profile-customizer__switch"><span><strong>Показывать username</strong><small>Другие пользователи увидят @username в профиле.</small></span><input type="checkbox" checked={draft.usernameVisible} onChange={(e) => update("usernameVisible", e.target.checked)} /><i /></label><label className="profile-customizer__switch"><span><strong>Показывать значки</strong><small>Публичные отметки и статус профиля.</small></span><input type="checkbox" checked={draft.badgesVisible} onChange={(e) => update("badgesVisible", e.target.checked)} /><i /></label><label className="profile-customizer__switch"><span><strong>Показывать активность</strong><small>Онлайн-статус и активность профиля.</small></span><input type="checkbox" checked={draft.activityVisible} onChange={(e) => update("activityVisible", e.target.checked)} /><i /></label></div>
     {error && <p className="profile-customizer__error">{error}</p>}
     <div className="profile-customizer__actions"><button className="profile-customizer__cancel" onClick={onClose} disabled={saving}>Отмена</button><button className="profile-customizer__save" onClick={submit} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить профиль"}</button></div>
   </div></div>;
@@ -181,7 +265,6 @@ function ProductGrid({ products, favorites, onFavorite, onProduct, onSeller }: {
   if (!products.length) return <EmptyState title="Ничего не найдено" text="Попробуй изменить запрос или категорию." />;
   return <div className="sxron-product-grid">{products.map((product) => <article className="sxron-product-card" key={product.id} onClick={() => onProduct(product)}><div className="sxron-product-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}<button onClick={(event) => { event.stopPropagation(); onFavorite(product.id); }} className={favorites.includes(product.id) ? "liked" : ""}>{favorites.includes(product.id) ? "♥" : "♡"}</button></div><div className="sxron-product-body"><span>{product.category || "Без категории"}</span><h3>{product.name}</h3><strong>{product.price.toLocaleString("ru-RU")} ₽</strong><small>📍 {productCity(product)} · <button onClick={(event) => { event.stopPropagation(); onSeller(product); }}>Продавец</button></small></div></article>)}</div>;
 }
-
 function ProductModal({ product, favorite, onFavorite, onClose, onSeller }: { product: Product; favorite: boolean; onFavorite: () => void; onClose: () => void; onSeller: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-product-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-detail-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}</div><div className="sxron-detail-content"><span>{product.category || "Без категории"}</span><h2>{product.name}</h2><strong className="sxron-detail-price">{product.price.toLocaleString("ru-RU")} ₽</strong><p>{product.description}</p><div className="sxron-detail-meta"><span>📍 {productCity(product)}</span>{product.condition && <span>◈ {product.condition}</span>}{product.delivery && <span>🚚 {product.delivery}</span>}</div><div className="sxron-detail-actions"><button className="sxron-primary" onClick={onSeller}>👤 Профиль продавца</button><button className="sxron-secondary" onClick={onFavorite}>{favorite ? "♥ В избранном" : "♡ В избранное"}</button></div></div></div></div>; }
 function SellerModal({ product, onClose }: { product: Product; onClose: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-seller-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-seller-avatar">{(product.name || "S").charAt(0).toUpperCase()}</div><span>ПРОДАВЕЦ</span><h2>Продавец SXRON</h2><div className="sxron-rating">★★★★★ <b>Новый профиль</b></div><p>Профиль продавца и его объявления будут загружаться из SXRON API.</p><div className="sxron-seller-stats"><div><b>—</b><span>Рейтинг</span></div><div><b>—</b><span>Отзывы</span></div><div><b>—</b><span>Объявления</span></div></div><button className="sxron-primary">💬 Написать продавцу</button></div></div>; }
 function ProductEditor({ product, userId, onCancel, onSave }: { product: Product | null; userId: number; onCancel: () => void; onSave: (product: Product) => void }) { const [name, setName] = useState(product?.name || ""); const [description, setDescription] = useState(product?.description || ""); const [price, setPrice] = useState(String(product?.price || "")); const [category, setCategory] = useState(product?.category || ""); const [city, setCity] = useState(productCity(product || { city: "Белореченск" } as Product)); return <div className="sxron-editor"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" /><input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Цена, ₽" /><div className="sxron-editor-row"><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Категория" /><input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" /></div><div className="sxron-editor-actions"><button className="sxron-secondary" onClick={onCancel}>Отмена</button><button className="sxron-primary" onClick={() => { if (!name.trim() || !Number(price)) return; onSave({ ...(product || {} as Product), id: product?.id || Date.now(), name: name.trim(), description: description.trim(), price: Number(price.replace(/\s/g, "").replace(",", ".")), category: category.trim() || "Без категории", city, created_by: userId, available: true }); }}>Сохранить</button></div></div>; }
