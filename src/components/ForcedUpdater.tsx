@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
 
-const APP_VERSION = "1.1.12";
+const APP_VERSION = "1.1.13";
 
 type UpdaterEvent = {
   event: string;
   currentVersion?: string;
-  currentBuild?: string;
   targetVersion?: string;
-  targetBuild?: string;
   releaseName?: string;
   releaseNotes?: string;
   message?: string;
@@ -60,7 +58,7 @@ export default function ForcedUpdater() {
         setChecking(false);
         setVisible(true);
         setProgress(0);
-        setMessage("Скачиваем обновление…");
+        setMessage(`Скачиваем версию ${detail.targetVersion || ""}…`);
         setError("");
       }
 
@@ -70,7 +68,7 @@ export default function ForcedUpdater() {
 
       if (detail.event === "update-ready") {
         setProgress(100);
-        setMessage("Обновление загружено и проверено. Перезапускаем SXRON…");
+        setMessage(`Версия ${detail.targetVersion || "новая версия"} загружена и проверена. Перезапускаем SXRON…`);
       }
 
       if (detail.event === "update-error") {
@@ -87,7 +85,7 @@ export default function ForcedUpdater() {
 
   if (!visible) return null;
 
-  const isDownloading = progress > 0 || message.includes("Скачиваем") || message.includes("загружено");
+  const isDownloading = progress > 0 || message.includes("Скачиваем") || message.includes("загружена");
 
   return (
     <section
@@ -105,35 +103,12 @@ export default function ForcedUpdater() {
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
-      <div
-        style={{
-          width: "min(760px,100%)",
-          padding: 42,
-          borderRadius: 30,
-          border: "1px solid rgba(255,255,255,.09)",
-          background: "linear-gradient(145deg,#111827,#0b1019)",
-          boxShadow: "0 30px 100px rgba(0,0,0,.48)",
-        }}
-      >
+      <div style={{ width: "min(760px,100%)", padding: 42, borderRadius: 30, border: "1px solid rgba(255,255,255,.09)", background: "linear-gradient(145deg,#111827,#0b1019)", boxShadow: "0 30px 100px rgba(0,0,0,.48)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 15,
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 950,
-              fontSize: 22,
-              color: "#fff",
-              background: "linear-gradient(135deg,#20d3c2,#8067f5)",
-            }}
-          >
-            S
-          </div>
+          <div style={{ width: 48, height: 48, borderRadius: 15, display: "grid", placeItems: "center", fontWeight: 950, fontSize: 22, color: "#fff", background: "linear-gradient(135deg,#20d3c2,#8067f5)" }}>S</div>
           <div>
             <div style={{ color: "#20d3c2", fontSize: 11, fontWeight: 900, letterSpacing: ".14em" }}>SXRON MARKETPLACE</div>
-            <div style={{ marginTop: 3, color: "#748198", fontSize: 12 }}>Обновление приложения</div>
+            <div style={{ marginTop: 3, color: "#748198", fontSize: 12 }}>Новое обновление приложения</div>
           </div>
         </div>
 
@@ -141,26 +116,7 @@ export default function ForcedUpdater() {
           <>
             <h1 style={{ margin: "28px 0 10px", fontSize: 32 }}>Не удалось обновить</h1>
             <p style={{ margin: 0, color: "#a8b3c5", lineHeight: 1.65 }}>{error}</p>
-            <button
-              type="button"
-              onClick={() => {
-                setChecking(true);
-                setError("");
-                setMessage("Проверяем наличие новой версии…");
-                openProtocol("check-updates");
-              }}
-              style={{
-                marginTop: 26,
-                minHeight: 52,
-                padding: "0 22px",
-                border: 0,
-                borderRadius: 14,
-                color: "#fff",
-                fontWeight: 900,
-                background: "linear-gradient(135deg,#20d3c2,#8067f5)",
-                cursor: checking ? "wait" : "pointer",
-              }}
-            >
+            <button type="button" onClick={() => { setChecking(true); setError(""); setMessage("Проверяем наличие новой версии…"); openProtocol("check-updates"); }} style={{ marginTop: 26, minHeight: 52, padding: "0 22px", border: 0, borderRadius: 14, color: "#fff", fontWeight: 900, background: "linear-gradient(135deg,#20d3c2,#8067f5)", cursor: checking ? "wait" : "pointer" }}>
               {checking ? "Проверяем…" : "Повторить проверку"}
             </button>
           </>
@@ -168,29 +124,13 @@ export default function ForcedUpdater() {
           <>
             <div style={{ marginTop: 30, color: "#7d8aa2", fontSize: 12, fontWeight: 800, letterSpacing: ".08em" }}>УСТАНОВЛЕНА · {APP_VERSION}</div>
             <h1 style={{ margin: "10px 0 14px", fontSize: 34 }}>Доступна новая версия</h1>
-            <p style={{ margin: 0, color: "#a8b3c5", lineHeight: 1.65 }}>
-              Обновление устанавливается прямо в этом окне приложения. Дополнительные окна SXRON не создаются.
-            </p>
+            <p style={{ margin: 0, color: "#a8b3c5", lineHeight: 1.65 }}>Каждое обновление SXRON выпускается отдельной версией. Текущая версия останется закрытой, пока новая версия не установится.</p>
 
             {available ? (
-              <div
-                style={{
-                  marginTop: 24,
-                  padding: 20,
-                  borderRadius: 18,
-                  background: "rgba(32,211,194,.06)",
-                  border: "1px solid rgba(32,211,194,.16)",
-                }}
-              >
-                <div style={{ fontSize: 19, fontWeight: 900 }}>{available.releaseName || "Новая сборка SXRON"}</div>
-                <div style={{ marginTop: 7, color: "#738097", fontSize: 13 }}>
-                  Сборка: {available.targetBuild || "новая"}
-                </div>
-                {available.releaseNotes ? (
-                  <div style={{ marginTop: 14, color: "#a8b3c5", lineHeight: 1.55, fontSize: 13, whiteSpace: "pre-wrap" }}>
-                    {available.releaseNotes}
-                  </div>
-                ) : null}
+              <div style={{ marginTop: 24, padding: 20, borderRadius: 18, background: "rgba(32,211,194,.06)", border: "1px solid rgba(32,211,194,.16)" }}>
+                <div style={{ fontSize: 19, fontWeight: 900 }}>{available.releaseName || `SXRON Marketplace v${available.targetVersion || "новая"}`}</div>
+                <div style={{ marginTop: 7, color: "#738097", fontSize: 13 }}>Новая версия: {available.targetVersion || "новая"}</div>
+                {available.releaseNotes ? <div style={{ marginTop: 14, color: "#a8b3c5", lineHeight: 1.55, fontSize: 13, whiteSpace: "pre-wrap" }}>{available.releaseNotes}</div> : null}
               </div>
             ) : null}
 
@@ -198,46 +138,22 @@ export default function ForcedUpdater() {
 
             {progress > 0 && progress < 100 ? (
               <div style={{ marginTop: 18 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, color: "#7d8aa2", fontSize: 12 }}>
-                  <span>Загрузка</span>
-                  <span>{Math.round(progress)}%</span>
-                </div>
-                <div style={{ height: 8, borderRadius: 99, overflow: "hidden", background: "rgba(255,255,255,.07)" }}>
-                  <div style={{ width: `${progress}%`, height: "100%", background: "linear-gradient(90deg,#20d3c2,#8067f5)", transition: "width .2s" }} />
-                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, color: "#7d8aa2", fontSize: 12 }}><span>Загрузка</span><span>{Math.round(progress)}%</span></div>
+                <div style={{ height: 8, borderRadius: 99, overflow: "hidden", background: "rgba(255,255,255,.07)" }}><div style={{ width: `${progress}%`, height: "100%", background: "linear-gradient(90deg,#20d3c2,#8067f5)", transition: "width .2s" }} /></div>
               </div>
             ) : null}
 
             {!isDownloading && available ? (
               <div style={{ display: "flex", gap: 10, marginTop: 28 }}>
-                <button
-                  type="button"
-                  disabled={checking}
-                  onClick={() => {
-                    setMessage("Запускаем загрузку обновления…");
-                    openProtocol("start-update");
-                  }}
-                  style={{
-                    flex: 1,
-                    minHeight: 54,
-                    border: 0,
-                    borderRadius: 14,
-                    color: "#fff",
-                    fontWeight: 900,
-                    background: "linear-gradient(135deg,#20d3c2,#8067f5)",
-                    cursor: "pointer",
-                  }}
-                >
-                  Обновить сейчас
+                <button type="button" disabled={checking} onClick={() => { setMessage(`Запускаем загрузку версии ${available.targetVersion || "новой"}…`); openProtocol("start-update"); }} style={{ flex: 1, minHeight: 54, border: 0, borderRadius: 14, color: "#fff", fontWeight: 900, background: "linear-gradient(135deg,#20d3c2,#8067f5)", cursor: "pointer" }}>
+                  Обновить до {available.targetVersion || "новой версии"}
                 </button>
               </div>
             ) : null}
           </>
         )}
 
-        <div style={{ marginTop: 20, color: "#66738a", fontSize: 12, lineHeight: 1.55 }}>
-          Пользовательские данные находятся отдельно от файлов приложения и сохраняются при обновлении.
-        </div>
+        <div style={{ marginTop: 20, color: "#66738a", fontSize: 12, lineHeight: 1.55 }}>Пользовательские данные находятся отдельно от файлов приложения и сохраняются при обновлении.</div>
       </div>
     </section>
   );
