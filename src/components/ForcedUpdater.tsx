@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
-const APP_VERSION = "1.1.7";
-const APP_BUILD = "1.1.7-build-1";
+const APP_VERSION = "1.1.10";
+const APP_BUILD = "1.1.10-build-1";
 const MANIFEST_URL = `https://raw.githubusercontent.com/WhiteBelStudio/SxronApp/main/update-manifest.json?ts=${Date.now()}`;
 
 type UpdateManifest = {
