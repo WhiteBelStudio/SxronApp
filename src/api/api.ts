@@ -4,6 +4,8 @@ import type {
   CreateProductData,
   Product,
   ProfileAccent,
+  ProfileBanner,
+  AvatarShape,
   User,
 } from "../types";
 
@@ -153,10 +155,14 @@ export interface AdminMutationResponse { ok: boolean; message: string; admin?: A
 export interface ProfileUpdateData {
   display_name?: string;
   bio?: string;
+  profile_status?: string;
   avatar_url?: string | null;
   profile_accent?: ProfileAccent;
+  profile_banner?: ProfileBanner;
+  avatar_shape?: AvatarShape;
   username_visible?: boolean;
   badges_visible?: boolean;
+  activity_visible?: boolean;
   city_id?: number | null;
 }
 
