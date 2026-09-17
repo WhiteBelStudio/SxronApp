@@ -10,7 +10,7 @@ import LegalCenter from "./components/LegalCenter";
 import "./styles/global.css";
 import "./styles/user-profile.css";
 
-const APP_VERSION = "1.1.18";
+const APP_VERSION = "1.1.19";
 
 function syncStaticVersionLabels() {
   document.title = `SXRON Marketplace ${APP_VERSION}`;
