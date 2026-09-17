@@ -1,0 +1,9 @@
+{
+  "appId": "com.sxron.marketplace",
+  "appName": "SXRON Marketplace",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
