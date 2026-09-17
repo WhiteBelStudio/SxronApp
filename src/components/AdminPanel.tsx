@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { getAuthToken } from "../api/api";
 
 type Dashboard = {
@@ -71,7 +72,7 @@ async function adminRequest<T>(endpoint: string, options?: RequestInit): Promise
   return response.json() as Promise<T>;
 }
 
-const cardStyle: React.CSSProperties = {
+const cardStyle: CSSProperties = {
   borderRadius: 22,
   border: "1px solid rgba(255,255,255,.10)",
   background: "linear-gradient(145deg, rgba(18,24,35,.96), rgba(10,14,23,.94))",
@@ -177,21 +178,7 @@ export default function AdminPanel() {
         type="button"
         aria-label="Открыть админ-панель"
         onClick={() => { setOpen(true); void refresh(); }}
-        style={{
-          position: "fixed",
-          right: 22,
-          bottom: 88,
-          zIndex: 5000,
-          minHeight: 44,
-          padding: "0 15px",
-          border: "1px solid rgba(32,211,194,.35)",
-          borderRadius: 14,
-          color: "#fff",
-          background: "linear-gradient(135deg,#19d8d0,#7a4dff)",
-          boxShadow: "0 14px 45px rgba(48,80,170,.35)",
-          cursor: "pointer",
-          fontWeight: 900,
-        }}
+        style={{ position: "fixed", right: 22, bottom: 88, zIndex: 5000, minHeight: 44, padding: "0 15px", border: "1px solid rgba(32,211,194,.35)", borderRadius: 14, color: "#fff", background: "linear-gradient(135deg,#19d8d0,#7a4dff)", boxShadow: "0 14px 45px rgba(48,80,170,.35)", cursor: "pointer", fontWeight: 900 }}
       >
         ⚙️ Админ-панель
       </button>
@@ -199,29 +186,10 @@ export default function AdminPanel() {
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 50000,
-        padding: 18,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(3,6,12,.88)",
-        backdropFilter: "blur(18px)",
-      }}
-      onMouseDown={(event) => { if (event.currentTarget === event.target) setOpen(false); }}
-    >
+    <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 50000, padding: 18, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(3,6,12,.88)", backdropFilter: "blur(18px)" }} onMouseDown={(event) => { if (event.currentTarget === event.target) setOpen(false); }}>
       <section style={{ ...cardStyle, width: "min(1080px, 100%)", maxHeight: "calc(100vh - 36px)", overflow: "auto" }}>
         <div style={{ padding: "26px 26px 18px", borderBottom: "1px solid rgba(255,255,255,.08)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, position: "sticky", top: 0, background: "rgba(12,17,27,.96)", backdropFilter: "blur(16px)", zIndex: 2 }}>
-          <div>
-            <div style={{ color: "#20d3c2", fontSize: 11, fontWeight: 900, letterSpacing: ".14em" }}>SXRON CONTROL CENTER</div>
-            <h2 style={{ margin: "7px 0 4px", fontSize: 30 }}>Админ-панель</h2>
-            <div style={{ color: "#8f9cb0", fontSize: 13 }}>{dashboard?.user?.email || "Авторизованный администратор"} · v{dashboard?.version || "1.1.7"}</div>
-          </div>
+          <div><div style={{ color: "#20d3c2", fontSize: 11, fontWeight: 900, letterSpacing: ".14em" }}>SXRON CONTROL CENTER</div><h2 style={{ margin: "7px 0 4px", fontSize: 30 }}>Админ-панель</h2><div style={{ color: "#8f9cb0", fontSize: 13 }}>{dashboard?.user?.email || "Авторизованный администратор"} · v{dashboard?.version || "1.1.7"}</div></div>
           <button type="button" onClick={() => setOpen(false)} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,.10)", background: "rgba(255,255,255,.05)", color: "#fff", cursor: "pointer", fontSize: 22 }}>×</button>
         </div>
 
@@ -235,17 +203,8 @@ export default function AdminPanel() {
             </div>
 
             <div style={{ marginTop: 22, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 18 }}>
-              <div style={{ padding: 20, borderRadius: 18, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)" }}>
-                <div style={{ color: "#20d3c2", fontSize: 11, fontWeight: 900, letterSpacing: ".12em" }}>OWNER</div>
-                <h3 style={{ margin: "7px 0 4px", fontSize: 19 }}>{dashboard.user.display_name}</h3>
-                <p style={{ margin: 0, color: "#8f9cb0", lineHeight: 1.55 }}>{dashboard.user.email || "Email скрыт"}</p>
-                <div style={{ marginTop: 14, display: "inline-flex", padding: "6px 9px", borderRadius: 9, background: "rgba(32,211,194,.10)", color: "#70eee5", fontSize: 11, fontWeight: 800 }}>{dashboard.is_owner ? "ВЛАДЕЛЕЦ" : "АДМИНИСТРАТОР"}</div>
-              </div>
-              <div style={{ padding: 20, borderRadius: 18, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)" }}>
-                <div style={{ color: "#9b8cff", fontSize: 11, fontWeight: 900, letterSpacing: ".12em" }}>QUICK INFO</div>
-                <h3 style={{ margin: "7px 0 4px", fontSize: 19 }}>Marketplace</h3>
-                <p style={{ margin: 0, color: "#8f9cb0", lineHeight: 1.55 }}>Белореченск · Хутор Кубанский<br />Категорий: {dashboard.stats.categories} · Городов: {dashboard.stats.cities}</p>
-              </div>
+              <div style={{ padding: 20, borderRadius: 18, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)" }}><div style={{ color: "#20d3c2", fontSize: 11, fontWeight: 900, letterSpacing: ".12em" }}>OWNER</div><h3 style={{ margin: "7px 0 4px", fontSize: 19 }}>{dashboard.user.display_name}</h3><p style={{ margin: 0, color: "#8f9cb0", lineHeight: 1.55 }}>{dashboard.user.email || "Email скрыт"}</p><div style={{ marginTop: 14, display: "inline-flex", padding: "6px 9px", borderRadius: 9, background: "rgba(32,211,194,.10)", color: "#70eee5", fontSize: 11, fontWeight: 800 }}>{dashboard.is_owner ? "ВЛАДЕЛЕЦ" : "АДМИНИСТРАТОР"}</div></div>
+              <div style={{ padding: 20, borderRadius: 18, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)" }}><div style={{ color: "#9b8cff", fontSize: 11, fontWeight: 900, letterSpacing: ".12em" }}>QUICK INFO</div><h3 style={{ margin: "7px 0 4px", fontSize: 19 }}>Marketplace</h3><p style={{ margin: 0, color: "#8f9cb0", lineHeight: 1.55 }}>Белореченск · Хутор Кубанский<br />Категорий: {dashboard.stats.categories} · Городов: {dashboard.stats.cities}</p></div>
             </div>
 
             <div style={{ marginTop: 24, padding: 20, borderRadius: 18, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.03)" }}>
