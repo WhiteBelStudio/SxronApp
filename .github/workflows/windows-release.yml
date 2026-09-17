@@ -10,6 +10,7 @@ on:
       - 'server/**'
       - 'electron/**'
       - 'build/**'
+      - 'update-manifest.json'
       - '.github/workflows/windows-release.yml'
   workflow_dispatch:
 
@@ -153,6 +154,7 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: false
+          overwrite_files: true
           files: |
             release/SXRON-Marketplace-Setup-*.exe
             release/latest.yml
