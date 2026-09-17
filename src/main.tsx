@@ -10,6 +10,7 @@ import App from "./App";
 import AuthGate from "./components/AuthGate";
 
 import "./styles/global.css";
+import "./styles/user-profile.css";
 
 const rootElement = document.getElementById("root");
 
