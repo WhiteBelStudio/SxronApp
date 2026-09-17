@@ -12,7 +12,6 @@ try:
     from server.auth import register_auth
     from server.session_tracking import register_session_tracking
 except ModuleNotFoundError:
-    # PyInstaller may execute this launcher with server/ as its import root.
     import auth as auth_module
     from mail_config import register_mail_config
     from public_api import app, init_db
@@ -28,6 +27,14 @@ try:
     import server.admin_center  # noqa: F401 - registers admin control center routes
 except ModuleNotFoundError:
     import admin_center  # noqa: F401 - registers admin control center routes
+
+# Replace the legacy security sessions route with the fixed implementation.
+try:
+    from server.security_fix import register as register_security_fix
+except ModuleNotFoundError:
+    from security_fix import register as register_security_fix
+
+register_security_fix(app)
 
 # Load the persistent SMTP configuration before importing/registering auth.
 # auth.py reads the SMTP_* variables when sending verification messages.
