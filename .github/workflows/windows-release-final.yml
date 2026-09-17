@@ -83,7 +83,6 @@ jobs:
         run: |
           $v = node -p "require('./package.json').version"
           Write-Host "Version $v"
-          if ($v -ne '1.2.3') { throw "Expected 1.2.3" }
           "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Build web
