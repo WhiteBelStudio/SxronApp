@@ -7,14 +7,16 @@ import uvicorn
 try:
     import server.auth as auth_module
     from server.mail_config import register_mail_config
-    from server.public_api import app, db, init_db
+    from server.public_api import app, init_db
+    from server.main import db
     from server.auth import register_auth
     from server.session_tracking import register_session_tracking
 except ModuleNotFoundError:
     # PyInstaller may execute this launcher with server/ as its import root.
     import auth as auth_module
     from mail_config import register_mail_config
-    from public_api import app, db, init_db
+    from public_api import app, init_db
+    from main import db
     from auth import register_auth
     from session_tracking import register_session_tracking
 
