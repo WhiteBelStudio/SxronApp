@@ -27,6 +27,13 @@ except ModuleNotFoundError:
 # auth.py reads the SMTP_* variables when sending verification messages.
 register_mail_config(app)
 register_auth(app)
+
+try:
+    from server.password_recovery import register as register_password_recovery
+except ModuleNotFoundError:
+    from password_recovery import register as register_password_recovery
+
+register_password_recovery(app)
 register_session_tracking(app)
 
 
