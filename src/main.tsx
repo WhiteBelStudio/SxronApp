@@ -7,11 +7,13 @@ import AdminCenter from "./components/AdminCenter";
 import OwnerPasswordBootstrap from "./components/OwnerPasswordBootstrap";
 import PublicSellerProfile from "./components/PublicSellerProfile";
 import LegalCenter from "./components/LegalCenter";
+import ThemeController from "./components/ThemeController";
 
 import "./styles/global.css";
 import "./styles/user-profile.css";
+import "./styles/theme.css";
 
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.2.1";
 
 function syncStaticVersionLabels() {
   document.title = `SXRON Marketplace ${APP_VERSION}`;
@@ -30,6 +32,7 @@ createRoot(rootElement).render(
   <StrictMode>
     <AuthGate>
       <App />
+      <ThemeController />
       <AdminCenter />
       <OwnerPasswordBootstrap />
       <PublicSellerProfile />
