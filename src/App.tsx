@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarShape, City, Page, Product, ProfileAccent, ProfileBanner, ProfileCustomization, User } from "./types";
-import { addAdmin, getAdmins, getCategories, getMe, getProducts, getProfile, getSessions, logout, revokeAllSessions, revokeSession, updateProfile, type AdminUser, type MeResponse, type SessionInfo } from "./api/api";
+import { addAdmin, getAdmins, getCategories, getMe, getProducts, getProfile, getSessions, logout, revokeAllSessions, revokeSession, setPassword, updateProfile, type AdminUser, type MeResponse, type SessionInfo } from "./api/api";
 import "./styles/global.css";
 import "./styles/profile.css";
 import "./styles/marketplace.css";
@@ -217,7 +217,7 @@ function UserProfilePage({ profile, me, products, favorites, managedProducts, ad
     <div className="user-profile-grid">
       <div className="user-profile-column">
         <div className="sxron-manage-card"><div className="sxron-card-head"><div><span>ACCOUNT</span><h2>Мой аккаунт</h2></div></div><div className="profile-account-list"><div><span>🪪 ID</span><b>{user?.id ?? "—"}</b></div>{profile.usernameVisible && <div><span>👤 Username</span><b>{user?.username ? `@${user.username}` : "Не указан"}</b></div>}<div><span>📍 Город</span><b>{user?.city?.name || "Белореченск"}</b></div><div><span>✨ Статус профиля</span><b>{profile.status || "Не задан"}</b></div><div><span>🎨 Оформление</span><b>{profile.banner} · {profile.avatarShape}</b></div></div></div>
-        <div className="sxron-manage-card profile-security-card"><div className="sxron-card-head"><div><span>SECURITY</span><h2>Безопасность</h2></div></div><button className="profile-action-row" onClick={onSessions}><span><b>💻 Активные устройства</b><small>Просмотр и завершение сессий</small></span><strong>→</strong></button><button className="profile-action-row profile-action-danger" onClick={onLogout}><span><b>↪ Выйти из аккаунта</b><small>Завершить текущую сессию</small></span><strong>→</strong></button></div>
+        <div className="sxron-manage-card profile-security-card"><div className="sxron-card-head"><div><span>SECURITY</span><h2>Безопасность</h2></div></div><button className="profile-action-row" onClick={onSessions}><span><b>💻 Активные устройства</b><small>Просмотр и завершение сессий</small></span><strong>→</strong></button><button className="profile-action-row" onClick={() => window.dispatchEvent(new Event("sxron-open-password-modal"))}><span><b>🔑 Изменить пароль</b><small>Обновить пароль для входа в аккаунт</small></span><strong>→</strong></button><button className="profile-action-row profile-action-danger" onClick={onLogout}><span><b>↪ Выйти из аккаунта</b><small>Завершить текущую сессию</small></span><strong>→</strong></button></div>
       </div>
       <div className="user-profile-column">
         <div className="sxron-manage-card"><div className="sxron-card-head"><div><span>SELLER</span><h2>Мои объявления</h2></div><button className="sxron-primary sxron-small" onClick={() => { setEditingProduct(null); setManageMode("create"); }}>＋ Добавить</button></div>{manageMode === "create" || manageMode === "edit" ? <ProductEditor product={editingProduct} userId={user?.id || 0} onCancel={onCancelEdit} onSave={onSaveProduct} /> : <div className="sxron-manage-list">{managedProducts.length ? managedProducts.map((product) => <div className="sxron-manage-row" key={product.id}><div><b>{product.name}</b><span>{product.price.toLocaleString("ru-RU")} ₽ · {productCity(product)}</span></div><div><button onClick={() => { setEditingProduct(product); setManageMode("edit"); }}>✎</button><button onClick={() => onDeleteProduct(product.id)}>⌫</button></div></div>) : <p className="sxron-muted">Ваши объявления появятся здесь.</p>}</div>}</div>
@@ -225,7 +225,72 @@ function UserProfilePage({ profile, me, products, favorites, managedProducts, ad
     </div>
 
     {me?.is_admin && <div className="sxron-admin-card"><div className="sxron-card-head"><div><span>ADMIN</span><h2>Админ-раздел</h2></div><span className="sxron-status">● ONLINE</span></div><div className="sxron-admin-stats"><div><b>{products.length}</b><span>Товаров</span></div><div><b>{favorites.length}</b><span>Избранных</span></div><div><b>{admins.length}</b><span>Админов</span></div></div>{me.is_owner && <div className="sxron-admin-manage"><input value={adminId} onChange={(event) => setAdminId(event.target.value)} placeholder="ID пользователя" /><button onClick={onAddAdmin}>Добавить</button></div>}{admins.length > 0 && <div className="sxron-admin-list">{admins.map((admin) => <div key={admin.id}><span>{admin.first_name || "Пользователь"} {admin.username ? `@${admin.username}` : ""}</span><b>{admin.role === "owner" ? "OWNER" : "ADMIN"}</b></div>)}</div>}</div>}
+    <PasswordChangeBridge />
   </section>;
+}
+
+function PasswordChangeBridge() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const openModal = () => setOpen(true);
+    window.addEventListener("sxron-open-password-modal", openModal);
+    return () => window.removeEventListener("sxron-open-password-modal", openModal);
+  }, []);
+  return open ? <PasswordChangeModal onClose={() => setOpen(false)} /> : null;
+}
+
+function PasswordChangeModal({ onClose }: { onClose: () => void }) {
+  const [password, setPasswordValue] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  async function submit() {
+    const next = password.trim();
+    setError("");
+    if (next.length < 8) {
+      setError("Пароль должен содержать минимум 8 символов.");
+      return;
+    }
+    if (next !== confirm) {
+      setError("Пароли не совпадают.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await setPassword(next);
+      setDone(true);
+      setPasswordValue("");
+      setConfirm("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось изменить пароль.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <div className="profile-customizer-backdrop" onClick={onClose}>
+    <div className="profile-customizer" onClick={(event) => event.stopPropagation()}>
+      <div className="profile-customizer__header">
+        <div>
+          <span className="profile-customizer__eyebrow">SECURITY</span>
+          <h2>Изменить пароль</h2>
+          <p>Новый пароль будет использоваться для входа в аккаунт.</p>
+        </div>
+        <button className="profile-customizer__close" onClick={onClose}>×</button>
+      </div>
+      {done ? <>
+        <div className="profile-customizer__preview"><div className="profile-customizer__preview-avatar">✓</div><div><strong>Пароль изменён</strong><span>SXRON Security</span><p>Новый пароль сохранён. Для следующих входов используйте его.</p></div></div>
+        <div className="profile-customizer__actions"><button className="profile-customizer__save" onClick={onClose}>Готово</button></div>
+      </> : <>
+        <label className="profile-customizer__field"><span>Новый пароль</span><input type="password" minLength={8} maxLength={128} autoComplete="new-password" value={password} onChange={(event) => setPasswordValue(event.target.value)} placeholder="Минимум 8 символов" /></label>
+        <label className="profile-customizer__field"><span>Повторите новый пароль</span><input type="password" minLength={8} maxLength={128} autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} placeholder="Введите пароль ещё раз" onKeyDown={(event) => { if (event.key === "Enter" && !saving) submit(); }} /></label>
+        {error && <p className="profile-customizer__error">{error}</p>}
+        <div className="profile-customizer__actions"><button className="profile-customizer__cancel" onClick={onClose} disabled={saving}>Отмена</button><button className="profile-customizer__save" onClick={submit} disabled={saving}>{saving ? "Сохраняем…" : "Изменить пароль"}</button></div>
+      </>}
+    </div>
+  </div>;
 }
 
 function ProfileCustomizer({ initial, onClose, onSave }: { initial: ProfileCustomization; onClose: () => void; onSave: (profile: ProfileCustomization) => Promise<void> }) {
@@ -268,5 +333,5 @@ function ProductGrid({ products, favorites, onFavorite, onProduct, onSeller }: {
 function ProductModal({ product, favorite, onFavorite, onClose, onSeller }: { product: Product; favorite: boolean; onFavorite: () => void; onClose: () => void; onSeller: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-product-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-detail-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}</div><div className="sxron-detail-content"><span>{product.category || "Без категории"}</span><h2>{product.name}</h2><strong className="sxron-detail-price">{product.price.toLocaleString("ru-RU")} ₽</strong><p>{product.description}</p><div className="sxron-detail-meta"><span>📍 {productCity(product)}</span>{product.condition && <span>◈ {product.condition}</span>}{product.delivery && <span>🚚 {product.delivery}</span>}</div><div className="sxron-detail-actions"><button className="sxron-primary" onClick={onSeller}>👤 Профиль продавца</button><button className="sxron-secondary" onClick={onFavorite}>{favorite ? "♥ В избранном" : "♡ В избранное"}</button></div></div></div></div>; }
 function SellerModal({ product, onClose }: { product: Product; onClose: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-seller-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-seller-avatar">{(product.name || "S").charAt(0).toUpperCase()}</div><span>ПРОДАВЕЦ</span><h2>Продавец SXRON</h2><div className="sxron-rating">★★★★★ <b>Новый профиль</b></div><p>Профиль продавца и его объявления будут загружаться из SXRON API.</p><div className="sxron-seller-stats"><div><b>—</b><span>Рейтинг</span></div><div><b>—</b><span>Отзывы</span></div><div><b>—</b><span>Объявления</span></div></div><button className="sxron-primary">💬 Написать продавцу</button></div></div>; }
 function ProductEditor({ product, userId, onCancel, onSave }: { product: Product | null; userId: number; onCancel: () => void; onSave: (product: Product) => void }) { const [name, setName] = useState(product?.name || ""); const [description, setDescription] = useState(product?.description || ""); const [price, setPrice] = useState(String(product?.price || "")); const [category, setCategory] = useState(product?.category || ""); const [city, setCity] = useState(productCity(product || { city: "Белореченск" } as Product)); return <div className="sxron-editor"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" /><input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Цена, ₽" /><div className="sxron-editor-row"><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Категория" /><input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" /></div><div className="sxron-editor-actions"><button className="sxron-secondary" onClick={onCancel}>Отмена</button><button className="sxron-primary" onClick={() => { if (!name.trim() || !Number(price)) return; onSave({ ...(product || {} as Product), id: product?.id || Date.now(), name: name.trim(), description: description.trim(), price: Number(price.replace(/\s/g, "").replace(",", ".")), category: category.trim() || "Без категории", city, created_by: userId, available: true }); }}>Сохранить</button></div></div>; }
-function LoadingGrid() { return <div className="sxron-product-grid">{Array.from({ length: 6 }).map((_, index) => <div className="sxron-skeleton" key={index}><div /><span /><span /></div>)}</div>; }
+function LoadingGrid() { return <div className="sxron-product-grid">{Array.from({ length: 6 }).map((_, index) => <div className="sxron-skeleton" key={index}><div /><span /><span /></div>); }
 function EmptyState({ title, text, action, onAction }: { title: string; text: string; action?: string; onAction?: () => void }) { return <div className="sxron-empty"><div>◈</div><h2>{title}</h2><p>{text}</p>{action && <button className="sxron-primary" onClick={onAction}>{action}</button>}</div>; }
