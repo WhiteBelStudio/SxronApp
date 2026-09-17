@@ -10,7 +10,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-APP_VERSION = "1.1.6"
+APP_VERSION = "1.1.10"
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("SXRON_DATA_DIR", BASE_DIR / "data"))
 DB_PATH = DATA_DIR / "sxron.db"
@@ -257,24 +257,11 @@ def product_dict(row: sqlite3.Row) -> dict[str, Any]:
             if category_row:
                 category = category_row["name"]
     return {
-        "id": row["id"],
-        "name": row["name"],
-        "description": row["description"],
-        "price": row["price"],
-        "category_id": row["category_id"],
-        "category": category,
-        "city_id": row["city_id"],
-        "city": city,
-        "condition": row["condition"],
-        "delivery": row["delivery"],
-        "photo_url": row["photo_url"],
-        "status": row["status"],
-        "available": bool(row["available"]),
-        "is_available": bool(row["available"]),
-        "created_by": row["created_by"],
-        "seller_id": row["created_by"],
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
+        "id": row["id"], "name": row["name"], "description": row["description"], "price": row["price"],
+        "category_id": row["category_id"], "category": category, "city_id": row["city_id"], "city": city,
+        "condition": row["condition"], "delivery": row["delivery"], "photo_url": row["photo_url"],
+        "status": row["status"], "available": bool(row["available"]), "is_available": bool(row["available"]),
+        "created_by": row["created_by"], "seller_id": row["created_by"], "created_at": row["created_at"], "updated_at": row["updated_at"],
     }
 
 
@@ -287,11 +274,9 @@ def products(search: str | None = None, category: str | None = None, city: str |
         pattern = f"%{search.lower()}%"
         values.extend([pattern, pattern])
     if category and category != "Все":
-        sql += " AND LOWER(c.name) = LOWER(?)"
-        values.append(category)
+        sql += " AND LOWER(c.name) = LOWER(?)"; values.append(category)
     if city:
-        sql += " AND LOWER(ci.name) = LOWER(?)"
-        values.append(city)
+        sql += " AND LOWER(ci.name) = LOWER(?)"; values.append(city)
     sql += " ORDER BY p.id DESC"
     with db() as connection:
         rows = connection.execute(sql, values).fetchall()
@@ -302,24 +287,20 @@ def products(search: str | None = None, category: str | None = None, city: str |
 def get_product(product_id: int) -> dict[str, Any]:
     with db() as connection:
         row = connection.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Товар не найден")
+    if not row: raise HTTPException(status_code=404, detail="Товар не найден")
     return product_dict(row)
 
 
 @app.post("/products")
 def create_product(data: ProductCreate, x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
-    user = current_user(x_sxron_client_id)
-    require_admin(user)
+    user = current_user(x_sxron_client_id); require_admin(user)
     with db() as connection:
         category_id = data.category_id
         if not category_id and data.category:
-            row = connection.execute("SELECT id FROM categories WHERE LOWER(name) = LOWER(?)", (data.category,)).fetchone()
-            category_id = row["id"] if row else None
+            row = connection.execute("SELECT id FROM categories WHERE LOWER(name) = LOWER(?)", (data.category,)).fetchone(); category_id = row["id"] if row else None
         city_id = data.city_id
         if not city_id and data.city:
-            row = connection.execute("SELECT id FROM cities WHERE LOWER(name) = LOWER(?)", (data.city,)).fetchone()
-            city_id = row["id"] if row else None
+            row = connection.execute("SELECT id FROM cities WHERE LOWER(name) = LOWER(?)", (data.city,)).fetchone(); city_id = row["id"] if row else None
         timestamp = now()
         cursor = connection.execute(
             "INSERT INTO products(name, description, price, category_id, city_id, condition, delivery, photo_url, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -346,16 +327,14 @@ def cities() -> list[dict[str, Any]]:
 @app.get("/me")
 def me(x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
     user = current_user(x_sxron_client_id)
-    with db() as connection:
-        data = user_dict(user, connection)
+    with db() as connection: data = user_dict(user, connection)
     return {"user": data, "is_admin": is_admin(user["id"]), "is_owner": is_owner(user)}
 
 
 @app.get("/me/profile")
 def get_profile(x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
     user = current_user(x_sxron_client_id)
-    with db() as connection:
-        data = user_dict(user, connection)
+    with db() as connection: data = user_dict(user, connection)
     return {"user": data, "is_admin": is_admin(user["id"]), "is_owner": is_owner(user)}
 
 
@@ -363,62 +342,43 @@ def get_profile(x_sxron_client_id: str | None = Header(default=None)) -> dict[st
 def public_profile(user_id: int) -> dict[str, Any]:
     with db() as connection:
         user = connection.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="Профиль не найден")
+        if not user: raise HTTPException(status_code=404, detail="Профиль не найден")
         data = user_dict(user, connection)
-        if not data["username_visible"]:
-            data["username"] = None
-        if not data["badges_visible"]:
-            data["verified"] = False
-        if not data["activity_visible"]:
-            data["is_online"] = False
-            data["last_seen_at"] = None
+        if not data["username_visible"]: data["username"] = None
+        if not data["badges_visible"]: data["verified"] = False
+        if not data["activity_visible"]: data["is_online"] = False; data["last_seen_at"] = None
         return {"user": data}
 
 
 @app.put("/me/profile")
 def update_profile(data: ProfileUpdate, x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
-    user = current_user(x_sxron_client_id)
-    updates: dict[str, Any] = {}
-    if data.display_name is not None:
-        updates["display_name"] = data.display_name.strip()
-    if data.bio is not None:
-        updates["bio"] = data.bio.strip()
-    if data.profile_status is not None:
-        updates["profile_status"] = data.profile_status.strip()
-    if data.avatar_url is not None:
-        updates["avatar_url"] = data.avatar_url
-    if data.profile_accent is not None:
-        updates["profile_accent"] = data.profile_accent
-    if data.profile_banner is not None:
-        updates["profile_banner"] = data.profile_banner
-    if data.avatar_shape is not None:
-        updates["avatar_shape"] = data.avatar_shape
-    if data.username_visible is not None:
-        updates["username_visible"] = int(data.username_visible)
-    if data.badges_visible is not None:
-        updates["badges_visible"] = int(data.badges_visible)
-    if data.activity_visible is not None:
-        updates["activity_visible"] = int(data.activity_visible)
+    user = current_user(x_sxron_client_id); updates: dict[str, Any] = {}
+    if data.display_name is not None: updates["display_name"] = data.display_name.strip()
+    if data.bio is not None: updates["bio"] = data.bio.strip()
+    if data.profile_status is not None: updates["profile_status"] = data.profile_status.strip()
+    if data.avatar_url is not None: updates["avatar_url"] = data.avatar_url
+    if data.profile_accent is not None: updates["profile_accent"] = data.profile_accent
+    if data.profile_banner is not None: updates["profile_banner"] = data.profile_banner
+    if data.avatar_shape is not None: updates["avatar_shape"] = data.avatar_shape
+    if data.username_visible is not None: updates["username_visible"] = int(data.username_visible)
+    if data.badges_visible is not None: updates["badges_visible"] = int(data.badges_visible)
+    if data.activity_visible is not None: updates["activity_visible"] = int(data.activity_visible)
     if data.city_id is not None:
         with db() as connection:
-            if not connection.execute("SELECT 1 FROM cities WHERE id = ?", (data.city_id,)).fetchone():
-                raise HTTPException(status_code=400, detail="Город не найден")
+            if not connection.execute("SELECT 1 FROM cities WHERE id = ?", (data.city_id,)).fetchone(): raise HTTPException(status_code=400, detail="Город не найден")
         updates["city_id"] = data.city_id
     if updates:
         with db() as connection:
             assignments = ", ".join(f"{key} = ?" for key in updates)
             connection.execute(f"UPDATE users SET {assignments}, last_seen_at = ? WHERE id = ?", [*updates.values(), now(), user["id"]])
     with db() as connection:
-        fresh = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
-        result = user_dict(fresh, connection)
+        fresh = connection.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone(); result = user_dict(fresh, connection)
     return {"user": result, "is_admin": is_admin(user["id"]), "is_owner": is_owner(user)}
 
 
 @app.get("/admins")
 def admins(x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
-    user = current_user(x_sxron_client_id)
-    require_admin(user)
+    user = current_user(x_sxron_client_id); require_admin(user)
     with db() as connection:
         rows = connection.execute("SELECT u.id, u.username, u.first_name, u.last_name, a.added_at FROM admins a JOIN users u ON u.id = a.user_id ORDER BY a.user_id").fetchall()
     return {"admins": [{**dict(row), "role": "owner" if OWNER_CLIENT_ID and row["id"] == user["id"] and is_owner(user) else "admin"} for row in rows]}
@@ -427,12 +387,10 @@ def admins(x_sxron_client_id: str | None = Header(default=None)) -> dict[str, An
 @app.post("/admins/add")
 def add_admin(data: AdminMutation, x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
     user = current_user(x_sxron_client_id)
-    if not is_owner(user):
-        raise HTTPException(status_code=403, detail="Добавлять администраторов может только владелец")
+    if not is_owner(user): raise HTTPException(status_code=403, detail="Добавлять администраторов может только владелец")
     with db() as connection:
         target = connection.execute("SELECT * FROM users WHERE id = ?", (data.user_id,)).fetchone()
-        if not target:
-            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        if not target: raise HTTPException(status_code=404, detail="Пользователь не найден")
         connection.execute("INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)", (data.user_id, now()))
     return {"ok": True, "message": "Администратор добавлен"}
 
@@ -440,14 +398,11 @@ def add_admin(data: AdminMutation, x_sxron_client_id: str | None = Header(defaul
 @app.post("/admins/remove")
 def remove_admin(data: AdminMutation, x_sxron_client_id: str | None = Header(default=None)) -> dict[str, Any]:
     user = current_user(x_sxron_client_id)
-    if not is_owner(user):
-        raise HTTPException(status_code=403, detail="Удалять администраторов может только владелец")
+    if not is_owner(user): raise HTTPException(status_code=403, detail="Удалять администраторов может только владелец")
     with db() as connection:
         target = connection.execute("SELECT * FROM users WHERE id = ?", (data.user_id,)).fetchone()
-        if not target:
-            raise HTTPException(status_code=404, detail="Пользователь не найден")
-        if OWNER_CLIENT_ID and target["client_id"] == OWNER_CLIENT_ID:
-            raise HTTPException(status_code=400, detail="Нельзя удалить владельца")
+        if not target: raise HTTPException(status_code=404, detail="Пользователь не найден")
+        if OWNER_CLIENT_ID and target["client_id"] == OWNER_CLIENT_ID: raise HTTPException(status_code=400, detail="Нельзя удалить владельца")
         connection.execute("DELETE FROM admins WHERE user_id = ?", (data.user_id,))
     return {"ok": True, "message": "Администратор удалён"}
 
