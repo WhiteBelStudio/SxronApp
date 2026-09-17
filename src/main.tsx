@@ -12,8 +12,9 @@ import ThemeController from "./components/ThemeController";
 import "./styles/global.css";
 import "./styles/user-profile.css";
 import "./styles/theme.css";
+import "./styles/desktop-overrides.css";
 
-const APP_VERSION = "1.2.1";
+const APP_VERSION = "1.2.4";
 
 function syncStaticVersionLabels() {
   document.title = `SXRON Marketplace ${APP_VERSION}`;
