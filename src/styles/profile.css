@@ -116,6 +116,9 @@ button:disabled { cursor:not-allowed; opacity:.55; }
 .profile-customizer__cancel:hover { background:rgba(255,255,255,.08); transform:translateY(-1px); }
 .desktop-profile-header-button { min-height:43px !important; padding:0 16px !important; border-radius:13px !important; font-size:11px !important; font-weight:900 !important; cursor:pointer; }
 
+/* Role/status is controlled by SXRON, not by the user. */
+.profile-customizer__field:has(input[placeholder="Например: На связи · Белореченск"]) { display:none; }
+
 @keyframes sxron-fade-in { from { opacity:0 } to { opacity:1 } }
 @media (max-width:600px) {
   .profile-customizer { padding:18px; border-radius:22px; }
