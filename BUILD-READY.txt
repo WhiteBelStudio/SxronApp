@@ -1,3 +1,4 @@
-SXRON Marketplace v1.0.18
-Universal SMTP providers configured.
+SXRON Marketplace v1.1.0
+Light and dark themes enabled.
+Persistent theme selection and in-app updates panel enabled.
 Windows release build is managed by GitHub Actions.
