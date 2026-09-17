@@ -8,6 +8,7 @@ import {
 
 import App from "./App";
 import AuthGate from "./components/AuthGate";
+import ForcedUpdater from "./components/ForcedUpdater";
 
 import "./styles/global.css";
 import "./styles/user-profile.css";
@@ -22,6 +23,7 @@ createRoot(rootElement).render(
   <StrictMode>
     <AuthGate>
       <App />
+      <ForcedUpdater />
     </AuthGate>
   </StrictMode>,
 );
