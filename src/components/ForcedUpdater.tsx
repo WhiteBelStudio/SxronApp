@@ -1,36 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 
-const APP_VERSION = "1.1.10";
-const APP_BUILD = "1.1.10-build-1";
+const APP_VERSION = "1.1.11";
+const APP_BUILD = "1.1.11-build-1";
 const MANIFEST_URL = `https://raw.githubusercontent.com/WhiteBelStudio/SxronApp/main/update-manifest.json?ts=${Date.now()}`;
 
-type UpdateManifest = {
-  version: string;
-  build: string;
-  title?: string;
-  message?: string;
-  changes?: string[];
-};
-
+type UpdateManifest = { version: string; build: string; title?: string; message?: string; changes?: string[] };
 type UpdateKind = "version" | "repair";
 
 function compareVersions(a: string, b: string) {
-  const left = a.split(".").map(Number);
-  const right = b.split(".").map(Number);
-
-  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
-    const l = left[index] ?? 0;
-    const r = right[index] ?? 0;
+  const left = a.split(".").map(Number), right = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
+    const l = left[i] ?? 0, r = right[i] ?? 0;
     if (l !== r) return l > r ? 1 : -1;
   }
-
   return 0;
 }
-
-function startInstaller(kind: UpdateKind) {
-  const protocol = kind === "version" ? "sxron://check-updates" : "sxron://repair-current";
-  window.open(protocol, "_self");
-}
+function startInstaller(kind: UpdateKind) { window.open(kind === "version" ? "sxron://check-updates" : "sxron://repair-current", "_self"); }
 
 export default function ForcedUpdater() {
   const [manifest, setManifest] = useState<UpdateManifest | null>(null);
@@ -41,46 +26,25 @@ export default function ForcedUpdater() {
 
   useEffect(() => {
     let cancelled = false;
-
     async function check() {
       try {
-        const response = await fetch(MANIFEST_URL, {
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
+        const response = await fetch(MANIFEST_URL, { cache: "no-store", headers: { Accept: "application/json" } });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = (await response.json()) as UpdateManifest;
         if (cancelled) return;
-
         setManifest(data);
-
         const versionChanged = compareVersions(data.version, APP_VERSION) > 0;
         const currentBuildChanged = compareVersions(data.version, APP_VERSION) === 0 && data.build !== APP_BUILD;
-
-        if (versionChanged) setKind("version");
-        else if (currentBuildChanged) setKind("repair");
-        else setKind(null);
+        setKind(versionChanged ? "version" : currentBuildChanged ? "repair" : null);
       } catch (checkError) {
         if (!cancelled) setError(checkError instanceof Error ? checkError.message : "Не удалось проверить обновления.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      } finally { if (!cancelled) setLoading(false); }
     }
-
     void check();
     return () => { cancelled = true; };
   }, []);
 
-  const title = useMemo(() => {
-    if (kind === "version") return `Доступна новая версия ${manifest?.version ?? ""}`;
-    if (kind === "repair") return `Доступно обновление файлов ${APP_VERSION}`;
-    return "SXRON Marketplace";
-  }, [kind, manifest?.version]);
-
+  const title = useMemo(() => kind === "version" ? `Доступна новая версия ${manifest?.version ?? ""}` : kind === "repair" ? `Доступно обновление файлов ${APP_VERSION}` : "SXRON Marketplace", [kind, manifest?.version]);
   if (loading || !kind) return null;
   const isVersionUpdate = kind === "version";
 
@@ -90,7 +54,7 @@ export default function ForcedUpdater() {
         <div style={{ width: 68, height: 68, display: "grid", placeItems: "center", borderRadius: 20, marginBottom: 24, fontSize: 30, background: "linear-gradient(135deg,#20d3c2,#8067f5)", boxShadow: "0 14px 45px rgba(73,153,226,.25)" }}>{isVersionUpdate ? "🚀" : "🛠️"}</div>
         <div style={{ color: "#20d3c2", fontSize: 12, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>SXRON UPDATE CENTER</div>
         <h1 style={{ margin: "10px 0 12px", fontSize: "clamp(28px, 5vw, 46px)", lineHeight: 1.05 }}>{title}</h1>
-        <p style={{ margin: 0, color: "#a8b3c5", fontSize: 16, lineHeight: 1.65 }}>{manifest?.message ?? (isVersionUpdate ? "Выпущена новая версия SXRON. Нажмите «Обновить», чтобы загрузить и установить все файлы приложения." : "Для текущей версии доступны исправления. Нажмите «Обновить», чтобы переустановить актуальные файлы приложения.")}</p>
+        <p style={{ margin: 0, color: "#a8b3c5", fontSize: 16, lineHeight: 1.65 }}>{manifest?.message ?? "Выпущена новая версия SXRON. Нажмите «Обновить», чтобы загрузить и установить актуальные файлы."}</p>
         <div style={{ marginTop: 24, display: "grid", gap: 10, padding: 18, borderRadius: 18, background: "rgba(255,255,255,.045)", border: "1px solid rgba(255,255,255,.08)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, color: "#dce5f2", fontSize: 14 }}><span>Текущая версия</span><strong>{APP_VERSION}</strong></div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, color: "#dce5f2", fontSize: 14 }}><span>{isVersionUpdate ? "Новая версия" : "Актуальные файлы"}</span><strong>{isVersionUpdate ? manifest?.version : manifest?.build}</strong></div>
