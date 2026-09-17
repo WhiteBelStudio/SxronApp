@@ -1,0 +1,44 @@
+/* SXRON 1.2.4 — desktop visual system based on the official logo */
+@media (min-width: 769px) {
+  :root { --sxron-neon:#18d8d0; --sxron-violet:#923cff; --sxron-blue:#218ff0; }
+  body { background:radial-gradient(900px 560px at 6% 0%,rgba(24,216,208,.10),transparent 64%),radial-gradient(900px 600px at 100% 0%,rgba(146,60,255,.12),transparent 66%),#050812; }
+  .sxron-shell { min-height:100vh; padding-bottom:0; background:linear-gradient(180deg,rgba(4,7,14,.72),rgba(4,7,14,.96)),radial-gradient(700px 500px at 42% 10%,rgba(24,216,208,.035),transparent 70%); }
+  .sxron-topbar { position:fixed; inset:0 auto 0 0; z-index:100; width:252px; height:100vh; padding:28px 18px 22px; display:flex; flex-direction:column; align-items:stretch; gap:22px; border:0; border-right:1px solid rgba(255,255,255,.075); background:linear-gradient(180deg,rgba(5,9,18,.97),rgba(7,11,21,.94)); box-shadow:16px 0 55px rgba(0,0,0,.22); backdrop-filter:blur(24px) saturate(140%); }
+  .sxron-brand { width:100%; min-height:116px; justify-content:flex-start; padding:0 8px; border:0; }
+  .sxron-brand__mark { width:190px; height:116px; border-radius:0; background:url('/sxron-logo.svg') center/contain no-repeat !important; box-shadow:none !important; color:transparent; font-size:0; }
+  .sxron-brand > span:last-child { display:none; }
+  .sxron-topnav { width:100%; display:grid; gap:7px; padding-top:8px; }
+  .sxron-topnav::before { content:'НАВИГАЦИЯ'; display:block; margin:0 12px 6px; color:#5f6f89; font-size:9px; font-weight:950; letter-spacing:.18em; }
+  .sxron-topnav button { min-height:48px; padding:0 14px; border:1px solid transparent; border-radius:13px; text-align:left; color:#9ba9bd; background:transparent; font-size:13px; font-weight:800; }
+  .sxron-topnav button:hover { color:#fff; border-color:rgba(84,224,214,.13); background:rgba(84,224,214,.055); }
+  .sxron-topnav button.active { color:#fff; border-color:rgba(76,224,214,.28); background:linear-gradient(100deg,rgba(19,210,202,.18),rgba(122,62,255,.16)); box-shadow:inset 3px 0 0 #25d9cf,0 10px 28px rgba(40,70,150,.14); }
+  .sxron-city-pill { margin:auto 2px 0; min-height:44px; display:flex; align-items:center; padding:0 13px; border:1px solid rgba(255,255,255,.08); border-radius:13px; color:#b8c3d5; background:rgba(255,255,255,.035); font-size:12px; font-weight:750; }
+  .sxron-content { width:auto; max-width:none; margin:0 0 0 252px; padding:30px 42px 70px; }
+  .sxron-home,.sxron-page { width:min(1320px,100%); margin:0 auto; }
+  .sxron-hero-card { min-height:520px; padding:62px 68px; border:1px solid rgba(98,185,255,.16); border-radius:28px; background:radial-gradient(520px 420px at 82% 48%,rgba(141,65,255,.16),transparent 68%),radial-gradient(520px 420px at 55% 12%,rgba(23,215,207,.09),transparent 72%),linear-gradient(145deg,rgba(16,24,40,.94),rgba(6,11,21,.96)); box-shadow:0 28px 90px rgba(0,0,0,.27),inset 0 1px rgba(255,255,255,.045); }
+  .sxron-hero-card::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(135deg,transparent 35%,rgba(44,142,255,.04) 50%,transparent 65%); }
+  .sxron-kicker { color:#62e9df; letter-spacing:.2em; }
+  .sxron-hero-card h1 { max-width:720px; margin:17px 0 20px; font-size:clamp(62px,6.4vw,96px); line-height:.9; letter-spacing:-5px; }
+  .sxron-hero-card p { max-width:610px; font-size:17px; color:#98a6ba; }
+  .sxron-actions { margin-top:28px; }
+  .sxron-primary { background:linear-gradient(100deg,#14cfe0 0%,#2e8df2 47%,#9a38ff 100%); box-shadow:0 13px 38px rgba(46,141,242,.16); }
+  .sxron-hero-orb { width:370px; height:370px; flex-basis:370px; border-radius:28px; background:radial-gradient(circle at 50% 45%,rgba(38,225,215,.07),transparent 62%),rgba(3,8,17,.28) url('/sxron-logo.svg') center/88% auto no-repeat; border:1px solid rgba(88,195,255,.14); box-shadow:0 0 0 16px rgba(69,150,255,.025),0 35px 100px rgba(0,0,0,.38),0 0 80px rgba(93,65,255,.10); }
+  .sxron-hero-orb span { display:none; }
+  .sxron-section-head { margin:58px 0 18px; }
+  .sxron-section-head h2 { font-size:28px; letter-spacing:-.7px; }
+  .sxron-category-grid { grid-template-columns:repeat(8,minmax(0,1fr)); gap:11px; }
+  .sxron-category-card { min-height:142px; padding:16px; border-radius:17px; background:linear-gradient(145deg,rgba(17,27,43,.82),rgba(8,13,24,.86)); box-shadow:inset 0 1px rgba(255,255,255,.035); }
+  .sxron-category-card:hover { border-color:rgba(84,224,214,.27); transform:translateY(-4px); }
+  .sxron-category-card strong { color:#65e9df; font-size:24px; }
+  .sxron-product-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+  .sxron-product-card { border-radius:18px; border-color:rgba(105,166,230,.14); background:linear-gradient(145deg,rgba(15,23,38,.9),rgba(7,12,22,.92)); }
+  .sxron-product-card:hover { border-color:rgba(84,224,214,.26); }
+  .sxron-product-image { height:220px; }
+  .sxron-product-body { padding:15px; }
+  .sxron-product-body h3 { font-size:15px; }
+  .sxron-page-head { padding:25px 27px; border:1px solid rgba(105,166,230,.14); border-radius:20px; background:linear-gradient(145deg,rgba(16,24,40,.86),rgba(7,12,22,.9)); }
+  .sxron-page-head h1 { font-size:38px; }
+  .sxron-searchbar { box-shadow:0 15px 45px rgba(0,0,0,.15); }
+  .sxron-bottom-nav { display:none !important; }
+  .sxron-toast { left:calc(50% + 126px); }
+}
