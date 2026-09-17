@@ -1,5 +1,7 @@
 name: SXRON Windows Release Final
 
+# Release pipeline: rebuild and publish the Windows installer for the current release.
+
 on:
   push:
     branches: [main]
