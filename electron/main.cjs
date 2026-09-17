@@ -182,40 +182,6 @@ function stopApi() {
   apiProcess = null;
 }
 
-function injectUpdatesButton(win) {
-  if (isDev) return;
-
-  win.webContents.executeJavaScript(`(() => {
-    if (document.getElementById('sxron-updates-button')) return;
-    const button = document.createElement('button');
-    button.id = 'sxron-updates-button';
-    button.type = 'button';
-    button.textContent = '↻  Обновления';
-    Object.assign(button.style, {
-      position: 'fixed',
-      right: '18px',
-      top: '18px',
-      left: 'auto',
-      zIndex: '2147483647',
-      padding: '10px 15px',
-      border: '1px solid rgba(94, 234, 212, .30)',
-      borderRadius: '12px',
-      color: '#f8fafc',
-      background: 'linear-gradient(135deg, rgba(32,211,194,.20), rgba(128,103,245,.24))',
-      backdropFilter: 'blur(16px)',
-      WebkitBackdropFilter: 'blur(16px)',
-      boxShadow: '0 10px 35px rgba(0,0,0,.28)',
-      font: '700 13px Inter, system-ui, sans-serif',
-      cursor: 'pointer',
-      transition: 'transform .18s ease, filter .18s ease',
-    });
-    button.onmouseenter = () => { button.style.transform = 'translateY(-1px)'; button.style.filter = 'brightness(1.12)'; };
-    button.onmouseleave = () => { button.style.transform = 'translateY(0)'; button.style.filter = 'none'; };
-    button.onclick = () => window.open('sxron://check-updates');
-    document.body.appendChild(button);
-  })();`).catch((error) => console.warn('SXRON updates button:', error?.message || error));
-}
-
 async function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
@@ -235,10 +201,6 @@ async function createWindow() {
     console.error('SXRON renderer load failed:', errorCode, errorDescription);
   });
 
-  win.webContents.on('did-finish-load', () => {
-    injectUpdatesButton(win);
-  });
-
   if (isDev) {
     await win.loadURL('http://localhost:5173');
   } else {
@@ -247,7 +209,7 @@ async function createWindow() {
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url === 'sxron://check-updates') {
-      setupAutoUpdater().then(() => autoUpdater.checkForUpdates().catch((error) => console.warn('SXRON manual update check:', error?.message || error)));
+      checkForUpdatesManually();
       return { action: 'deny' };
     }
 
@@ -259,6 +221,9 @@ async function createWindow() {
 }
 
 function configureAutoUpdater() {
+  if (updateCheckStarted) return;
+
+  updateCheckStarted = true;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.allowDowngrade = false;
@@ -282,10 +247,29 @@ function configureAutoUpdater() {
 
   autoUpdater.on('update-not-available', (info) => {
     console.log(`SXRON updater: установлена актуальная версия ${info.version}.`);
+
+    if (BrowserWindow.getAllWindows().length > 0) {
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'SXRON — обновления',
+        message: `У вас актуальная версия SXRON Marketplace ${info.version}.`,
+        buttons: ['OK'],
+      }).catch(() => {});
+    }
   });
 
   autoUpdater.on('error', (error) => {
     console.warn('SXRON updater error:', error?.message || error);
+
+    if (BrowserWindow.getAllWindows().length > 0) {
+      dialog.showMessageBox({
+        type: 'error',
+        title: 'SXRON — обновления',
+        message: 'Не удалось проверить обновления.',
+        detail: error?.message || String(error),
+        buttons: ['OK'],
+      }).catch(() => {});
+    }
   });
 
   autoUpdater.on('update-downloaded', async (info) => {
@@ -295,7 +279,7 @@ function configureAutoUpdater() {
       type: 'info',
       title: 'Обновление SXRON',
       message: `Обновление SXRON Marketplace ${info.version} уже скачано.`,
-      detail: 'После перезапуска новая версия автоматически заменит старые файлы приложения. Ваши данные сохранятся.',
+      detail: 'После перезапуска новая версия автоматически заменит файлы приложения. Пользовательские данные сохранятся.',
       buttons: ['Перезапустить сейчас', 'Позже'],
       defaultId: 0,
       cancelId: 1,
@@ -307,10 +291,25 @@ function configureAutoUpdater() {
   });
 }
 
-async function setupAutoUpdater() {
-  if (isDev || updateCheckStarted) return;
+function checkForUpdatesManually() {
+  if (isDev) {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'SXRON — обновления',
+      message: 'Проверка обновлений доступна в установленной версии приложения.',
+      buttons: ['OK'],
+    }).catch(() => {});
+    return;
+  }
 
-  updateCheckStarted = true;
+  configureAutoUpdater();
+  autoUpdater.checkForUpdates().catch((error) => {
+    console.warn('SXRON manual update check:', error?.message || error);
+  });
+}
+
+async function setupAutoUpdater() {
+  if (isDev) return;
   configureAutoUpdater();
 
   try {
