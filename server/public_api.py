@@ -10,6 +10,7 @@ import server.main as base
 # retaining server/main.py as the source of the existing application routes.
 base.APP_VERSION = "1.1.5"
 base.app.version = base.APP_VERSION
+init_db = base.init_db
 
 
 @base.app.get("/public/sellers/{user_id}")
