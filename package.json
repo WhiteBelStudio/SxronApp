@@ -46,7 +46,7 @@
         "to": "backend/sxron-api"
       }
     ],
-    "win": {"target": "nsis", "icon": "build/sxron-icon.ico", "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}"},
+    "win": {"target": "nsis", "icon": "build/sxron-icon.svg", "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}"},
     "nsis": {"oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true},
     "publish": [{"provider": "github", "owner": "WhiteBelStudio", "repo": "SxronApp", "releaseType": "release"}]
   }
