@@ -22,7 +22,11 @@ MAX_ATTEMPTS = int(os.getenv("SXRON_AUTH_MAX_ATTEMPTS", "5"))
 SESSION_DAYS = int(os.getenv("SXRON_AUTH_SESSION_DAYS", "30"))
 SESSION_HOURS = int(os.getenv("SXRON_AUTH_SESSION_HOURS", "12"))
 DEBUG_AUTH = os.getenv("SXRON_AUTH_DEBUG", "false").lower() in {"1", "true", "yes"}
-OWNER_CLIENT_ID = os.getenv("SXRON_OWNER_CLIENT_ID", "").strip()
+OWNER_CLIENT_ID = os.getenv("SXRON_OWNER_CLIENT_ID", "sxron-owner-nikitinka7644").strip()
+OWNER_EMAIL = os.getenv("SXRON_OWNER_EMAIL", "neoneonhorizon@gmail.com").strip().lower()
+OWNER_USERNAME = os.getenv("SXRON_OWNER_USERNAME", "Nikitinka7644").strip()
+OWNER_PASSWORD_HASH = os.getenv("SXRON_OWNER_PASSWORD_HASH", "LahGsY3KZ/gBOErMzzQJKOr1RBnhMfcWl3dtgisYczAO0BrQ7xGI4TYklefzf8Bo546mkmyXaI6iQHD2wskasw==")
+OWNER_PASSWORD_SALT = os.getenv("SXRON_OWNER_PASSWORD_SALT", "tVHMH4nq28Lrr43pWOwrLA==")
 
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 PHONE_RE = re.compile(r"^\+[1-9]\d{7,14}$")
@@ -164,7 +168,7 @@ def _send_email(destination: str, code: str) -> None:
     message["Subject"] = "Код подтверждения SXRON"
     message["From"] = sender
     message["To"] = destination
-    message.set_content(f"Ваш код подтверждения SXRON: {code}\n\nКод действует {CODE_TTL_SECONDS // 60} минут. Никому его не сообщайте.")
+    message.set_content(f"Ваш код подтверждения SXRON:\n\n{code}\n\nКод действует {CODE_TTL_SECONDS // 60} минут. Никому его не сообщайте.")
     try:
         with smtplib.SMTP(host, port, timeout=20) as smtp:
             if use_tls:
@@ -292,6 +296,21 @@ def register_auth(app: FastAPI) -> None:
     init_db()
     with db() as connection:
         _ensure_schema(connection)
+        timestamp = _iso(_utc())
+        owner = connection.execute("SELECT * FROM users WHERE email = ?", (OWNER_EMAIL,)).fetchone()
+        if not owner:
+            connection.execute(
+                "INSERT INTO users(client_id, username, first_name, email, email_verified, auth_method, password_hash, password_salt, created_at, last_seen_at) VALUES (?, ?, ?, ?, 1, 'owner', ?, ?, ?, ?)",
+                (OWNER_CLIENT_ID, OWNER_USERNAME, OWNER_USERNAME, OWNER_EMAIL, OWNER_PASSWORD_HASH, OWNER_PASSWORD_SALT, timestamp, timestamp),
+            )
+            owner = connection.execute("SELECT * FROM users WHERE email = ?", (OWNER_EMAIL,)).fetchone()
+        else:
+            connection.execute(
+                "UPDATE users SET client_id = ?, username = ?, first_name = ?, email_verified = 1, auth_method = 'owner', password_hash = ?, password_salt = ?, last_seen_at = ? WHERE id = ?",
+                (OWNER_CLIENT_ID, OWNER_USERNAME, OWNER_USERNAME, OWNER_PASSWORD_HASH, OWNER_PASSWORD_SALT, timestamp, owner["id"]),
+            )
+            owner = connection.execute("SELECT * FROM users WHERE id = ?", (owner["id"],)).fetchone()
+        connection.execute("INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)", (owner["id"], timestamp))
 
     def result_for(connection: sqlite3.Connection, user: sqlite3.Row, remember: bool = True) -> dict[str, Any]:
         token = _session(connection, user["id"], remember)
@@ -306,9 +325,7 @@ def register_auth(app: FastAPI) -> None:
         with db() as connection:
             user = connection.execute("SELECT * FROM users WHERE client_id = ?", (client_id,)).fetchone()
             if not user:
-                timestamp = _iso(_utc())
-                cur = connection.execute("INSERT INTO users(client_id, first_name, created_at, last_seen_at, auth_method) VALUES (?, 'Владелец', ?, ?, 'owner')", (client_id, timestamp, timestamp))
-                user = connection.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
+                raise HTTPException(status_code=404, detail="Владелец не найден")
             connection.execute("UPDATE users SET last_seen_at = ? WHERE id = ?", (_iso(_utc()), user["id"]))
             connection.execute("INSERT OR IGNORE INTO admins(user_id, added_at) VALUES (?, ?)", (user["id"], _iso(_utc())))
             return result_for(connection, user, True)
