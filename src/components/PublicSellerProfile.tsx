@@ -28,6 +28,10 @@ function initials(name: string): string {
   return name.trim().slice(0, 1).toUpperCase() || "S";
 }
 
+function closeUnderlyingSellerModal(): void {
+  document.querySelector<HTMLElement>(".sxron-seller-modal .sxron-modal-close")?.click();
+}
+
 function extractProductSeed(modal: Element): ProductSeed | null {
   const name = modal.querySelector("h2")?.textContent?.trim() || "";
   const category = modal.querySelector(".sxron-detail-content > span")?.textContent?.trim() || "";
@@ -80,10 +84,6 @@ export default function PublicSellerProfile({ onOpenProduct }: Props) {
   const [data, setData] = useState<PublicSellerResponse | null>(null);
 
   useEffect(() => {
-    function closeUnderlyingSellerModal() {
-      document.querySelector<HTMLElement>(".sxron-seller-modal .sxron-modal-close")?.click();
-    }
-
     async function openSeller(seed: ProductSeed) {
       setOpen(true);
       setLoading(true);
