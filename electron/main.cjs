@@ -290,7 +290,18 @@ async function downloadAndInstallGitHubUpdate() {
     return;
   }
 
-  const installDir = path.dirname(app.getPath('exe'));
+  // Resolve the real installation directory from Electron's resources path.
+  // app.getPath('exe') can be polluted by a malformed Windows shortcut/install
+  // directory after a failed forced-update chain.
+  const resourcesDir = String(process.resourcesPath || '');
+  const resourcesMarker = `${path.sep}resources`;
+  let installDir = resourcesDir.endsWith(resourcesMarker)
+    ? resourcesDir.slice(0, -resourcesMarker.length)
+    : path.dirname(app.getPath('exe'));
+
+  // Recover the intended default folder if an older update accidentally
+  // appended repeated --force-run suffixes to the installation directory.
+  installDir = installDir.replace(/(?:\\s+--force-run)+$/i, '');
   const apiPid = apiProcess?.pid || 0;
   const currentPid = process.pid;
   const targetVersion = latestRelease.targetVersion;
