@@ -9,7 +9,7 @@ import server.main as base
 import server.public_api as public_api
 
 
-APP_VERSION = "1.2.10"
+APP_VERSION = "1.2.11"
 
 
 def _ensure_schema() -> None:
@@ -77,7 +77,6 @@ def _ensure_schema() -> None:
             );
             """
         )
-        public_api._value
         cols = {row[1] for row in connection.execute("PRAGMA table_info(users)").fetchall()}
         if "is_blocked" not in cols:
             connection.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER NOT NULL DEFAULT 0")
