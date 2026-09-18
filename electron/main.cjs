@@ -504,33 +504,60 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   if (!GOT_SINGLE_INSTANCE_LOCK) return;
+
+  if (IS_SMOKE_TEST) {
+    try {
+      const preloadPath = path.join(__dirname, 'preload.cjs');
+      const rendererPath = path.join(app.getAppPath(), 'dist', 'index.html');
+      const apiExecutable = getApiExecutable();
+      const checks = [
+        ['Electron preload', preloadPath],
+        ['SXRON renderer', rendererPath],
+        ['Bundled SXRON API', apiExecutable],
+      ];
+
+      for (const [label, filePath] of checks) {
+        if (!fs.existsSync(filePath)) {
+          throw new Error(`${label} не найден: ${filePath}`);
+        }
+      }
+
+      console.log('SXRON packaged bootstrap smoke: OK');
+      app.exit(0);
+    } catch (error) {
+      console.error('SXRON packaged bootstrap smoke failed:', error);
+      app.exit(1);
+    }
+    return;
+  }
+
   registerWindowsAssociations();
   try {
-    appendApiLog(`SXRON Electron start ${new Date().toISOString()} | version=${CURRENT_VERSION} | packaged=${app.isPackaged}\n`);
+    appendApiLog(`SXRON Electron start ${new Date().toISOString()} | version=${CURRENT_VERSION} | packaged=${app.isPackaged}\\n`);
   } catch (error) {
     console.warn('SXRON Electron startup log:', error?.message || error);
   }
+
   try {
     await startApi();
     await createWindow();
-    if (IS_SMOKE_TEST) {
-      setTimeout(() => {
-        stopApi();
-        app.exit(0);
-      }, 1500);
-    }
   } catch (error) {
     console.error('SXRON startup failed:', error);
-    if (!IS_SMOKE_TEST) {
-      await dialog.showMessageBox({ type: 'error', title: 'SXRON Marketplace', message: 'Не удалось запустить SXRON Marketplace.', detail: error?.message || String(error) });
-    } else {
-      console.error(error?.stack || error);
-    }
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'SXRON Marketplace',
+      message: 'Не удалось запустить SXRON Marketplace.',
+      detail: error?.message || String(error),
+    });
     stopApi();
     app.exit(1);
     return;
   }
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow().catch(console.error); });
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow().catch(console.error);
+  });
 });
+
 app.on('before-quit', () => stopApi());
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
