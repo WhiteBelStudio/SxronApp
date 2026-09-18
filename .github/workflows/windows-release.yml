@@ -83,8 +83,11 @@ jobs:
           if (Test-Path backend) { Remove-Item backend -Recurse -Force }
           if (Test-Path build/pyinstaller) { Remove-Item build/pyinstaller -Recurse -Force }
           New-Item -ItemType Directory -Path backend | Out-Null
-          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --hidden-import=multipart --hidden-import=multipart.multipart server/launcher.py
+          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --collect-all=pydantic --collect-all=pydantic_core --hidden-import=multipart --hidden-import=multipart.multipart --hidden-import=pydantic_core._pydantic_core server/launcher.py
           if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) { throw 'Bundled SXRON API executable was not created.' }
+          $pydanticCoreFiles = @(Get-ChildItem 'backend/sxron-api' -Recurse -File | Where-Object { $_.Name -like '*pydantic_core*' })
+          if ($pydanticCoreFiles.Count -eq 0) { throw 'Bundled pydantic_core native extension was not included.' }
+          Write-Host "Bundled pydantic_core files: $($pydanticCoreFiles.Count)"
           Write-Host "Bundled API directory created: backend/sxron-api"
           Get-ChildItem 'backend/sxron-api' | Select-Object Name,Length
 
