@@ -461,8 +461,14 @@ async function createWindow() {
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => console.error('SXRON renderer load failed:', errorCode, errorDescription));
   win.on('maximize', () => updateWindowChromeState(win));
   win.on('unmaximize', () => updateWindowChromeState(win));
-  if (isDev) await win.loadURL('http://localhost:5173');
-  else await win.loadFile(path.join(app.getAppPath(), 'dist', 'index.html'));
+  const loadPromise = isDev
+    ? win.loadURL('http://localhost:5173')
+    : win.loadFile(path.join(app.getAppPath(), 'dist', 'index.html'));
+  if (IS_SMOKE_TEST) {
+    loadPromise.catch((error) => console.error('SXRON smoke renderer load:', error?.message || error));
+  } else {
+    await loadPromise;
+  }
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url === 'sxron://check-updates') {
