@@ -240,9 +240,53 @@ async function downloadAndInstallGitHubUpdate() {
   if (process.platform !== 'win32') { await shell.openPath(installerPath); return; }
   const installDir = path.dirname(app.getPath('exe'));
   sendUpdateUi('update-ready', { currentVersion: CURRENT_VERSION, targetVersion: latestRelease.targetVersion, percent: 100 });
-  const child = spawn(installerPath, ['--updated', '/S', `/D=${installDir}`, '--force-run'], { detached: true, stdio: 'ignore', windowsHide: true });
-  child.unref();
-  setTimeout(() => app.quit(), 250);
+
+  // Never launch NSIS while the current SXRON process is still alive.
+  // The helper waits for this PID to disappear, then starts the installer.
+  const helperPath = path.join(updateDir, 'sxron-apply-update.ps1');
+  const helperScript = [
+    'param(',
+    '  [int]$PidToWait,',
+    '  [string]$Installer,',
+    '  [string]$InstallDir',
+    ')',
+    '$deadline = (Get-Date).AddSeconds(45)',
+    'while ((Get-Date) -lt $deadline) {',
+    '  if (-not (Get-Process -Id $PidToWait -ErrorAction SilentlyContinue)) { break }',
+    '  Start-Sleep -Milliseconds 250',
+    '}',
+    'Start-Process -FilePath $Installer -ArgumentList @(',
+    '  "/S",',
+    '  "/D=$InstallDir"',
+    ') -WorkingDirectory (Split-Path -Parent $Installer)',
+  ].join('\n');
+  fs.writeFileSync(helperPath, helperScript, 'utf8');
+
+  const helper = spawn(process.env.ComSpec || 'cmd.exe', [
+    '/d',
+    '/c',
+    'powershell.exe',
+    '-NoProfile',
+    '-NonInteractive',
+    '-WindowStyle',
+    'Hidden',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    helperPath,
+    '-PidToWait',
+    String(process.pid),
+    '-Installer',
+    installerPath,
+    '-InstallDir',
+    installDir,
+  ], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  helper.unref();
+  app.quit();
 }
 
 function installWindowChrome(win) {
