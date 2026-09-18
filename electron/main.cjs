@@ -7,7 +7,7 @@ const https = require('https');
 const crypto = require('crypto');
 
 const isDev = !app.isPackaged;
-const IS_SMOKE_TEST = process.argv.includes('--sxron-smoke-test');
+const IS_SMOKE_TEST = process.argv.includes('--sxron-smoke-test') || process.env.SXRON_SMOKE_TEST === '1';
 let apiProcess = null;
 let mainWindow = null;
 let updateCheckInProgress = false;
