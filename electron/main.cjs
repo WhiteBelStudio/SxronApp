@@ -226,41 +226,85 @@ function downloadFile(url, destination) {
 async function downloadAndInstallGitHubUpdate() {
   if (!latestRelease?.asset) await checkForGitHubUpdate();
   if (!latestRelease?.asset) throw new Error('Обновление не найдено.');
+
   const asset = latestRelease.asset;
   const updateDir = path.join(app.getPath('userData'), 'updates');
   fs.mkdirSync(updateDir, { recursive: true });
   const installerPath = path.join(updateDir, asset.name);
+
   sendUpdateUi('download-start', { targetVersion: latestRelease.targetVersion });
   await downloadFile(asset.browser_download_url, installerPath);
+
   const expectedDigest = String(asset.digest || '').replace(/^sha256:/i, '').toLowerCase();
   if (expectedDigest) {
     const actualDigest = crypto.createHash('sha256').update(fs.readFileSync(installerPath)).digest('hex').toLowerCase();
-    if (actualDigest !== expectedDigest) { fs.rmSync(installerPath, { force: true }); throw new Error('Проверка SHA-256 установщика не прошла. Установка отменена.'); }
+    if (actualDigest !== expectedDigest) {
+      fs.rmSync(installerPath, { force: true });
+      throw new Error('Проверка SHA-256 установщика не прошла. Установка отменена.');
+    }
   }
-  if (process.platform !== 'win32') { await shell.openPath(installerPath); return; }
-  const installDir = path.dirname(app.getPath('exe'));
-  sendUpdateUi('update-ready', { currentVersion: CURRENT_VERSION, targetVersion: latestRelease.targetVersion, percent: 100 });
 
-  // Never launch NSIS while the current SXRON process is still alive.
-  // The helper waits for this PID to disappear, then starts the installer.
+  if (process.platform !== 'win32') {
+    await shell.openPath(installerPath);
+    return;
+  }
+
+  const installDir = path.dirname(app.getPath('exe'));
+  const apiPid = apiProcess?.pid || 0;
+  const currentPid = process.pid;
+  const targetVersion = latestRelease.targetVersion;
+
+  sendUpdateUi('update-ready', {
+    currentVersion: CURRENT_VERSION,
+    targetVersion,
+    percent: 100,
+  });
+
+  // The updater runs outside Electron. It waits for BOTH Electron and the
+  // bundled API process to disappear, then waits a little longer for Windows
+  // file handles to settle, and only then starts NSIS.
   const helperPath = path.join(updateDir, 'sxron-apply-update.ps1');
+  const installerLiteral = JSON.stringify(installerPath);
+  const installDirLiteral = JSON.stringify(installDir);
+
   const helperScript = [
     'param(',
-    '  [int]$PidToWait,',
+    '  [int]$ElectronPid,',
+    '  [int]$ApiPid,',
     '  [string]$Installer,',
     '  [string]$InstallDir',
     ')',
-    '$deadline = (Get-Date).AddSeconds(45)',
+    '',
+    '$deadline = (Get-Date).AddSeconds(60)',
     'while ((Get-Date) -lt $deadline) {',
-    '  if (-not (Get-Process -Id $PidToWait -ErrorAction SilentlyContinue)) { break }',
-    '  Start-Sleep -Milliseconds 250',
+    '  $electronAlive = Get-Process -Id $ElectronPid -ErrorAction SilentlyContinue',
+    '  $apiAlive = if ($ApiPid -gt 0) { Get-Process -Id $ApiPid -ErrorAction SilentlyContinue } else { $null }',
+    '  if (-not $electronAlive -and -not $apiAlive) { break }',
+    '  Start-Sleep -Milliseconds 300',
     '}',
-    'Start-Process -FilePath $Installer -ArgumentList @(',
-    '  "/S",',
-    '  "/D=$InstallDir"',
-    ') -WorkingDirectory (Split-Path -Parent $Installer)',
+    '',
+    '# Give Windows time to release executable/DLL handles after process exit.',
+    'Start-Sleep -Seconds 3',
+    '',
+    'if (-not (Test-Path -LiteralPath $Installer)) { exit 2 }',
+    '',
+    'try {',
+    '  $proc = Start-Process -FilePath $Installer -ArgumentList @(',
+    '    "/S",',
+    '    "/D=$InstallDir"',
+    '  ) -WorkingDirectory (Split-Path -Parent $Installer) -PassThru',
+    '  if ($proc) { exit 0 }',
+    '} catch {',
+    '  exit 3',
+    '}',
+    'exit 4',
   ].join('\n');
+
   fs.writeFileSync(helperPath, helperScript, 'utf8');
+
+  // Stop the API ourselves before Electron exits, then let the external
+  // PowerShell helper wait for both PIDs.
+  stopApi();
 
   const helper = spawn(process.env.ComSpec || 'cmd.exe', [
     '/d',
@@ -274,8 +318,10 @@ async function downloadAndInstallGitHubUpdate() {
     'Bypass',
     '-File',
     helperPath,
-    '-PidToWait',
-    String(process.pid),
+    '-ElectronPid',
+    String(currentPid),
+    '-ApiPid',
+    String(apiPid),
     '-Installer',
     installerPath,
     '-InstallDir',
@@ -285,9 +331,13 @@ async function downloadAndInstallGitHubUpdate() {
     stdio: 'ignore',
     windowsHide: true,
   });
+
   helper.unref();
-  app.quit();
+
+  // Exit immediately so NSIS can replace the installed EXE/DLL files.
+  app.exit(0);
 }
+
 
 function installWindowChrome(win) {
   win.webContents.executeJavaScript(`(() => {
