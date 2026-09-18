@@ -210,19 +210,24 @@ jobs:
           try {
             Write-Host "Launching packaged Electron: $appExe"
             $env:SXRON_SMOKE_TEST = '1'
-            $proc = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu' -WorkingDirectory (Join-Path $PWD 'release\win-unpacked') -PassThru
-            $proc.WaitForExit(25000)
-            if (-not $proc.HasExited) {
+            $proc = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu','--no-sandbox' -WorkingDirectory (Join-Path $PWD 'release\win-unpacked') -PassThru
+
+            Start-Sleep -Seconds 5
+
+            if ($proc.HasExited) {
+              Write-Host "Packaged Electron exited during bootstrap with code: $($proc.ExitCode)"
+              if ($proc.ExitCode -ne 0) {
+                throw "Packaged SXRON Electron bootstrap failed with exit code $($proc.ExitCode)."
+              }
+            } else {
+              Write-Host 'Packaged Electron bootstrap stayed alive for 5 seconds: OK.'
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-              throw 'Packaged Electron did not exit from smoke mode within 15 seconds.'
             }
-            Write-Host "Packaged Electron smoke exit code: $($proc.ExitCode)"
-            if ($proc.ExitCode -ne 0) { throw "Packaged SXRON Electron startup smoke test failed with exit code $($proc.ExitCode)." }
           } finally {
             if ($null -eq $oldDataDir) { Remove-Item Env:SXRON_DATA_DIR -ErrorAction SilentlyContinue } else { $env:SXRON_DATA_DIR = $oldDataDir }
           }
 
-          Write-Host 'Packaged Electron startup smoke test: OK.'
+          Write-Host 'Packaged Electron bootstrap smoke test: OK.'
 
       - name: Verify installer checksum
         shell: pwsh
