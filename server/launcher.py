@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import os
 
+# Keep Pydantic Core's native extension in the PyInstaller dependency graph.
+# Without this explicit import, _pydantic_core may be omitted from onedir builds.
+import pydantic_core
+import pydantic_core._pydantic_core  # noqa: F401
+
 import uvicorn
 
 try:
