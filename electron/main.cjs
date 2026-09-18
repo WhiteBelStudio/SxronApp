@@ -8,6 +8,7 @@ const crypto = require('crypto');
 
 const isDev = !app.isPackaged;
 const IS_SMOKE_TEST = process.argv.includes('--sxron-smoke-test') || process.env.SXRON_SMOKE_TEST === '1';
+const FULL_STARTUP_SMOKE = IS_SMOKE_TEST && process.env.SXRON_FULL_STARTUP_SMOKE === '1';
 let apiProcess = null;
 let mainWindow = null;
 let updateCheckInProgress = false;
@@ -86,6 +87,34 @@ function waitForApi(timeoutMs = 45000) {
 
 async function startApi() {
   if (isDev) return;
+
+  // Reuse an already-running SXRON API left behind by a previous app process.
+  // This prevents a stale sxron-api.exe from making port 8000 unavailable.
+  try {
+    const existing = await new Promise((resolve) => {
+      const request = http.get('http://127.0.0.1:8000/health', (response) => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => { body += chunk; });
+        response.on('end', () => {
+          try {
+            const payload = JSON.parse(body);
+            resolve(payload && payload.status === 'ok' && payload.app === 'SXRON API' ? payload : null);
+          } catch {
+            resolve(null);
+          }
+        });
+      });
+      request.on('error', () => resolve(null));
+      request.setTimeout(700, () => { request.destroy(); resolve(null); });
+    });
+
+    if (existing) {
+      appendApiLog(`Reusing existing SXRON API on 127.0.0.1:8000 | version=${existing.version || 'unknown'}\\n`);
+      return;
+    }
+  } catch {}
+
   const executable = getApiExecutable();
   const apiDirectory = path.dirname(executable);
   const dataDir = path.join(app.getPath('userData'), 'data');
@@ -527,10 +556,24 @@ app.whenReady().then(async () => {
         }
       }
 
-      console.log('SXRON packaged bootstrap smoke: OK');
-      app.exit(0);
+      if (FULL_STARTUP_SMOKE) {
+        registerWindowsAssociations();
+        await startApi();
+        await createWindow();
+        await new Promise((resolve) => setTimeout(resolve, 8000));
+        console.log('SXRON full startup smoke: API + renderer OK');
+        stopApi();
+        app.exit(0);
+      } else {
+        console.log('SXRON packaged bootstrap smoke: OK');
+        app.exit(0);
+      }
     } catch (error) {
-      console.error('SXRON packaged bootstrap smoke failed:', error);
+      console.error('SXRON packaged startup smoke failed:', error);
+      try {
+        stopApi();
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+      } catch {}
       app.exit(1);
     }
     return;
