@@ -83,11 +83,21 @@ jobs:
           if (Test-Path backend) { Remove-Item backend -Recurse -Force }
           if (Test-Path build/pyinstaller) { Remove-Item build/pyinstaller -Recurse -Force }
           New-Item -ItemType Directory -Path backend | Out-Null
-          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --collect-all=pydantic --collect-all=pydantic_core --hidden-import=multipart --hidden-import=multipart.multipart --hidden-import=pydantic_core._pydantic_core server/launcher.py
+          python -m PyInstaller --noconfirm --clean --onedir --name sxron-api --distpath backend --workpath build/pyinstaller --specpath build/pyinstaller --collect-all=multipart --collect-all=pydantic --collect-all=pydantic_core --collect-binaries=pydantic_core --collect-submodules=pydantic_core --hidden-import=multipart --hidden-import=multipart.multipart --hidden-import=pydantic_core._pydantic_core server/launcher.py
           if (-not (Test-Path 'backend/sxron-api/sxron-api.exe')) { throw 'Bundled SXRON API executable was not created.' }
-          $pydanticCoreFiles = @(Get-ChildItem 'backend/sxron-api' -Recurse -File | Where-Object { $_.Name -like '*pydantic_core*' })
+          $pydanticCoreFiles = @(Get-ChildItem 'backend/sxron-api' -Recurse -File | Where-Object { $_.Name -like '_pydantic_core*.pyd' })
+          if ($pydanticCoreFiles.Count -eq 0) {
+            $sourceCore = python -c "import pathlib, pydantic_core; print(pathlib.Path(pydantic_core.__file__).parent)"
+            $sourceBinary = Get-ChildItem $sourceCore -Filter '_pydantic_core*.pyd' -File | Select-Object -First 1
+            if (-not $sourceBinary) { throw 'Installed pydantic_core native extension was not found in Python environment.' }
+            $targetCore = Join-Path (Join-Path $PWD 'backend\sxron-api') 'pydantic_core'
+            New-Item -ItemType Directory -Path $targetCore -Force | Out-Null
+            Copy-Item $sourceBinary.FullName (Join-Path $targetCore $sourceBinary.Name) -Force
+            Write-Host "Manually copied pydantic_core native extension: $($sourceBinary.Name)"
+            $pydanticCoreFiles = @(Get-ChildItem 'backend/sxron-api' -Recurse -File | Where-Object { $_.Name -like '_pydantic_core*.pyd' })
+          }
           if ($pydanticCoreFiles.Count -eq 0) { throw 'Bundled pydantic_core native extension was not included.' }
-          Write-Host "Bundled pydantic_core files: $($pydanticCoreFiles.Count)"
+          Write-Host "Bundled pydantic_core native extension files: $($pydanticCoreFiles.Count)"
           Write-Host "Bundled API directory created: backend/sxron-api"
           Get-ChildItem 'backend/sxron-api' | Select-Object Name,Length
 
@@ -197,6 +207,41 @@ jobs:
           if (-not (Test-Path 'release/latest.yml')) { throw 'latest.yml was not created.' }
           Write-Host "Verified Setup: $($setup[0].FullName) ($($setup[0].Length) bytes)"
           Get-ChildItem release
+
+      - name: Smoke test packaged SXRON API
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'release\win-unpacked\resources\backend\sxron-api\sxron-api.exe'
+          if (-not (Test-Path $exe)) { throw "Packaged SXRON API executable not found: $exe" }
+          $smokeData = Join-Path $PWD 'build\packaged-api-smoke-data'
+          $stdout = Join-Path $PWD 'build\packaged-api.stdout.log'
+          $stderr = Join-Path $PWD 'build\packaged-api.stderr.log'
+          if (Test-Path $smokeData) { Remove-Item $smokeData -Recurse -Force }
+          New-Item -ItemType Directory -Path $smokeData | Out-Null
+          $oldDataDir = $env:SXRON_DATA_DIR
+          $env:SXRON_DATA_DIR = $smokeData
+          $proc = $null
+          $healthy = $false
+          try {
+            $proc = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+            for ($i = 0; $i -lt 30; $i++) {
+              Start-Sleep -Seconds 1
+              if ($proc.HasExited) { break }
+              try {
+                $response = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 2
+                if ($response.status -eq 'ok') { $healthy = $true; break }
+              } catch {}
+            }
+            if (-not $healthy) {
+              Write-Host '----- packaged API stdout -----'; if (Test-Path $stdout) { Get-Content $stdout }
+              Write-Host '----- packaged API stderr -----'; if (Test-Path $stderr) { Get-Content $stderr }
+              throw 'Packaged SXRON API failed to start after electron-builder copied resources.'
+            }
+            Write-Host 'Packaged SXRON API smoke: OK'
+          } finally {
+            if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+            if ($null -eq $oldDataDir) { Remove-Item Env:SXRON_DATA_DIR -ErrorAction SilentlyContinue } else { $env:SXRON_DATA_DIR = $oldDataDir }
+          }
 
       - name: Smoke test packaged Electron app
         shell: pwsh

@@ -50,10 +50,33 @@ function registerWindowsAssociations() {
   }
 }
 
+function getResourcesDirectory() {
+  const normalize = (value) => String(value || '').replace(/(?:\\s+--force-run)+$/i, '');
+  const candidates = [];
+  const appPath = app.getAppPath();
+  if (appPath) candidates.push(path.dirname(appPath));
+  if (process.resourcesPath) candidates.push(normalize(process.resourcesPath));
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
+    candidates.push(path.join(process.env.LOCALAPPDATA, 'Programs', 'sxron-marketplace', 'resources'));
+  }
+
+  for (const candidate of candidates) {
+    const apiName = process.platform === 'win32' ? 'sxron-api.exe' : 'sxron-api';
+    if (fs.existsSync(path.join(candidate, 'backend', 'sxron-api', apiName))) {
+      return candidate;
+    }
+  }
+
+  return normalize(process.resourcesPath);
+}
+
 function getApiExecutable() {
-  return process.platform === 'win32'
-    ? path.join(process.resourcesPath, 'backend', 'sxron-api', 'sxron-api.exe')
-    : path.join(process.resourcesPath, 'backend', 'sxron-api', 'sxron-api');
+  return path.join(
+    getResourcesDirectory(),
+    'backend',
+    'sxron-api',
+    process.platform === 'win32' ? 'sxron-api.exe' : 'sxron-api',
+  );
 }
 
 function getApiLogPath() { return path.join(app.getPath('userData'), 'sxron-api.log'); }
@@ -301,7 +324,15 @@ async function downloadAndInstallGitHubUpdate() {
 
   // Recover the intended default folder if an older update accidentally
   // appended repeated --force-run suffixes to the installation directory.
+  const hasCorruptedForceRunPath = /\\s+--force-run(?:\\s+--force-run)*$/i.test(installDir);
   installDir = installDir.replace(/(?:\\s+--force-run)+$/i, '');
+
+  if (process.platform === 'win32' && hasCorruptedForceRunPath && process.env.LOCALAPPDATA) {
+    const canonicalInstallDir = path.join(process.env.LOCALAPPDATA, 'Programs', 'sxron-marketplace');
+    if (fs.existsSync(canonicalInstallDir) || !fs.existsSync(installDir)) {
+      installDir = canonicalInstallDir;
+    }
+  }
   const apiPid = apiProcess?.pid || 0;
   const currentPid = process.pid;
   const targetVersion = latestRelease.targetVersion;
