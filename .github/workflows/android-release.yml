@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sxron-android-release-main
+  cancel-in-progress: true
+
 jobs:
   android:
     runs-on: ubuntu-latest
