@@ -22,8 +22,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: sxron-windows-release-main
-  cancel-in-progress: true
+  group: sxron-windows-release-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   windows:
