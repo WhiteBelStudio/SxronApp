@@ -49,10 +49,6 @@ jobs:
             echo "Invalid SXRON version: '$VERSION'"
             exit 1
           fi
-          if [[ "$VERSION" != "1.2.6" ]]; then
-            echo "Expected SXRON 1.2.6, got '$VERSION'"
-            exit 1
-          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "SXRON version: $VERSION"
 
