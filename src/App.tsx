@@ -6,6 +6,7 @@ import "./styles/global.css";
 import "./styles/profile.css";
 import "./styles/marketplace.css";
 import "./styles/sxron-redesign.css";
+import "./styles/desktop.css";
 
 const DEFAULT_PROFILE: ProfileCustomization = { displayName: "", bio: "", status: "", avatar: "✦", accent: "cyan", banner: "aurora", avatarShape: "rounded", usernameVisible: true, badgesVisible: true, activityVisible: true };
 const AVATARS = ["✦", "S", "◈", "◆", "●", "✚", "⚡", "★", "☁", "♢", "⌂", "◎", "❖", "◇", "⬢", "✧"];
@@ -115,7 +116,7 @@ export default function App() {
   async function removeAllSessions() { try { await revokeAllSessions(); setSessions([]); notify("Другие сессии завершены"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось завершить сессии"); } }
   async function handleLogout() { await logout(); window.location.reload(); }
 
-  const appClass = isMobile ? "sxron-shell sxron-shell--mobile" : "sxron-shell";
+  const appClass = isMobile ? "sxron-shell sxron-shell--mobile" : "sxron-shell sxron-shell--desktop";
   return <div className={appClass}>
     <header className="sxron-topbar"><button className="sxron-brand" onClick={() => navigate("home")} aria-label="SXRON"><span className="sxron-brand__mark">S</span><span>SXRON</span></button>{!isMobile && <nav className="sxron-topnav"><button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}>Главная</button><button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}>Каталог</button><button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}>Избранное</button><button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")} style={{ position: "relative" }}>Профиль{updateAvailable && <span style={{ position: "absolute", top: 2, right: -2, width: 7, height: 7, borderRadius: 99, background: "#20d3c2", boxShadow: "0 0 0 3px rgba(32,211,194,.12)" }} />}</button></nav>}<div className="sxron-city-pill">📍 {city.name}</div></header>
     <main className="sxron-content">
