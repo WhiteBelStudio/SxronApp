@@ -817,3 +817,11 @@ body::after {
   .sxron-product-image{height:160px!important}
   .sxron-product-body h3{font-size:13px!important}
 }
+
+
+/* Frameless Electron drag zones */
+.sxron-topbar{-webkit-app-region:drag}
+.sxron-topbar button,.sxron-topnav,.sxron-city-pill,.sxron-topbar input,.sxron-topbar a{-webkit-app-region:no-drag}
+@media(max-width:768px){
+  #sxron-window-chrome{display:none!important}
+}
