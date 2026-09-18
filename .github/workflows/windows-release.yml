@@ -1,5 +1,5 @@
 name: SXRON Windows Release
-# 1.2.8 final release pipeline
+# 1.2.11 clean release pipeline
 # Release trigger refresh after Windows asset uploader fix
 
 on:
@@ -22,8 +22,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: sxron-windows-release-${{ github.run_id }}
-  cancel-in-progress: false
+  group: sxron-windows-release-main
+  cancel-in-progress: true
 
 jobs:
   windows:
@@ -115,6 +115,16 @@ jobs:
               Write-Host '----- SXRON API stderr -----'; if (Test-Path $stderr) { Get-Content $stderr }
               throw 'Bundled SXRON API failed the Windows startup/health smoke test.'
             }
+
+            $ownerHeaders = @{ "X-SXRON-Client-ID" = "sxron-owner-nikitinka7644" }
+            $owner = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8000/auth/owner' -Headers $ownerHeaders -TimeoutSec 5
+            if (-not $owner.session_token) { throw 'Owner authentication smoke test did not return a session token.' }
+            $adminHeaders = @{ Authorization = "Bearer $($owner.session_token)" }
+            $dashboard = Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8000/admin/center/dashboard' -Headers $adminHeaders -TimeoutSec 5
+            if (-not $dashboard.stats) { throw 'Admin Center dashboard smoke test failed.' }
+            $adminList = Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8000/admin/center/admins' -Headers $adminHeaders -TimeoutSec 5
+            if ($null -eq $adminList.admins) { throw 'Admin Center roles smoke test failed.' }
+            Write-Host 'Admin Center smoke test: dashboard + roles OK.'
           } finally {
             if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
             if ($null -eq $oldDataDir) { Remove-Item Env:SXRON_DATA_DIR -ErrorAction SilentlyContinue } else { $env:SXRON_DATA_DIR = $oldDataDir }
