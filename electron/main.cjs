@@ -249,14 +249,32 @@ function installWindowChrome(win) {
     if (document.getElementById('sxron-window-chrome')) return;
     const style = document.createElement('style');
     style.id = 'sxron-window-chrome-style';
-    style.textContent = \`#sxron-window-chrome{position:fixed;top:12px;right:14px;height:30px;z-index:2147483647;display:flex;align-items:center;justify-content:flex-end;padding:0 3px 0 7px;gap:2px;background:rgba(5,8,13,.76);border:1px solid rgba(255,255,255,.055);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.22);backdrop-filter:blur(18px);-webkit-app-region:drag;font-family:Inter,system-ui,sans-serif}#sxron-window-chrome .sxron-chrome-title{display:flex;align-items:center;gap:6px;margin-right:3px;color:#657286;font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}#sxron-window-chrome .sxron-chrome-mark{width:17px;height:17px;border-radius:5px;display:grid;place-items:center;color:#071016;font-size:8px;font-weight:950;background:linear-gradient(135deg,#2de0cf,#8b74ff)}#sxron-window-chrome .sxron-chrome-actions{height:100%;display:flex;align-items:center;-webkit-app-region:no-drag}#sxron-window-chrome button{width:27px;height:24px;margin-left:1px;border:0;border-radius:7px;background:transparent;color:#7b8799;font-size:12px;cursor:pointer;display:grid;place-items:center}#sxron-window-chrome button:hover{background:rgba(255,255,255,.06);color:#fff}#sxron-window-chrome button.sxron-close:hover{background:#e45159;color:#fff}\`;
+    style.textContent = \`#sxron-window-chrome{position:fixed;top:10px;right:12px;height:36px;z-index:2147483647;display:flex;align-items:center;justify-content:flex-end;padding:3px;background:rgba(7,10,17,.9);border:1px solid rgba(255,255,255,.08);border-radius:11px;box-shadow:0 10px 30px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.035);backdrop-filter:blur(20px);-webkit-app-region:drag;font-family:Inter,system-ui,sans-serif}#sxron-window-chrome .sxron-chrome-actions{height:100%;display:flex;align-items:center;gap:2px;-webkit-app-region:no-drag}#sxron-window-chrome button{position:relative;width:36px;height:30px;border:0;border-radius:8px;background:transparent;color:#8c98aa;font-size:16px;line-height:1;cursor:pointer;display:grid;place-items:center;transition:background .16s ease,color .16s ease,transform .16s ease}#sxron-window-chrome button:hover{background:rgba(255,255,255,.075);color:#fff}#sxron-window-chrome button:active{transform:scale(.94)}#sxron-window-chrome button.sxron-maximize{font-size:13px}#sxron-window-chrome button.sxron-close:hover{background:#e45159;color:#fff}#sxron-window-chrome button::after{content:attr(data-tooltip);position:absolute;right:0;top:36px;white-space:nowrap;padding:6px 8px;border:1px solid rgba(255,255,255,.08);border-radius:7px;background:#0b1019;color:#dbe2ec;font-size:10px;font-weight:700;opacity:0;pointer-events:none;transform:translateY(-3px);transition:opacity .14s ease,transform .14s ease;box-shadow:0 8px 20px rgba(0,0,0,.3)}#sxron-window-chrome button:hover::after{opacity:1;transform:translateY(0)}\`;
     document.head.appendChild(style);
     const bar = document.createElement('div');
     bar.id = 'sxron-window-chrome';
-    bar.innerHTML = '<div class="sxron-chrome-actions"><button data-action="minimize" aria-label="Свернуть">−</button><button data-action="maximize" aria-label="Развернуть">□</button><button data-action="close" class="sxron-close" aria-label="Закрыть">×</button></div>';
+    bar.innerHTML = '<div class="sxron-chrome-actions"><button data-action="minimize" data-tooltip="Свернуть" aria-label="Свернуть">−</button><button class="sxron-maximize" data-action="maximize" data-tooltip="Развернуть" aria-label="Развернуть">□</button><button data-action="close" data-tooltip="Закрыть" class="sxron-close" aria-label="Закрыть">×</button></div>';
+    bar.addEventListener('dblclick', (event) => {
+      if (!event.target.closest('button')) window.open('sxron://maximize');
+    });
     bar.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => window.open('sxron://' + button.dataset.action)));
     document.body.appendChild(bar);
-  })()` ).catch(() => {});
+  })()`).catch(() => {});
+}
+
+function updateWindowChromeState(win) {
+  if (!win || win.isDestroyed()) return;
+  const maximized = win.isMaximized();
+  const icon = maximized ? '❐' : '□';
+  const tooltip = maximized ? 'Восстановить' : 'Развернуть';
+  const script = `(() => {
+    const button = document.querySelector('#sxron-window-chrome .sxron-maximize');
+    if (!button) return;
+    button.textContent = ${JSON.stringify(icon)};
+    button.dataset.tooltip = ${JSON.stringify(tooltip)};
+    button.setAttribute('aria-label', ${JSON.stringify(tooltip)});
+  })()`;
+  win.webContents.executeJavaScript(script).catch(() => {});
 }
 
 async function createWindow() {
@@ -274,6 +292,8 @@ async function createWindow() {
   });
   mainWindow = win;
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => console.error('SXRON renderer load failed:', errorCode, errorDescription));
+  win.on('maximize', () => updateWindowChromeState(win));
+  win.on('unmaximize', () => updateWindowChromeState(win));
   if (isDev) await win.loadURL('http://localhost:5173');
   else await win.loadFile(path.join(app.getAppPath(), 'dist', 'index.html'));
 
@@ -303,6 +323,7 @@ async function createWindow() {
   });
   win.webContents.on('did-finish-load', () => {
     installWindowChrome(win);
+    updateWindowChromeState(win);
     sendUpdateUi('app-version', { version: CURRENT_VERSION });
   });
   win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
