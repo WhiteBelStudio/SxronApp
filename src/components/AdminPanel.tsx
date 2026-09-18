@@ -267,7 +267,7 @@ export default function AdminPanel() {
         type="button"
         aria-label="Открыть админ-панель"
         onClick={() => { setOpen(true); void refresh(); }}
-        style={{ position: "fixed", right: 22, bottom: 88, zIndex: 5000, minHeight: 44, padding: "0 15px", border: "1px solid rgba(32,211,194,.35)", borderRadius: 14, color: "#fff", background: "linear-gradient(135deg,#19d8d0,#7a4dff)", boxShadow: "0 14px 45px rgba(48,80,170,.35)", cursor: "pointer", fontWeight: 900 }}
+        style={{ position: "fixed", right: 22, bottom: 88, zIndex: 5000, minHeight: 44, padding: "0 15px", border: "1px solid rgba(34, 184, 255,.35)", borderRadius: 14, color: "#fff", background: "linear-gradient(135deg,#19d8d0,#7a4dff)", boxShadow: "0 14px 45px rgba(48,80,170,.35)", cursor: "pointer", fontWeight: 900 }}
       >
         ⚙️ Админ-панель
       </button>
@@ -288,7 +288,7 @@ export default function AdminPanel() {
       <section style={{ ...card, width: "min(1240px,100%)", maxHeight: "calc(100vh - 36px)", overflow: "auto" }}>
         <header style={{ padding: "22px 24px", borderBottom: "1px solid rgba(255,255,255,.08)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, position: "sticky", top: 0, zIndex: 10, background: "rgba(12,17,27,.96)", backdropFilter: "blur(16px)" }}>
           <div>
-            <div style={{ color: "#20d3c2", fontSize: 11, fontWeight: 900, letterSpacing: ".14em" }}>SXRON CONTROL CENTER</div>
+            <div style={{ color: "#22b8ff", fontSize: 11, fontWeight: 900, letterSpacing: ".14em" }}>SXRON CONTROL CENTER</div>
             <h2 style={{ margin: "6px 0 3px", fontSize: 29 }}>Расширенная админ-панель</h2>
             <div style={{ color: "#8f9cb0", fontSize: 13 }}>{dashboard?.user?.email || "Авторизованный администратор"} · v{dashboard?.version || "1.2.11"}</div>
           </div>
@@ -306,7 +306,7 @@ export default function AdminPanel() {
 
             <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 18 }}>
               <div style={{ padding: 18, borderRadius: 18, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.025)" }}>
-                <div style={{ color: "#20d3c2", fontSize: 11, fontWeight: 900, letterSpacing: ".12em" }}>ADMIN TEAM</div>
+                <div style={{ color: "#22b8ff", fontSize: 11, fontWeight: 900, letterSpacing: ".12em" }}>ADMIN TEAM</div>
                 <h3 style={{ margin: "7px 0 0", fontSize: 19 }}>Администраторы</h3>
                 {dashboard.is_owner && <div style={{ display: "flex", gap: 9, marginTop: 13 }}><input value={adminId} onChange={(event) => setAdminId(event.target.value)} placeholder="ID пользователя" inputMode="numeric" style={{ ...input, flex: 1 }} /><button type="button" disabled={busy} onClick={() => void addAdmin()} style={{ ...primary, opacity: busy ? .6 : 1 }}>Назначить</button></div>}
                 <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
@@ -317,17 +317,17 @@ export default function AdminPanel() {
                 <div style={{ color: "#9b8cff", fontSize: 11, fontWeight: 900, letterSpacing: ".12em" }}>ROLE SYSTEM</div>
                 <h3 style={{ margin: "7px 0 4px", fontSize: 19 }}>Системные статусы</h3>
                 <p style={{ margin: 0, color: "#8f9cb0", lineHeight: 1.55 }}>Пользователь не задаёт статус вручную. Роль определяется сервером и показывается в профиле автоматически.</p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 13 }}><span style={{ padding: "7px 10px", borderRadius: 9, background: "rgba(255,255,255,.05)", color: "#8290a6", fontSize: 11, fontWeight: 900 }}>Пользователь</span><span style={{ padding: "7px 10px", borderRadius: 9, background: "rgba(155,140,255,.10)", color: "#a99cff", fontSize: 11, fontWeight: 900 }}>Администратор</span><span style={{ padding: "7px 10px", borderRadius: 9, background: "rgba(32,211,194,.10)", color: "#70eee5", fontSize: 11, fontWeight: 900 }}>Владелец</span></div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 13 }}><span style={{ padding: "7px 10px", borderRadius: 9, background: "rgba(255,255,255,.05)", color: "#8290a6", fontSize: 11, fontWeight: 900 }}>Пользователь</span><span style={{ padding: "7px 10px", borderRadius: 9, background: "rgba(155,140,255,.10)", color: "#a99cff", fontSize: 11, fontWeight: 900 }}>Администратор</span><span style={{ padding: "7px 10px", borderRadius: 9, background: "rgba(34, 184, 255,.10)", color: "#70eee5", fontSize: 11, fontWeight: 900 }}>Владелец</span></div>
               </div>
             </div>
 
             <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "minmax(300px,.85fr) minmax(420px,1.15fr)", gap: 18 }}>
               <div style={{ padding: 18, borderRadius: 18, border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.025)" }}>
-                <div style={{ color: "#20d3c2", fontSize: 11, fontWeight: 900, letterSpacing: ".12em" }}>USERS</div>
+                <div style={{ color: "#22b8ff", fontSize: 11, fontWeight: 900, letterSpacing: ".12em" }}>USERS</div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><h3 style={{ margin: "7px 0 0", fontSize: 19 }}>Пользователи</h3><button type="button" onClick={() => void refresh()} style={ghost}>↻</button></div>
                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ID, имя, username или email" style={{ ...input, marginTop: 13 }} />
                 <div style={{ marginTop: 11, display: "grid", gap: 8, maxHeight: 500, overflow: "auto" }}>
-                  {filteredUsers.map((user) => <button key={user.id} type="button" onClick={() => void openUser(user.id)} style={{ width: "100%", textAlign: "left", padding: 12, borderRadius: 13, border: selected?.id === user.id ? "1px solid rgba(32,211,194,.38)" : "1px solid rgba(255,255,255,.06)", background: selected?.id === user.id ? "rgba(32,211,194,.07)" : "rgba(255,255,255,.025)", color: "#fff", cursor: "pointer" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}><div><strong>{user.display_name}</strong><div style={{ marginTop: 3, color: "#7d8ba0", fontSize: 11 }}>ID {user.id}{user.username ? ` · @${user.username}` : ""}</div></div><span style={{ color: roleColor(user.role), fontSize: 10, fontWeight: 900 }}>{user.role.toUpperCase()}</span></div><div style={{ marginTop: 7, color: "#7d8ba0", fontSize: 11 }}>Объявлений: {user.listings_count} · {user.last_seen_at || "Нет активности"}</div></button>)}
+                  {filteredUsers.map((user) => <button key={user.id} type="button" onClick={() => void openUser(user.id)} style={{ width: "100%", textAlign: "left", padding: 12, borderRadius: 13, border: selected?.id === user.id ? "1px solid rgba(34, 184, 255,.38)" : "1px solid rgba(255,255,255,.06)", background: selected?.id === user.id ? "rgba(34, 184, 255,.07)" : "rgba(255,255,255,.025)", color: "#fff", cursor: "pointer" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}><div><strong>{user.display_name}</strong><div style={{ marginTop: 3, color: "#7d8ba0", fontSize: 11 }}>ID {user.id}{user.username ? ` · @${user.username}` : ""}</div></div><span style={{ color: roleColor(user.role), fontSize: 10, fontWeight: 900 }}>{user.role.toUpperCase()}</span></div><div style={{ marginTop: 7, color: "#7d8ba0", fontSize: 11 }}>Объявлений: {user.listings_count} · {user.last_seen_at || "Нет активности"}</div></button>)}
                   {!filteredUsers.length && <div style={{ padding: 25, textAlign: "center", color: "#7f8da3" }}>Пользователи не найдены.</div>}
                 </div>
               </div>

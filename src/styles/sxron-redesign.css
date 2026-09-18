@@ -12,10 +12,10 @@
   --sx28-line-soft:rgba(255,255,255,.045);
   --sx28-text:#f7f9fc;
   --sx28-muted:#8290a6;
-  --sx28-cyan:#2de4d0;
+  --sx28-cyan:#22b8ff;
   --sx28-blue:#6f9cff;
   --sx28-purple:#9a72ff;
-  --sx28-gradient:linear-gradient(135deg,#2de4d0 0%,#6f9cff 48%,#a16fff 100%);
+  --sx28-gradient:linear-gradient(135deg,#22b8ff 0%,#6f9cff 48%,#a855f7 100%);
   --sx28-shadow:0 26px 80px rgba(0,0,0,.42);
 }
 html,body,#root{
@@ -27,8 +27,8 @@ body{
   color:var(--sx28-text)!important;
   background:
     radial-gradient(800px 520px at 80% -5%,rgba(111,156,255,.12),transparent 66%),
-    radial-gradient(760px 520px at 5% 15%,rgba(45,228,208,.065),transparent 68%),
-    radial-gradient(760px 540px at 70% 88%,rgba(154,114,255,.055),transparent 70%),
+    radial-gradient(760px 520px at 5% 15%,rgba(34, 184, 255,.065),transparent 68%),
+    radial-gradient(760px 540px at 70% 88%,rgba(168, 85, 247,.055),transparent 70%),
     linear-gradient(180deg,#04060a,#06090e 52%,#04060a)!important;
 }
 body:before{
@@ -74,7 +74,7 @@ body:before{
   right:0;
   bottom:-1px;
   height:1px;
-  background:linear-gradient(90deg,transparent,rgba(45,228,208,.22),rgba(111,156,255,.18),rgba(154,114,255,.20),transparent);
+  background:linear-gradient(90deg,transparent,rgba(34, 184, 255,.22),rgba(111,156,255,.18),rgba(168, 85, 247,.20),transparent);
 }
 .sxron-brand{
   position:relative!important;
@@ -94,7 +94,7 @@ body:before{
   color:#061015!important;
   background:var(--sx28-gradient)!important;
   box-shadow:
-    0 10px 24px rgba(45,228,208,.16),
+    0 10px 24px rgba(34, 184, 255,.16),
     0 0 0 1px rgba(255,255,255,.08) inset,
     0 1px 0 rgba(255,255,255,.32) inset!important;
   transform:translateZ(0)!important;
@@ -126,7 +126,7 @@ body:before{
 .sxron-topnav button.active{
   color:#fff!important;
   background:
-    linear-gradient(135deg,rgba(45,228,208,.14),rgba(111,156,255,.09) 48%,rgba(154,114,255,.13))!important;
+    linear-gradient(135deg,rgba(34, 184, 255,.14),rgba(111,156,255,.09) 48%,rgba(168, 85, 247,.13))!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.07),
     0 7px 18px rgba(0,0,0,.18)!important;
@@ -167,7 +167,7 @@ body:before{
   border-radius:30px!important;
   background:
     radial-gradient(520px 400px at 84% 50%,rgba(111,156,255,.12),transparent 68%),
-    radial-gradient(460px 330px at 25% 0%,rgba(45,228,208,.075),transparent 72%),
+    radial-gradient(460px 330px at 25% 0%,rgba(34, 184, 255,.075),transparent 72%),
     linear-gradient(145deg,rgba(21,29,41,.92),rgba(8,12,18,.93) 58%,rgba(11,14,22,.94))!important;
   box-shadow:
     0 42px 110px rgba(0,0,0,.48),
@@ -193,7 +193,7 @@ body:before{
   width:520px;
   height:520px;
   border-radius:50%;
-  background:radial-gradient(circle,rgba(45,228,208,.12),rgba(154,114,255,.08) 32%,transparent 70%);
+  background:radial-gradient(circle,rgba(34, 184, 255,.12),rgba(168, 85, 247,.08) 32%,transparent 70%);
   filter:blur(20px);
   pointer-events:none;
 }
@@ -206,14 +206,14 @@ body:before{
   align-items:center!important;
   height:27px!important;
   padding:0 10px!important;
-  border:1px solid rgba(45,228,208,.20)!important;
+  border:1px solid rgba(34, 184, 255,.20)!important;
   border-radius:9px!important;
-  background:linear-gradient(180deg,rgba(45,228,208,.10),rgba(45,228,208,.035))!important;
+  background:linear-gradient(180deg,rgba(34, 184, 255,.10),rgba(34, 184, 255,.035))!important;
   color:#7af3e7!important;
   font-size:9px!important;
   letter-spacing:.17em!important;
   font-weight:950!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 24px rgba(45,228,208,.04)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 24px rgba(34, 184, 255,.04)!important;
 }
 .sxron-hero-card h1{
   position:relative!important;
@@ -255,7 +255,7 @@ body:before{
   color:#061014!important;
   background:var(--sx28-gradient)!important;
   box-shadow:
-    0 15px 36px rgba(45,228,208,.13),
+    0 15px 36px rgba(34, 184, 255,.13),
     inset 0 1px 0 rgba(255,255,255,.34)!important;
 }
 .sxron-secondary{
@@ -282,12 +282,12 @@ body:before{
   transform:perspective(900px) rotateY(-9deg) rotateX(5deg) rotateZ(3deg)!important;
   border:1px solid rgba(255,255,255,.10)!important;
   background:
-    linear-gradient(135deg,rgba(45,228,208,.13),rgba(111,156,255,.10) 42%,rgba(154,114,255,.16)),
+    linear-gradient(135deg,rgba(34, 184, 255,.13),rgba(111,156,255,.10) 42%,rgba(168, 85, 247,.16)),
     linear-gradient(160deg,#0d1620,#080d15)!important;
   box-shadow:
     32px 38px 90px rgba(0,0,0,.40),
-    -18px -16px 56px rgba(45,228,208,.05),
-    18px -10px 64px rgba(154,114,255,.05),
+    -18px -16px 56px rgba(34, 184, 255,.05),
+    18px -10px 64px rgba(168, 85, 247,.05),
     inset 0 1px 0 rgba(255,255,255,.14),
     inset 0 -20px 55px rgba(0,0,0,.20)!important;
   overflow:hidden!important;
@@ -300,8 +300,8 @@ body:before{
   border-radius:26px;
   background:
     radial-gradient(circle at 28% 26%,rgba(255,255,255,.12),transparent 18%),
-    linear-gradient(145deg,rgba(45,228,208,.09),transparent 43%),
-    linear-gradient(315deg,rgba(154,114,255,.12),transparent 48%);
+    linear-gradient(145deg,rgba(34, 184, 255,.09),transparent 43%),
+    linear-gradient(315deg,rgba(168, 85, 247,.12),transparent 48%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
 }
 .sxron-hero-orb:after{
@@ -311,7 +311,7 @@ body:before{
   height:210px;
   border-radius:50%;
   border:1px solid rgba(255,255,255,.08);
-  box-shadow:0 0 0 18px rgba(45,228,208,.022),0 0 70px rgba(111,156,255,.08);
+  box-shadow:0 0 0 18px rgba(34, 184, 255,.022),0 0 70px rgba(111,156,255,.08);
 }
 .sxron-hero-orb span{
   position:relative!important;
@@ -362,7 +362,7 @@ body:before{
   border-radius:18px!important;
   background:
     linear-gradient(145deg,rgba(22,30,42,.82),rgba(8,13,20,.94)),
-    radial-gradient(circle at 100% 0,rgba(45,228,208,.08),transparent 38%)!important;
+    radial-gradient(circle at 100% 0,rgba(34, 184, 255,.08),transparent 38%)!important;
   color:#fff!important;
   box-shadow:
     0 18px 36px rgba(0,0,0,.26),
@@ -385,15 +385,15 @@ body:before{
 }
 .sxron-category-card:hover{
   transform:perspective(600px) translateY(-4px) rotateX(2deg)!important;
-  border-color:rgba(45,228,208,.17)!important;
-  box-shadow:0 24px 48px rgba(0,0,0,.34),0 0 42px rgba(45,228,208,.04),inset 0 1px 0 rgba(255,255,255,.08)!important;
+  border-color:rgba(34, 184, 255,.17)!important;
+  box-shadow:0 24px 48px rgba(0,0,0,.34),0 0 42px rgba(34, 184, 255,.04),inset 0 1px 0 rgba(255,255,255,.08)!important;
 }
 .sxron-category-card strong{
   position:relative!important;
   z-index:2!important;
   color:#eef5fb!important;
   font-size:24px!important;
-  filter:drop-shadow(0 7px 14px rgba(45,228,208,.08))!important;
+  filter:drop-shadow(0 7px 14px rgba(34, 184, 255,.08))!important;
 }
 .sxron-category-card span{
   position:relative!important;
@@ -531,8 +531,8 @@ body:before{
   backdrop-filter:blur(16px)!important;
 }
 .sxron-searchbar:focus-within{
-  border-color:rgba(45,228,208,.22)!important;
-  box-shadow:0 20px 46px rgba(0,0,0,.28),0 0 0 3px rgba(45,228,208,.035),inset 0 1px 0 rgba(255,255,255,.06)!important;
+  border-color:rgba(34, 184, 255,.22)!important;
+  box-shadow:0 20px 46px rgba(0,0,0,.28),0 0 0 3px rgba(34, 184, 255,.035),inset 0 1px 0 rgba(255,255,255,.06)!important;
 }
 .sxron-searchbar input{font-size:14px!important}
 .sxron-filter-scroll{padding:13px 0 20px!important}
@@ -547,9 +547,9 @@ body:before{
 }
 .sxron-filter-scroll button.active{
   color:#fff!important;
-  border-color:rgba(45,228,208,.22)!important;
-  background:linear-gradient(135deg,rgba(45,228,208,.14),rgba(111,156,255,.09),rgba(154,114,255,.12))!important;
-  box-shadow:0 10px 26px rgba(45,228,208,.05),inset 0 1px 0 rgba(255,255,255,.06)!important;
+  border-color:rgba(34, 184, 255,.22)!important;
+  background:linear-gradient(135deg,rgba(34, 184, 255,.14),rgba(111,156,255,.09),rgba(168, 85, 247,.12))!important;
+  box-shadow:0 10px 26px rgba(34, 184, 255,.05),inset 0 1px 0 rgba(255,255,255,.06)!important;
 }
 
 .sxron-profile-banner,.sxron-admin-card,.sxron-manage-card{
@@ -576,14 +576,14 @@ body:before{
   color:#f4f7fa!important;
 }
 .sxron-admin-manage input:focus,.sxron-editor input:focus,.sxron-editor textarea:focus{
-  border-color:rgba(45,228,208,.28)!important;
-  box-shadow:0 0 0 3px rgba(45,228,208,.035),inset 0 1px 0 rgba(255,255,255,.045)!important;
+  border-color:rgba(34, 184, 255,.28)!important;
+  box-shadow:0 0 0 3px rgba(34, 184, 255,.035),inset 0 1px 0 rgba(255,255,255,.045)!important;
 }
 .sxron-toast{
-  border:1px solid rgba(45,228,208,.18)!important;
+  border:1px solid rgba(34, 184, 255,.18)!important;
   border-radius:12px!important;
   background:rgba(7,12,18,.92)!important;
-  box-shadow:0 22px 52px rgba(0,0,0,.42),0 0 34px rgba(45,228,208,.05)!important;
+  box-shadow:0 22px 52px rgba(0,0,0,.42),0 0 34px rgba(34, 184, 255,.05)!important;
   backdrop-filter:blur(20px)!important;
 }
 
@@ -595,7 +595,7 @@ body:before{
 }
 .sxron-empty>div{
   color:#77e9de!important;
-  text-shadow:0 0 30px rgba(45,228,208,.18)!important;
+  text-shadow:0 0 30px rgba(34, 184, 255,.18)!important;
 }
 .sxron-skeleton{
   border:1px solid rgba(255,255,255,.055)!important;

@@ -7,7 +7,7 @@
   :root {
     --sxpc-bg: #05070b;
     --sxpc-border: rgba(255,255,255,.075);
-    --sxpc-gradient: linear-gradient(135deg,#2de4d0 0%,#6b9dff 48%,#a16fff 100%);
+    --sxpc-gradient: linear-gradient(135deg,#22b8ff 0%,#6b9dff 48%,#a855f7 100%);
   }
 
   html, body, #root { min-height: 100%; }
@@ -15,7 +15,7 @@
   body {
     background:
       radial-gradient(1000px 620px at 74% -10%, rgba(103,139,255,.10), transparent 68%),
-      radial-gradient(900px 700px at -8% 55%, rgba(45,228,208,.055), transparent 70%),
+      radial-gradient(900px 700px at -8% 55%, rgba(34, 184, 255,.055), transparent 70%),
       #05070b !important;
   }
 
@@ -54,7 +54,7 @@
     inset: 1px !important;
     pointer-events: none !important;
     border-radius: 23px !important;
-    background: radial-gradient(220px 180px at 14% 4%,rgba(45,228,208,.08),transparent 72%),radial-gradient(220px 220px at 88% 94%,rgba(154,114,255,.08),transparent 72%) !important;
+    background: radial-gradient(220px 180px at 14% 4%,rgba(34, 184, 255,.08),transparent 72%),radial-gradient(220px 220px at 88% 94%,rgba(168, 85, 247,.08),transparent 72%) !important;
   }
 
   .sxron-shell.sxron-shell--desktop .sxron-brand {
@@ -72,7 +72,7 @@
     height: 38px !important;
     border-radius: 12px !important;
     background: var(--sxpc-gradient) !important;
-    box-shadow: 0 12px 28px rgba(45,228,208,.14),inset 0 1px 0 rgba(255,255,255,.30) !important;
+    box-shadow: 0 12px 28px rgba(34, 184, 255,.14),inset 0 1px 0 rgba(255,255,255,.30) !important;
   }
 
   .sxron-shell.sxron-shell--desktop .sxron-topnav {
@@ -83,19 +83,25 @@
     padding: 7px !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 5px !important;
+    gap: 3px !important;
     border: 1px solid rgba(255,255,255,.055) !important;
     border-radius: 16px !important;
     background: rgba(255,255,255,.024) !important;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.035) !important;
     -webkit-app-region: no-drag !important;
+    max-height: calc(100vh - 220px) !important;
+    overflow-y: auto !important;
+    scrollbar-width: none !important;
   }
+
+  .sxron-shell.sxron-shell--desktop .sxron-topnav::-webkit-scrollbar { display: none !important; }
 
   .sxron-shell.sxron-shell--desktop .sxron-topnav button {
     position: relative !important;
     width: 100% !important;
     min-width: 0 !important;
-    height: 46px !important;
+    height: 44px !important;
+    flex: 0 0 auto !important;
     padding: 0 14px !important;
     display: flex !important;
     align-items: center !important;
@@ -105,24 +111,40 @@
     border-radius: 11px !important;
     color: #7d8a9d !important;
     background: transparent !important;
-    font-size: 11px !important;
-    font-weight: 850 !important;
+    font-size: 12.5px !important;
+    font-weight: 800 !important;
     letter-spacing: .01em !important;
   }
 
-  .sxron-shell.sxron-shell--desktop .sxron-topnav button::before {
+  .sxron-shell.sxron-shell--desktop .sxron-topnav-icon {
     width: 24px !important;
     display: inline-grid !important;
     place-items: center !important;
-    font-size: 16px !important;
+    font-size: 15px !important;
     line-height: 1 !important;
     color: #66758a !important;
   }
 
-  .sxron-shell.sxron-shell--desktop .sxron-topnav button:nth-child(1)::before { content: "⌂"; }
-  .sxron-shell.sxron-shell--desktop .sxron-topnav button:nth-child(2)::before { content: "⌕"; }
-  .sxron-shell.sxron-shell--desktop .sxron-topnav button:nth-child(3)::before { content: "♡"; }
-  .sxron-shell.sxron-shell--desktop .sxron-topnav button:nth-child(4)::before { content: "◉"; }
+  .sxron-shell.sxron-shell--desktop .sxron-topnav button.active .sxron-topnav-icon {
+    color: #fff !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-topnav-badge {
+    margin-left: auto !important;
+    padding: 2px 7px !important;
+    border-radius: 99px !important;
+    background: rgba(255,255,255,.06) !important;
+    color: #7d8a9d !important;
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    font-style: normal !important;
+    letter-spacing: .02em !important;
+    text-transform: uppercase !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-topnav button.sxron-topnav-soon {
+    cursor: default !important;
+  }
 
   .sxron-shell.sxron-shell--desktop .sxron-topnav button:hover {
     color: #ecf1f7 !important;
@@ -131,7 +153,7 @@
 
   .sxron-shell.sxron-shell--desktop .sxron-topnav button.active {
     color: #fff !important;
-    background: linear-gradient(135deg,rgba(45,228,208,.14),rgba(107,157,255,.08),rgba(154,114,255,.14)) !important;
+    background: linear-gradient(135deg,rgba(34, 184, 255,.14),rgba(107,157,255,.08),rgba(168, 85, 247,.14)) !important;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.07),0 8px 24px rgba(0,0,0,.16) !important;
   }
 
@@ -144,7 +166,7 @@
     width:3px !important;
     border-radius:9px !important;
     background:var(--sxpc-gradient) !important;
-    box-shadow:0 0 18px rgba(45,228,208,.16) !important;
+    box-shadow:0 0 18px rgba(34, 184, 255,.16) !important;
   }
 
   .sxron-shell.sxron-shell--desktop .sxron-city-pill {
@@ -196,7 +218,7 @@
     gap:44px !important;
     padding:52px 56px !important;
     border-radius:28px !important;
-    background:radial-gradient(560px 360px at 88% 48%,rgba(117,151,255,.13),transparent 70%),radial-gradient(500px 320px at 22% 0,rgba(45,228,208,.065),transparent 72%),linear-gradient(150deg,rgba(20,29,42,.92),rgba(8,12,18,.95) 65%,rgba(12,14,22,.95)) !important;
+    background:radial-gradient(560px 360px at 88% 48%,rgba(117,151,255,.13),transparent 70%),radial-gradient(500px 320px at 22% 0,rgba(34, 184, 255,.065),transparent 72%),linear-gradient(150deg,rgba(20,29,42,.92),rgba(8,12,18,.95) 65%,rgba(12,14,22,.95)) !important;
     box-shadow:0 38px 95px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.065),inset 0 -26px 55px rgba(0,0,0,.15) !important;
   }
 
@@ -218,8 +240,8 @@
     flex-basis:320px !important;
     border-radius:34px !important;
     transform:perspective(1100px) rotateY(-10deg) rotateX(5deg) rotateZ(2deg) !important;
-    background:linear-gradient(135deg,rgba(45,228,208,.14),rgba(107,157,255,.09) 44%,rgba(154,114,255,.16)),linear-gradient(160deg,#101a26,#070c13) !important;
-    box-shadow:30px 38px 85px rgba(0,0,0,.46),0 0 90px rgba(45,228,208,.055),inset 0 1px 0 rgba(255,255,255,.12),inset 0 -24px 55px rgba(0,0,0,.24) !important;
+    background:linear-gradient(135deg,rgba(34, 184, 255,.14),rgba(107,157,255,.09) 44%,rgba(168, 85, 247,.16)),linear-gradient(160deg,#101a26,#070c13) !important;
+    box-shadow:30px 38px 85px rgba(0,0,0,.46),0 0 90px rgba(34, 184, 255,.055),inset 0 1px 0 rgba(255,255,255,.12),inset 0 -24px 55px rgba(0,0,0,.24) !important;
   }
 
   .sxron-shell.sxron-shell--desktop .sxron-hero-orb span {
@@ -304,9 +326,9 @@
    ========================================================= */
 @media (min-width: 769px) {
   :root {
-    --sxpc-cyan: #2de4d0;
+    --sxpc-cyan: #22b8ff;
     --sxpc-blue: #6b9dff;
-    --sxpc-violet: #a16fff;
+    --sxpc-violet: #a855f7;
     --sxpc-surface: rgba(13, 19, 29, .86);
     --sxpc-surface-2: rgba(8, 13, 21, .92);
     --sxpc-line: rgba(255,255,255,.065);
@@ -319,7 +341,7 @@
     isolation: isolate;
     background:
       radial-gradient(900px 580px at 79% -14%, rgba(107,157,255,.13), transparent 68%),
-      radial-gradient(850px 620px at 1% 92%, rgba(45,228,208,.07), transparent 70%),
+      radial-gradient(850px 620px at 1% 92%, rgba(34, 184, 255,.07), transparent 70%),
       linear-gradient(180deg,#05070b 0%,#070a11 48%,#05070b 100%) !important;
   }
 
@@ -361,7 +383,7 @@
     top: 86px !important;
     border-radius: 50% !important;
     pointer-events: none !important;
-    background: radial-gradient(circle, rgba(45,228,208,.09), transparent 70%) !important;
+    background: radial-gradient(circle, rgba(34, 184, 255,.09), transparent 70%) !important;
     filter: blur(6px) !important;
   }
 
@@ -396,7 +418,7 @@
     top: 30px !important;
     border-radius: 50% !important;
     pointer-events: none !important;
-    background: radial-gradient(circle, rgba(154,114,255,.065), transparent 68%) !important;
+    background: radial-gradient(circle, rgba(168, 85, 247,.065), transparent 68%) !important;
     filter: blur(12px) !important;
   }
 
@@ -437,7 +459,7 @@
     border-radius: 28% !important;
     border: 1px solid rgba(255,255,255,.10) !important;
     transform: rotate(18deg) !important;
-    box-shadow: 0 0 65px rgba(45,228,208,.07), inset 0 0 38px rgba(107,157,255,.06) !important;
+    box-shadow: 0 0 65px rgba(34, 184, 255,.07), inset 0 0 38px rgba(107,157,255,.06) !important;
   }
 
   .sxron-shell.sxron-shell--desktop .sxron-category-card,
@@ -464,8 +486,8 @@
 
   .sxron-shell.sxron-shell--desktop .sxron-category-card:hover {
     transform: translateY(-4px) !important;
-    border-color: rgba(45,228,208,.20) !important;
-    box-shadow: 0 24px 50px rgba(0,0,0,.33), 0 0 0 1px rgba(45,228,208,.035) !important;
+    border-color: rgba(34, 184, 255,.20) !important;
+    box-shadow: 0 24px 50px rgba(0,0,0,.33), 0 0 0 1px rgba(34, 184, 255,.035) !important;
   }
 
   .sxron-shell.sxron-shell--desktop .sxron-product-card {
@@ -475,8 +497,8 @@
 
   .sxron-shell.sxron-shell--desktop .sxron-product-card:hover {
     transform: translateY(-6px) !important;
-    border-color: rgba(45,228,208,.18) !important;
-    box-shadow: 0 28px 62px rgba(0,0,0,.38), 0 0 0 1px rgba(45,228,208,.028) !important;
+    border-color: rgba(34, 184, 255,.18) !important;
+    box-shadow: 0 28px 62px rgba(0,0,0,.38), 0 0 0 1px rgba(34, 184, 255,.028) !important;
   }
 
   .sxron-shell.sxron-shell--desktop .sxron-product-card::after {
@@ -501,7 +523,7 @@
   .sxron-shell.sxron-shell--desktop .sxron-product-image {
     position: relative !important;
     background:
-      radial-gradient(180px 120px at 30% 28%, rgba(45,228,208,.08), transparent 72%),
+      radial-gradient(180px 120px at 30% 28%, rgba(34, 184, 255,.08), transparent 72%),
       radial-gradient(220px 160px at 80% 80%, rgba(161,111,255,.09), transparent 72%),
       #0a1018 !important;
   }
@@ -512,8 +534,8 @@
   }
 
   .sxron-shell.sxron-shell--desktop .sxron-searchbar:focus-within {
-    border-color: rgba(45,228,208,.24) !important;
-    box-shadow: 0 0 0 3px rgba(45,228,208,.05), 0 22px 45px rgba(0,0,0,.24) !important;
+    border-color: rgba(34, 184, 255,.24) !important;
+    box-shadow: 0 0 0 3px rgba(34, 184, 255,.05), 0 22px 45px rgba(0,0,0,.24) !important;
     transform: translateY(-1px) !important;
   }
 

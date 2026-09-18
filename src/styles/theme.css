@@ -66,10 +66,10 @@ body {
   --text-secondary: #536174;
   --text-muted: #7b8798;
 
-  --teal: #0f9f91;
-  --purple: #7257e8;
+  --teal: #1f8fe0;
+  --purple: #9333ea;
 
-  --gradient: linear-gradient(135deg, #10bfae 0%, #4f96e8 48%, #7659e8 100%);
+  --gradient: linear-gradient(135deg, #1f8fe0 0%, #6b7bf0 48%, #9333ea 100%);
 }
 
 :root[data-sxron-theme="light"] body,

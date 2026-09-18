@@ -109,7 +109,7 @@ export default function AdminCenter() {
   }, [dashboard]);
 
   if (!open) {
-    return <button type="button" aria-label="Открыть админ-панель" onClick={() => { setOpen(true); setTab("dashboard"); }} style={{ position: "fixed", right: 22, bottom: 88, zIndex: 5000, minHeight: 44, padding: "0 15px", border: "1px solid rgba(32,211,194,.35)", borderRadius: 14, color: "#fff", background: "linear-gradient(135deg,#19d8d0,#7a4dff)", boxShadow: "0 14px 45px rgba(48,80,170,.35)", cursor: "pointer", fontWeight: 900 }}>⚙️ Админ-панель</button>;
+    return <button type="button" aria-label="Открыть админ-панель" onClick={() => { setOpen(true); setTab("dashboard"); }} style={{ position: "fixed", right: 22, bottom: 88, zIndex: 5000, minHeight: 44, padding: "0 15px", border: "1px solid rgba(34, 184, 255,.35)", borderRadius: 14, color: "#fff", background: "linear-gradient(135deg,#19d8d0,#7a4dff)", boxShadow: "0 14px 45px rgba(48,80,170,.35)", cursor: "pointer", fontWeight: 900 }}>⚙️ Админ-панель</button>;
   }
 
   const nav: [Tab,string][] = [["dashboard","📊 Дашборд"],["users","👥 Пользователи"],["products","📦 Объявления"],["reports","🚨 Жалобы"],["reviews","⭐ Отзывы"],["admins","👑 Администраторы"],["audit","📋 Журнал"],["directories","🗂 Справочники"],["broadcasts","📢 Рассылки"],["settings","⚙️ Настройки"],["security","🔐 Безопасность"]];
@@ -117,14 +117,14 @@ export default function AdminCenter() {
   return <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 50000, padding: 16, background: "rgba(2,5,10,.92)", backdropFilter: "blur(18px)", color: "#fff" }}>
     <section style={{ ...card, width: "min(1480px,100%)", height: "calc(100vh - 32px)", margin: "0 auto", overflow: "hidden", display: "grid", gridTemplateColumns: "240px minmax(0,1fr)" }}>
       <aside style={{ borderRight: "1px solid rgba(255,255,255,.08)", padding: 15, background: "rgba(7,11,18,.82)", overflow: "auto" }}>
-        <div style={{ padding: "9px 10px 18px" }}><div style={{ color: "#20d3c2", fontSize: 10, fontWeight: 900, letterSpacing: ".16em" }}>SXRON CONTROL</div><h2 style={{ margin: "7px 0 4px", fontSize: 22 }}>Админ-центр</h2><small style={{ color: "#748298" }}>v1.2.11</small></div>
-        <div style={{ display: "grid", gap: 5 }}>{nav.map(([id,label]) => <button key={id} type="button" onClick={() => setTab(id)} style={{ textAlign: "left", padding: "10px 11px", borderRadius: 10, border: id === tab ? "1px solid rgba(32,211,194,.28)" : "1px solid transparent", background: id === tab ? "rgba(32,211,194,.08)" : "transparent", color: id === tab ? "#70eee5" : "#b2bdce", fontWeight: 800, cursor: "pointer" }}>{label}</button>)}</div>
+        <div style={{ padding: "9px 10px 18px" }}><div style={{ color: "#22b8ff", fontSize: 10, fontWeight: 900, letterSpacing: ".16em" }}>SXRON CONTROL</div><h2 style={{ margin: "7px 0 4px", fontSize: 22 }}>Админ-центр</h2><small style={{ color: "#748298" }}>v1.2.11</small></div>
+        <div style={{ display: "grid", gap: 5 }}>{nav.map(([id,label]) => <button key={id} type="button" onClick={() => setTab(id)} style={{ textAlign: "left", padding: "10px 11px", borderRadius: 10, border: id === tab ? "1px solid rgba(34, 184, 255,.28)" : "1px solid transparent", background: id === tab ? "rgba(34, 184, 255,.08)" : "transparent", color: id === tab ? "#70eee5" : "#b2bdce", fontWeight: 800, cursor: "pointer" }}>{label}</button>)}</div>
         <button type="button" onClick={() => setOpen(false)} style={{ ...danger, width: "100%", marginTop: 18 }}>Закрыть</button>
       </aside>
 
       <main style={{ overflow: "auto" }}>
         <header style={{ position: "sticky", top: 0, zIndex: 20, padding: "15px 20px", borderBottom: "1px solid rgba(255,255,255,.08)", background: "rgba(12,17,27,.95)", backdropFilter: "blur(18px)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <div><div style={{ color: "#20d3c2", fontSize: 10, fontWeight: 900, letterSpacing: ".13em" }}>{nav.find(([id]) => id === tab)?.[1]}</div><h1 style={{ margin: "5px 0 0", fontSize: 25 }}>SXRON Marketplace</h1></div>
+          <div><div style={{ color: "#22b8ff", fontSize: 10, fontWeight: 900, letterSpacing: ".13em" }}>{nav.find(([id]) => id === tab)?.[1]}</div><h1 style={{ margin: "5px 0 0", fontSize: 25 }}>SXRON Marketplace</h1></div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}><span style={{ color: "#7f8ca0", fontSize: 12 }}>{dashboard?.role ? roleLabel(dashboard.role) : ""}</span><button type="button" onClick={() => void loadTab(tab)} style={muted}>{loading ? "…" : "↻ Обновить"}</button></div>
         </header>
 
