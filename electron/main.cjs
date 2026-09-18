@@ -322,15 +322,15 @@ async function downloadAndInstallGitHubUpdate() {
     ? resourcesDir.slice(0, -resourcesMarker.length)
     : path.dirname(app.getPath('exe'));
 
-  // Recover the intended default folder if an older update accidentally
-  // appended repeated --force-run suffixes to the installation directory.
-  const hasCorruptedForceRunPath = /\\s+--force-run(?:\\s+--force-run)*$/i.test(installDir);
-  installDir = installDir.replace(/(?:\\s+--force-run)+$/i, '');
-
-  if (process.platform === 'win32' && hasCorruptedForceRunPath && process.env.LOCALAPPDATA) {
+  // Always resolve Windows updates to the canonical per-user installation path.
+  // Never propagate a malformed historical --force-run suffix into a new update.
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
     const canonicalInstallDir = path.join(process.env.LOCALAPPDATA, 'Programs', 'sxron-marketplace');
-    if (fs.existsSync(canonicalInstallDir) || !fs.existsSync(installDir)) {
+    const cleanedCurrentDir = installDir.replace(/(?:\\s+--force-run)+$/i, '');
+    if (!fs.existsSync(path.join(cleanedCurrentDir, 'SXRON Marketplace.exe')) || /--force-run/i.test(installDir)) {
       installDir = canonicalInstallDir;
+    } else {
+      installDir = cleanedCurrentDir;
     }
   }
   const apiPid = apiProcess?.pid || 0;
