@@ -346,6 +346,8 @@ async function downloadAndInstallGitHubUpdate() {
 
 
 
+  fs.writeFileSync(helperPath, helperScript, 'utf8');
+
   // Stop the API ourselves before Electron exits, then let the external
   // PowerShell helper wait for both PIDs.
   stopApi();
