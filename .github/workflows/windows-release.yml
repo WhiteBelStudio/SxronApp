@@ -69,13 +69,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r server/requirements.txt
-          python -c "import multipart; print('python-multipart:', multipart.__file__)"
+          python -c "import multipart; import fastapi, pydantic, pydantic_core; import pydantic_core._pydantic_core; print('Python runtime deps: OK', fastapi.__version__, pydantic.__version__, pydantic_core.__version__)"
           python -m pip install pyinstaller
 
       - name: Validate SXRON API source
         shell: pwsh
         run: |
-          python -c "import server.main; print('SXRON API source import: OK')"
+          python -c "import server.main; import pydantic_core._pydantic_core; print('SXRON API source import: OK')"
 
       - name: Build bundled SXRON API
         shell: pwsh
@@ -97,6 +97,8 @@ jobs:
             $pydanticCoreFiles = @(Get-ChildItem 'backend/sxron-api' -Recurse -File | Where-Object { $_.Name -like '_pydantic_core*.pyd' })
           }
           if ($pydanticCoreFiles.Count -eq 0) { throw 'Bundled pydantic_core native extension was not included.' }
+          $bundleImportCheck = python -c "import os,sys; sys.path.insert(0, os.path.abspath('backend\\sxron-api')); import pydantic_core._pydantic_core; print('Bundled native pydantic_core import: OK')"
+          Write-Host $bundleImportCheck
           Write-Host "Bundled pydantic_core native extension files: $($pydanticCoreFiles.Count)"
           Write-Host "Bundled API directory created: backend/sxron-api"
           Get-ChildItem 'backend/sxron-api' | Select-Object Name,Length
