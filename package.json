@@ -1,6 +1,6 @@
 {
   "name": "sxron-marketplace",
-  "version": "1.2.17",
+  "version": "1.2.18",
   "description": "SXRON Marketplace",
   "main": "electron/main.cjs",
   "type": "module",
@@ -60,9 +60,16 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "SXRON Marketplace",
+      "uninstallDisplayName": "SXRON Marketplace",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
     },
     "publish": [
       {
@@ -72,17 +79,5 @@
         "releaseType": "release"
       }
     ]
-  },
-  "nsis": {
-    "oneClick": false,
-    "perMachine": false,
-    "allowElevation": true,
-    "allowToChangeInstallationDirectory": true,
-    "createDesktopShortcut": "always",
-    "createStartMenuShortcut": true,
-    "shortcutName": "SXRON Marketplace",
-    "uninstallDisplayName": "SXRON Marketplace",
-    "runAfterFinish": true,
-    "deleteAppDataOnUninstall": false
   }
 }
