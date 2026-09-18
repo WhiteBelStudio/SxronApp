@@ -324,7 +324,15 @@ async function downloadAndInstallGitHubUpdate() {
 
   // Recover the intended default folder if an older update accidentally
   // appended repeated --force-run suffixes to the installation directory.
+  const hasCorruptedForceRunPath = /\\s+--force-run(?:\\s+--force-run)*$/i.test(installDir);
   installDir = installDir.replace(/(?:\\s+--force-run)+$/i, '');
+
+  if (process.platform === 'win32' && hasCorruptedForceRunPath && process.env.LOCALAPPDATA) {
+    const canonicalInstallDir = path.join(process.env.LOCALAPPDATA, 'Programs', 'sxron-marketplace');
+    if (fs.existsSync(canonicalInstallDir) || !fs.existsSync(installDir)) {
+      installDir = canonicalInstallDir;
+    }
+  }
   const apiPid = apiProcess?.pid || 0;
   const currentPid = process.pid;
   const targetVersion = latestRelease.targetVersion;
