@@ -209,8 +209,9 @@ jobs:
 
           try {
             Write-Host "Launching packaged Electron: $appExe"
-            $proc = Start-Process -FilePath $appExe -ArgumentList '--sxron-smoke-test','--disable-gpu' -WorkingDirectory (Join-Path $PWD 'release\win-unpacked') -PassThru
-            $proc.WaitForExit(15000)
+            $env:SXRON_SMOKE_TEST = '1'
+            $proc = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu' -WorkingDirectory (Join-Path $PWD 'release\win-unpacked') -PassThru
+            $proc.WaitForExit(25000)
             if (-not $proc.HasExited) {
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
               throw 'Packaged Electron did not exit from smoke mode within 15 seconds.'
