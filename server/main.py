@@ -10,7 +10,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-APP_VERSION = "1.1.11"
+APP_VERSION = "1.2.8"
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("SXRON_DATA_DIR", BASE_DIR / "data"))
 DB_PATH = DATA_DIR / "sxron.db"
@@ -119,6 +119,45 @@ def create_product(data:ProductCreate,x_sxron_client_id:str|None=Header(default=
             row=connection.execute("SELECT id FROM cities WHERE LOWER(name)=LOWER(?)",(data.city,)).fetchone(); city_id=row["id"] if row else None
         timestamp=now(); cursor=connection.execute("INSERT INTO products(name,description,price,category_id,city_id,condition,delivery,photo_url,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",(data.name.strip(),data.description.strip(),data.price,category_id,city_id,data.condition,data.delivery,data.photo_url,user["id"],timestamp,timestamp)); row=connection.execute("SELECT * FROM products WHERE id=?",(cursor.lastrowid,)).fetchone()
     return product_dict(row)
+@app.put("/products/{product_id}")
+def update_product(product_id:int, data:ProductCreate, x_sxron_client_id:str|None=Header(default=None)):
+    user=current_user(x_sxron_client_id)
+    require_admin(user)
+    with db() as connection:
+        existing=connection.execute("SELECT * FROM products WHERE id=?",(product_id,)).fetchone()
+        if not existing: raise HTTPException(status_code=404,detail="Товар не найден")
+        if not is_owner(user) and existing["created_by"] != user["id"]:
+            raise HTTPException(status_code=403,detail="Можно изменять только свои объявления")
+        category_id=data.category_id
+        if not category_id and data.category:
+            row=connection.execute("SELECT id FROM categories WHERE LOWER(name)=LOWER(?)",(data.category,)).fetchone()
+            category_id=row["id"] if row else None
+        city_id=data.city_id
+        if not city_id and data.city:
+            row=connection.execute("SELECT id FROM cities WHERE LOWER(name)=LOWER(?)",(data.city,)).fetchone()
+            city_id=row["id"] if row else None
+        timestamp=now()
+        connection.execute(
+            """UPDATE products
+               SET name=?, description=?, price=?, category_id=?, city_id=?, condition=?, delivery=?, photo_url=?, available=1, status='active', updated_at=?
+               WHERE id=?""",
+            (data.name.strip(),data.description.strip(),data.price,category_id,city_id,data.condition,data.delivery,data.photo_url,timestamp,product_id)
+        )
+        row=connection.execute("SELECT * FROM products WHERE id=?",(product_id,)).fetchone()
+    return product_dict(row)
+
+@app.delete("/products/{product_id}")
+def delete_product(product_id:int, x_sxron_client_id:str|None=Header(default=None)):
+    user=current_user(x_sxron_client_id)
+    require_admin(user)
+    with db() as connection:
+        existing=connection.execute("SELECT * FROM products WHERE id=?",(product_id,)).fetchone()
+        if not existing: raise HTTPException(status_code=404,detail="Товар не найден")
+        if not is_owner(user) and existing["created_by"] != user["id"]:
+            raise HTTPException(status_code=403,detail="Можно удалять только свои объявления")
+        connection.execute("DELETE FROM products WHERE id=?",(product_id,))
+    return {"ok":True}
+
 @app.get("/categories")
 def categories():
     with db() as connection: rows=connection.execute("SELECT c.*,COUNT(p.id) AS products_count FROM categories c LEFT JOIN products p ON p.category_id=c.id AND p.available=1 GROUP BY c.id ORDER BY c.id").fetchall()
