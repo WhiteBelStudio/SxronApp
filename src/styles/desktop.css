@@ -296,3 +296,286 @@
   .sxron-shell.sxron-shell--desktop .sxron-hero-card { grid-template-columns:minmax(0,1fr) 270px !important; padding:42px !important; }
   .sxron-shell.sxron-shell--desktop .sxron-hero-orb { width:240px !important; height:240px !important; flex-basis:240px !important; }
 }
+
+/* =========================================================
+   SXRON PC V1.2.16 — FINAL DESKTOP POLISH
+   Native-feeling dark workspace, depth, hover hierarchy and
+   cleaner installer-era desktop composition.
+   ========================================================= */
+@media (min-width: 769px) {
+  :root {
+    --sxpc-cyan: #2de4d0;
+    --sxpc-blue: #6b9dff;
+    --sxpc-violet: #a16fff;
+    --sxpc-surface: rgba(13, 19, 29, .86);
+    --sxpc-surface-2: rgba(8, 13, 21, .92);
+    --sxpc-line: rgba(255,255,255,.065);
+  }
+
+  html { background: #05070b !important; scroll-behavior: smooth; }
+
+  body {
+    position: relative;
+    isolation: isolate;
+    background:
+      radial-gradient(900px 580px at 79% -14%, rgba(107,157,255,.13), transparent 68%),
+      radial-gradient(850px 620px at 1% 92%, rgba(45,228,208,.07), transparent 70%),
+      linear-gradient(180deg,#05070b 0%,#070a11 48%,#05070b 100%) !important;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    opacity: .22;
+    background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(circle at 64% 44%, #000 0, transparent 75%);
+    -webkit-mask-image: radial-gradient(circle at 64% 44%, #000 0, transparent 75%);
+  }
+
+  .sxron-shell.sxron-shell--desktop {
+    position: relative !important;
+    isolation: isolate !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-topbar {
+    overflow: hidden !important;
+    border-color: rgba(255,255,255,.085) !important;
+    box-shadow:
+      0 30px 85px rgba(0,0,0,.46),
+      inset 0 1px 0 rgba(255,255,255,.055),
+      inset -1px 0 0 rgba(255,255,255,.025) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-topbar::after {
+    content: "" !important;
+    position: absolute !important;
+    width: 180px !important;
+    height: 180px !important;
+    left: -95px !important;
+    top: 86px !important;
+    border-radius: 50% !important;
+    pointer-events: none !important;
+    background: radial-gradient(circle, rgba(45,228,208,.09), transparent 70%) !important;
+    filter: blur(6px) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-brand__mark {
+    position: relative !important;
+    overflow: hidden !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-brand__mark::after {
+    content: "" !important;
+    position: absolute !important;
+    inset: -45% 30% -45% -10% !important;
+    transform: rotate(22deg) translateX(-120%) !important;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.36), transparent) !important;
+    animation: sxronMarkSweep 5.5s ease-in-out infinite !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-city-pill {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 10px 24px rgba(0,0,0,.13) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-content {
+    position: relative !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-content::before {
+    content: "" !important;
+    position: absolute !important;
+    width: 520px !important;
+    height: 520px !important;
+    right: -220px !important;
+    top: 30px !important;
+    border-radius: 50% !important;
+    pointer-events: none !important;
+    background: radial-gradient(circle, rgba(154,114,255,.065), transparent 68%) !important;
+    filter: blur(12px) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-hero-card {
+    position: relative !important;
+    overflow: hidden !important;
+    border-color: rgba(95,168,255,.18) !important;
+    transform: translateZ(0) !important;
+    transition: border-color .24s ease, box-shadow .24s ease, transform .24s ease !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-hero-card:hover {
+    border-color: rgba(95,168,255,.30) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 44px 105px rgba(0,0,0,.47), inset 0 1px 0 rgba(255,255,255,.08) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-hero-card::after {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
+    background: linear-gradient(118deg, transparent 26%, rgba(255,255,255,.035) 47%, transparent 61%) !important;
+    transform: translateX(-80%) !important;
+    animation: sxronHeroSweep 8s ease-in-out infinite !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-hero-orb {
+    position: relative !important;
+    transform-origin: 50% 60% !important;
+    animation: sxronOrbFloat 7s ease-in-out infinite !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-hero-orb::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 11% !important;
+    border-radius: 28% !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    transform: rotate(18deg) !important;
+    box-shadow: 0 0 65px rgba(45,228,208,.07), inset 0 0 38px rgba(107,157,255,.06) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-category-card,
+  .sxron-shell.sxron-shell--desktop .sxron-product-card {
+    position: relative !important;
+    overflow: hidden !important;
+    isolation: isolate !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-category-card::before,
+  .sxron-shell.sxron-shell--desktop .sxron-product-card::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
+    background: linear-gradient(120deg, rgba(255,255,255,.045), transparent 30%, transparent 70%, rgba(161,111,255,.045)) !important;
+    opacity: .55 !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-category-card {
+    transition: transform .20s ease, border-color .20s ease, box-shadow .20s ease !important;
+    border: 1px solid rgba(255,255,255,.055) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-category-card:hover {
+    transform: translateY(-4px) !important;
+    border-color: rgba(45,228,208,.20) !important;
+    box-shadow: 0 24px 50px rgba(0,0,0,.33), 0 0 0 1px rgba(45,228,208,.035) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-product-card {
+    border-color: rgba(255,255,255,.055) !important;
+    transition: transform .22s cubic-bezier(.22,.75,.25,1), border-color .22s ease, box-shadow .22s ease !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-product-card:hover {
+    transform: translateY(-6px) !important;
+    border-color: rgba(45,228,208,.18) !important;
+    box-shadow: 0 28px 62px rgba(0,0,0,.38), 0 0 0 1px rgba(45,228,208,.028) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-product-card::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: 2px !important;
+    background: linear-gradient(90deg,var(--sxpc-cyan),var(--sxpc-blue),var(--sxpc-violet)) !important;
+    transform: scaleX(.15) !important;
+    transform-origin: left center !important;
+    opacity: .55 !important;
+    transition: transform .25s ease, opacity .25s ease !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-product-card:hover::after {
+    transform: scaleX(1) !important;
+    opacity: 1 !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-product-image {
+    position: relative !important;
+    background:
+      radial-gradient(180px 120px at 30% 28%, rgba(45,228,208,.08), transparent 72%),
+      radial-gradient(220px 160px at 80% 80%, rgba(161,111,255,.09), transparent 72%),
+      #0a1018 !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-searchbar {
+    border-color: rgba(255,255,255,.07) !important;
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-searchbar:focus-within {
+    border-color: rgba(45,228,208,.24) !important;
+    box-shadow: 0 0 0 3px rgba(45,228,208,.05), 0 22px 45px rgba(0,0,0,.24) !important;
+    transform: translateY(-1px) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-filter-scroll {
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(255,255,255,.10) transparent !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-page-head {
+    position: relative !important;
+    z-index: 2 !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-page-head h1,
+  .sxron-shell.sxron-shell--desktop .sxron-section-head h2 {
+    text-shadow: 0 12px 36px rgba(0,0,0,.22) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-primary,
+  .sxron-shell.sxron-shell--desktop .sxron-secondary {
+    position: relative !important;
+    overflow: hidden !important;
+    transition: transform .18s ease, box-shadow .18s ease, filter .18s ease !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-primary:hover,
+  .sxron-shell.sxron-shell--desktop .sxron-secondary:hover {
+    transform: translateY(-2px) !important;
+    filter: brightness(1.04) !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-primary::after,
+  .sxron-shell.sxron-shell--desktop .sxron-secondary::after {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: linear-gradient(112deg, transparent 32%, rgba(255,255,255,.16) 49%, transparent 66%) !important;
+    transform: translateX(-120%) !important;
+    transition: transform .45s ease !important;
+  }
+
+  .sxron-shell.sxron-shell--desktop .sxron-primary:hover::after,
+  .sxron-shell.sxron-shell--desktop .sxron-secondary:hover::after { transform: translateX(120%) !important; }
+
+  @keyframes sxronMarkSweep {
+    0%, 72%, 100% { transform: rotate(22deg) translateX(-120%); }
+    84% { transform: rotate(22deg) translateX(175%); }
+  }
+
+  @keyframes sxronHeroSweep {
+    0%, 55%, 100% { transform: translateX(-90%); }
+    72% { transform: translateX(110%); }
+  }
+
+  @keyframes sxronOrbFloat {
+    0%,100% { transform: perspective(1100px) rotateY(-10deg) rotateX(5deg) rotateZ(2deg) translateY(0); }
+    50% { transform: perspective(1100px) rotateY(-8deg) rotateX(7deg) rotateZ(1deg) translateY(-8px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sxron-shell.sxron-shell--desktop .sxron-brand__mark::after,
+    .sxron-shell.sxron-shell--desktop .sxron-hero-card::after,
+    .sxron-shell.sxron-shell--desktop .sxron-hero-orb { animation: none !important; }
+  }
+}
