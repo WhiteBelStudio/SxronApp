@@ -290,7 +290,7 @@ export default function AdminPanel() {
           <div>
             <div style={{ color: "#20d3c2", fontSize: 11, fontWeight: 900, letterSpacing: ".14em" }}>SXRON CONTROL CENTER</div>
             <h2 style={{ margin: "6px 0 3px", fontSize: 29 }}>Расширенная админ-панель</h2>
-            <div style={{ color: "#8f9cb0", fontSize: 13 }}>{dashboard?.user?.email || "Авторизованный администратор"} · v{dashboard?.version || "1.1.17"}</div>
+            <div style={{ color: "#8f9cb0", fontSize: 13 }}>{dashboard?.user?.email || "Авторизованный администратор"} · v{dashboard?.version || "1.2.11"}</div>
           </div>
           <button type="button" onClick={() => setOpen(false)} style={{ width: 42, height: 42, borderRadius: 12, border: "1px solid rgba(255,255,255,.10)", background: "rgba(255,255,255,.05)", color: "#fff", cursor: "pointer", fontSize: 22 }}>×</button>
         </header>
