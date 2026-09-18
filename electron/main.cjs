@@ -348,7 +348,7 @@ async function downloadAndInstallGitHubUpdate() {
     '  if ($proc) { exit 0 }',
     '} catch { exit 3 }',
     'exit 4',
-  ].join('\\n');
+  ].join('\n');
 
 
   fs.writeFileSync(helperPath, helperScript, 'utf8');
