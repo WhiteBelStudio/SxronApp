@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, dialog } = require('electron');
+const { app, BrowserWindow, shell, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -255,9 +255,14 @@ function installWindowChrome(win) {
     bar.id = 'sxron-window-chrome';
     bar.innerHTML = '<div class="sxron-chrome-actions"><button data-action="minimize" data-tooltip="Свернуть" aria-label="Свернуть">−</button><button class="sxron-maximize" data-action="maximize" data-tooltip="Развернуть" aria-label="Развернуть">□</button><button data-action="close" data-tooltip="Закрыть" class="sxron-close" aria-label="Закрыть">×</button></div>';
     bar.addEventListener('dblclick', (event) => {
-      if (!event.target.closest('button')) window.open('sxron://maximize');
+      if (!event.target.closest('button')) window.sxronWindowControls?.toggleMaximize();
     });
-    bar.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => window.open('sxron://' + button.dataset.action)));
+    bar.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => {
+      const action = button.dataset.action;
+      if (action === 'minimize') window.sxronWindowControls?.minimize();
+      if (action === 'maximize') window.sxronWindowControls?.toggleMaximize();
+      if (action === 'close') window.sxronWindowControls?.close();
+    }));
     document.body.appendChild(bar);
   })()`).catch(() => {});
 }
@@ -277,6 +282,20 @@ function updateWindowChromeState(win) {
   win.webContents.executeJavaScript(script).catch(() => {});
 }
 
+
+ipcMain.on('sxron-window-action', (event, action) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return;
+  if (action === 'minimize') {
+    win.minimize();
+  } else if (action === 'maximize') {
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  } else if (action === 'close') {
+    win.close();
+  }
+});
+
 async function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
@@ -288,7 +307,12 @@ async function createWindow() {
     autoHideMenuBar: true,
     frame: false,
     roundedCorners: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      preload: path.join(app.getAppPath(), 'electron', 'preload.cjs'),
+    },
   });
   mainWindow = win;
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => console.error('SXRON renderer load failed:', errorCode, errorDescription));
