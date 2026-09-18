@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarShape, City, Page, Product, ProfileAccent, ProfileBanner, ProfileCustomization, User } from "./types";
-import { addAdmin, getAdmins, getCategories, getMe, getProducts, getProfile, getSessions, logout, revokeAllSessions, revokeSession, setPassword, updateProfile, type AdminUser, type MeResponse, type SessionInfo } from "./api/api";
+import { addAdmin, createProduct, deleteProduct, getAdmins, getCategories, getMe, getProducts, getProfile, getSessions, logout, revokeAllSessions, revokeSession, setPassword, updateProduct, updateProfile, type AdminUser, type MeResponse, type SessionInfo } from "./api/api";
 import "./styles/global.css";
 import "./styles/profile.css";
 import "./styles/marketplace.css";
@@ -76,8 +76,39 @@ export default function App() {
   function notify(message: string) { setToast(message); window.setTimeout(() => setToast(""), 2600); }
   function checkForUpdates() { setUpdateChecking(true); setUpdateMessage("Проверяем наличие новой версии…"); try { window.open("sxron://check-updates"); } catch (error) { setUpdateChecking(false); setUpdateMessage(error instanceof Error ? error.message : "Не удалось запустить проверку."); } }
   function startUpdate() { setUpdateChecking(true); setUpdateMessage(`Запускаем загрузку версии ${updateVersion || "новой"}…`); try { window.open("sxron://start-update"); } catch (error) { setUpdateChecking(false); setUpdateMessage(error instanceof Error ? error.message : "Не удалось запустить обновление."); } }
-  function handleLocalProductSave(product: Product) { const normalized = normalizeProduct(product); setProducts((current) => current.some((item) => item.id === normalized.id) ? current.map((item) => item.id === normalized.id ? normalized : item) : [normalized, ...current]); setEditingProduct(null); setManageMode("list"); notify("Объявление сохранено"); }
-  function handleDeleteProduct(id: number) { setProducts((current) => current.filter((product) => product.id !== id)); setFavorites((current) => current.filter((item) => item !== id)); setSelectedProduct(null); notify("Объявление удалено"); }
+  async function handleProductSave(product: Product) {
+    try {
+      const payload = {
+        name: product.name,
+        description: product.description || "",
+        price: Number(product.price) || 0,
+        category: product.category || null,
+        city: productCity(product),
+      };
+      const saved = product.id > 0 && products.some((item) => item.id === product.id)
+        ? await updateProduct(product.id, payload)
+        : await createProduct(payload);
+      const normalized = normalizeProduct(saved);
+      setProducts((current) => current.some((item) => item.id === normalized.id) ? current.map((item) => item.id === normalized.id ? normalized : item) : [normalized, ...current]);
+      setEditingProduct(null);
+      setManageMode("list");
+      notify("Объявление сохранено в SXRON API");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Не удалось сохранить объявление");
+      throw error;
+    }
+  }
+  async function handleDeleteProduct(id: number) {
+    try {
+      await deleteProduct(id);
+      setProducts((current) => current.filter((product) => product.id !== id));
+      setFavorites((current) => current.filter((item) => item !== id));
+      setSelectedProduct(null);
+      notify("Объявление удалено из SXRON API");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Не удалось удалить объявление");
+    }
+  }
   async function saveUserProfile(next: ProfileCustomization) { const result = await updateProfile({ display_name: next.displayName.trim(), bio: next.bio.trim(), avatar_url: next.avatar, profile_accent: next.accent, profile_banner: next.banner, avatar_shape: next.avatarShape, username_visible: next.usernameVisible, badges_visible: next.badgesVisible, activity_visible: next.activityVisible }); setProfile({ ...profileFromUser(result.user, { user: result.user, is_admin: result.is_admin, is_owner: result.is_owner }), status: roleLabel({ user: result.user, is_admin: result.is_admin, is_owner: result.is_owner }) }); setMe({ user: result.user, is_admin: result.is_admin, is_owner: result.is_owner }); setProfileEditorOpen(false); notify("Профиль обновлён"); }
   async function openSessions() { try { const result = await getSessions(); setSessions(result.sessions); setSessionsOpen(true); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось загрузить сессии"); } }
   async function removeSession(id: number) { try { await revokeSession(id); setSessions((current) => current.filter((session) => session.id !== id)); notify("Сессия завершена"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось завершить сессию"); } }
@@ -91,7 +122,7 @@ export default function App() {
       {page === "home" && <section className="sxron-home"><div className="sxron-hero-card"><div><span className="sxron-kicker">SXRON MARKETPLACE</span><h1>Покупай.<br /><span>Продавай.</span></h1><p>Современный маркетплейс Белореченска. Найди нужное или размести своё объявление.</p><div className="sxron-actions"><button className="sxron-primary" onClick={() => navigate("catalog")}>🛍 Открыть каталог</button><button className="sxron-secondary" onClick={() => { setManageMode("create"); navigate("profile"); }}>＋ Продать</button></div></div><div className="sxron-hero-orb"><span>S</span></div></div><div className="sxron-section-head"><div><span>КАТЕГОРИИ</span><h2>Что ищем?</h2></div><button onClick={() => navigate("catalog")}>Все →</button></div><div className="sxron-category-grid">{categories.slice(0, 8).map((category) => <button key={category.id} className="sxron-category-card" onClick={() => { setSelectedCategory(category.name); navigate("catalog"); }}><strong>{category.icon || "◈"}</strong><span>{category.name}</span></button>)}</div><div className="sxron-section-head"><div><span>ПОСЛЕДНИЕ</span><h2>Новые объявления</h2></div><button onClick={() => navigate("catalog")}>Смотреть все →</button></div><ProductGrid products={products.slice(0, 6)} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /></section>}
       {page === "catalog" && <section className="sxron-page"><div className="sxron-page-head"><div><span>MARKETPLACE</span><h1>Каталог</h1><p>{filteredProducts.length} объявлений</p></div></div><div className="sxron-searchbar"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск товаров и объявлений..." /><button onClick={() => { setSearch(""); setSelectedCategory("Все"); }}>Сбросить</button></div><div className="sxron-filter-scroll"><button className={selectedCategory === "Все" ? "active" : ""} onClick={() => setSelectedCategory("Все")}>Все</button>{categories.map((category) => <button key={category.id} className={selectedCategory === category.name ? "active" : ""} onClick={() => setSelectedCategory(category.name)}>{category.icon || "◈"} {category.name}</button>)}</div>{loading ? <LoadingGrid /> : apiError ? <EmptyState title="Каталог пока не подключён" text={apiError} action="Повторить" onAction={() => window.location.reload()} /> : <ProductGrid products={filteredProducts} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} />}</section>}
       {page === "favorites" && <section className="sxron-page"><div className="sxron-page-head"><div><span>YOUR LIST</span><h1>Избранное</h1><p>{favoriteProducts.length} товаров</p></div></div>{favoriteProducts.length ? <ProductGrid products={favoriteProducts} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /> : <EmptyState title="Здесь пока пусто" text="Нажимай ♡ на понравившихся товарах — они появятся здесь." action="Перейти в каталог" onAction={() => navigate("catalog")} />}</section>}
-      {page === "profile" && <UserProfilePage profile={profile} me={me} products={products} favorites={favorites} managedProducts={managedProducts} admins={admins} adminId={adminId} setAdminId={setAdminId} manageMode={manageMode} setManageMode={setManageMode} editingProduct={editingProduct} setEditingProduct={setEditingProduct} onEditProfile={() => setProfileEditorOpen(true)} onSessions={openSessions} onLogout={handleLogout} onAddAdmin={async () => { const id = Number(adminId); if (!id) return notify("Введите корректный ID"); try { await addAdmin(id); const result = await getAdmins(); setAdmins(result.admins); setAdminId(""); notify("Администратор добавлен"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось добавить администратора"); } }} onDeleteProduct={handleDeleteProduct} onSaveProduct={handleLocalProductSave} onCancelEdit={() => { setManageMode("list"); setEditingProduct(null); }} updateAvailable={updateAvailable} updateVersion={updateVersion} updateChecking={updateChecking} updateMessage={updateMessage} onCheckUpdates={checkForUpdates} onStartUpdate={startUpdate} />}
+      {page === "profile" && <UserProfilePage profile={profile} me={me} products={products} favorites={favorites} managedProducts={managedProducts} admins={admins} adminId={adminId} setAdminId={setAdminId} manageMode={manageMode} setManageMode={setManageMode} editingProduct={editingProduct} setEditingProduct={setEditingProduct} onEditProfile={() => setProfileEditorOpen(true)} onSessions={openSessions} onLogout={handleLogout} onAddAdmin={async () => { const id = Number(adminId); if (!id) return notify("Введите корректный ID"); try { await addAdmin(id); const result = await getAdmins(); setAdmins(result.admins); setAdminId(""); notify("Администратор добавлен"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось добавить администратора"); } }} onDeleteProduct={handleDeleteProduct} onSaveProduct={handleProductSave} onCancelEdit={() => { setManageMode("list"); setEditingProduct(null); }} updateAvailable={updateAvailable} updateVersion={updateVersion} updateChecking={updateChecking} updateMessage={updateMessage} onCheckUpdates={checkForUpdates} onStartUpdate={startUpdate} />}
     </main>
     <nav className="sxron-bottom-nav"><button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}><b>⌂</b><span>Главная</span></button><button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}><b>⌕</b><span>Каталог</span></button><button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}><b>♡</b><span>Избранное</span></button><button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")} style={{ position: "relative" }}><b>◉</b><span>Профиль{updateAvailable && <i style={{ position: "absolute", top: 4, right: 22, width: 6, height: 6, borderRadius: 99, background: "#20d3c2" }} />}</span></button></nav>
     {selectedProduct && <ProductModal product={selectedProduct} favorite={favorites.includes(selectedProduct.id)} onFavorite={() => toggleFavorite(selectedProduct.id)} onClose={() => setSelectedProduct(null)} onSeller={() => setSellerProduct(selectedProduct)} />}
