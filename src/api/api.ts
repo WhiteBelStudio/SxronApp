@@ -203,6 +203,8 @@ export async function getProducts(params?: { search?: string; category?: string;
 }
 export async function getProduct(productId: number): Promise<Product> { return request<Product>(`/products/${productId}`); }
 export async function createProduct(data: CreateProductData): Promise<Product> { return request<Product>("/products", { method: "POST", body: JSON.stringify(data) }); }
+export async function updateProduct(productId: number, data: CreateProductData): Promise<Product> { return request<Product>(`/products/${productId}`, { method: "PUT", body: JSON.stringify(data) }); }
+export async function deleteProduct(productId: number): Promise<{ ok: boolean }> { return request<{ ok: boolean }>(`/products/${productId}`, { method: "DELETE" }); }
 export async function getCategories(): Promise<Category[]> { return request<Category[]>("/categories"); }
 export async function getCities(): Promise<City[]> { return request<City[]>("/cities"); }
 export async function checkHealth(): Promise<{ status: string; app: string; version: string }> { return request("/health"); }
