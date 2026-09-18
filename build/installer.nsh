@@ -1,7 +1,10 @@
 !macro customInit
-  ; Close a running SXRON Marketplace before replacing its files.
-  ; This allows the same Setup.exe to update an existing installation.
+  ; Remove the previous uninstaller before electron-builder's old-file cleanup.
+  ; This avoids the known NSIS overwrite lock during in-place upgrades.
+  Delete "$INSTDIR\Uninstall*.exe"
   nsExec::ExecToLog 'taskkill /F /T /IM "SXRON Marketplace.exe"'
+  Pop $0
+  nsExec::ExecToLog 'taskkill /F /T /IM "sxron-api.exe"'
   Pop $0
 !macroend
 
@@ -10,10 +13,9 @@
 !macroend
 
 !macro customInstall
-  ; Installing the same appId over an existing installation performs an in-place update.
-  ; User data is kept because deleteAppDataOnUninstall=false.
+  ; In-place update. User data is preserved.
 !macroend
 
 !macro customUnInstall
-  ; Keep user data during uninstall so a later installation can restore it.
+  ; Keep user data during uninstall.
 !macroend
