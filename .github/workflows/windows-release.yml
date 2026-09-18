@@ -1,4 +1,5 @@
 name: SXRON Windows Release
+# 1.2.8 final release pipeline
 # Release trigger refresh after Windows asset uploader fix
 
 on:
