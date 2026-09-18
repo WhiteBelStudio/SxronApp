@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const APP_VERSION = "1.1.13";
+const APP_VERSION = "1.3.4";
 
 type UpdaterEvent = {
   event: string;
@@ -24,11 +24,16 @@ export default function ForcedUpdater() {
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [installedVersion, setInstalledVersion] = useState(APP_VERSION);
 
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<UpdaterEvent>).detail;
       if (!detail) return;
+
+      if (detail.event === "app-version" && detail.version) {
+        setInstalledVersion(detail.version);
+      }
 
       if (detail.event === "checking") {
         setChecking(true);
@@ -122,7 +127,7 @@ export default function ForcedUpdater() {
           </>
         ) : (
           <>
-            <div style={{ marginTop: 30, color: "#7d8aa2", fontSize: 12, fontWeight: 800, letterSpacing: ".08em" }}>УСТАНОВЛЕНА · {APP_VERSION}</div>
+            <div style={{ marginTop: 30, color: "#7d8aa2", fontSize: 12, fontWeight: 800, letterSpacing: ".08em" }}>УСТАНОВЛЕНА · {installedVersion}</div>
             <h1 style={{ margin: "10px 0 14px", fontSize: 34 }}>Доступна новая версия</h1>
             <p style={{ margin: 0, color: "#a8b3c5", lineHeight: 1.65 }}>Каждое обновление SXRON выпускается отдельной версией. Текущая версия останется закрытой, пока новая версия не установится.</p>
 

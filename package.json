@@ -1,6 +1,6 @@
 {
   "name": "sxron-marketplace",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "SXRON Marketplace",
   "main": "electron/main.cjs",
   "type": "module",
@@ -51,6 +51,14 @@
       {
         "from": "backend/sxron-api",
         "to": "backend/sxron-api"
+      },
+      {
+        "from": "build/current-version.txt",
+        "to": "current-version.txt"
+      },
+      {
+        "from": "build/launcher/SXRON Launcher.exe",
+        "to": "launcher/SXRON Launcher.exe"
       }
     ],
     "win": {
@@ -63,8 +71,8 @@
       "perMachine": false,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": "always",
-      "createStartMenuShortcut": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
       "shortcutName": "SXRON Marketplace",
       "uninstallDisplayName": "SXRON Marketplace",
       "runAfterFinish": true,
