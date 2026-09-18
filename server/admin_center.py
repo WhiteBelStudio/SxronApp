@@ -9,7 +9,7 @@ import server.main as base
 import server.public_api as public_api
 
 
-APP_VERSION = "1.1.20"
+APP_VERSION = "1.2.10"
 
 
 def _ensure_schema() -> None:
@@ -88,6 +88,27 @@ def _ensure_schema() -> None:
         admin_cols = {row[1] for row in connection.execute("PRAGMA table_info(admins)").fetchall()}
         if "role" not in admin_cols:
             connection.execute("ALTER TABLE admins ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'")
+
+        # Старые базы SXRON могли быть созданы до трекинга устройств.
+        # Добавляем все поля, которые использует раздел "Безопасность".
+        session_table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='auth_sessions'"
+        ).fetchone()
+        if session_table:
+            session_cols = {
+                row[1] for row in connection.execute("PRAGMA table_info(auth_sessions)").fetchall()
+            }
+            for name, definition in {
+                "ip_address": "TEXT",
+                "user_agent": "TEXT",
+                "device": "TEXT",
+                "platform": "TEXT",
+                "client_type": "TEXT",
+            }.items():
+                if name not in session_cols:
+                    connection.execute(
+                        f"ALTER TABLE auth_sessions ADD COLUMN {name} {definition}"
+                    )
 
 
 class ProductModeration(BaseModel):
@@ -383,8 +404,19 @@ def register(app: Any) -> None:
     def center_admins(authorization: str | None = Header(default=None)) -> dict[str, Any]:
         _require(authorization)
         with base.db() as connection:
-            rows = connection.execute("SELECT a.user_id, a.added_at, a.role, u.display_name, u.username, u.first_name, u.last_name, u.email FROM admins a JOIN users u ON u.id=a.user_id ORDER BY a.added_at").fetchall()
-        return {"admins": [{**dict(row), "role": "owner" if base.is_owner(row) else row["role"]} for row in rows]}
+            rows = connection.execute(
+                "SELECT a.user_id, a.added_at, COALESCE(a.role,'admin') AS role, "
+                "u.client_id, u.display_name, u.username, u.first_name, u.last_name, u.email "
+                "FROM admins a JOIN users u ON u.id=a.user_id ORDER BY a.added_at"
+            ).fetchall()
+        admins = []
+        for row in rows:
+            item = dict(row)
+            item["role"] = "owner" if base.is_owner(row) else (
+                row["role"] if row["role"] in {"admin", "moderator"} else "admin"
+            )
+            admins.append(item)
+        return {"admins": admins}
 
     @app.patch("/admin/center/admins/{user_id}")
     def center_admin_role(user_id: int, data: AdminRoleUpdate, authorization: str | None = Header(default=None)) -> dict[str, Any]:
