@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: sxron-android-release-main
-  cancel-in-progress: true
+  group: sxron-android-release-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   android:
