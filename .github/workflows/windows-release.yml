@@ -131,12 +131,6 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           Write-Host "SXRON version: $version"
 
-      - name: Check release version
-        shell: pwsh
-        run: |
-          if ('${{ steps.version.outputs.version }}' -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid SXRON version: '${{ steps.version.outputs.version }}'" }
-
-
       - name: Clean invalid release tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
