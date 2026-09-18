@@ -117,7 +117,7 @@ export default function AdminCenter() {
   return <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 50000, padding: 16, background: "rgba(2,5,10,.92)", backdropFilter: "blur(18px)", color: "#fff" }}>
     <section style={{ ...card, width: "min(1480px,100%)", height: "calc(100vh - 32px)", margin: "0 auto", overflow: "hidden", display: "grid", gridTemplateColumns: "240px minmax(0,1fr)" }}>
       <aside style={{ borderRight: "1px solid rgba(255,255,255,.08)", padding: 15, background: "rgba(7,11,18,.82)", overflow: "auto" }}>
-        <div style={{ padding: "9px 10px 18px" }}><div style={{ color: "#20d3c2", fontSize: 10, fontWeight: 900, letterSpacing: ".16em" }}>SXRON CONTROL</div><h2 style={{ margin: "7px 0 4px", fontSize: 22 }}>Админ-центр</h2><small style={{ color: "#748298" }}>v1.1.20</small></div>
+        <div style={{ padding: "9px 10px 18px" }}><div style={{ color: "#20d3c2", fontSize: 10, fontWeight: 900, letterSpacing: ".16em" }}>SXRON CONTROL</div><h2 style={{ margin: "7px 0 4px", fontSize: 22 }}>Админ-центр</h2><small style={{ color: "#748298" }}>v1.2.11</small></div>
         <div style={{ display: "grid", gap: 5 }}>{nav.map(([id,label]) => <button key={id} type="button" onClick={() => setTab(id)} style={{ textAlign: "left", padding: "10px 11px", borderRadius: 10, border: id === tab ? "1px solid rgba(32,211,194,.28)" : "1px solid transparent", background: id === tab ? "rgba(32,211,194,.08)" : "transparent", color: id === tab ? "#70eee5" : "#b2bdce", fontWeight: 800, cursor: "pointer" }}>{label}</button>)}</div>
         <button type="button" onClick={() => setOpen(false)} style={{ ...danger, width: "100%", marginTop: 18 }}>Закрыть</button>
       </aside>
