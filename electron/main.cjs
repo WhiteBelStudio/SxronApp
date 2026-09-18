@@ -297,6 +297,11 @@ ipcMain.on('sxron-window-action', (event, action) => {
 });
 
 async function createWindow() {
+  const preloadPath = path.join(__dirname, 'preload.cjs');
+  if (!fs.existsSync(preloadPath)) {
+    throw new Error(`Файл Electron preload не найден:\n${preloadPath}`);
+  }
+
   const win = new BrowserWindow({
     width: 1440,
     height: 920,
@@ -311,7 +316,7 @@ async function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      preload: path.join(app.getAppPath(), 'electron', 'preload.cjs'),
+      preload: preloadPath,
     },
   });
   mainWindow = win;
@@ -355,6 +360,11 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   registerWindowsAssociations();
+  try {
+    appendApiLog(`SXRON Electron start ${new Date().toISOString()} | version=${CURRENT_VERSION} | packaged=${app.isPackaged}\n`);
+  } catch (error) {
+    console.warn('SXRON Electron startup log:', error?.message || error);
+  }
   try {
     await startApi();
     await createWindow();
