@@ -174,6 +174,18 @@ jobs:
           }
           $global:LASTEXITCODE = 0
 
+      - name: Build launcher
+        shell: pwsh
+        run: |
+          if (Test-Path 'build/launcher/SXRON Launcher.exe') { Remove-Item 'build/launcher/SXRON Launcher.exe' -Force }
+          $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          if (-not (Test-Path $csc)) { throw "C# compiler not found: $csc" }
+          & $csc /nologo /target:winexe /optimize+ /reference:System.Windows.Forms.dll /out:'build\launcher\SXRON Launcher.exe' 'build\launcher\SXRONLauncher.cs'
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to compile SXRON Launcher.exe' }
+          if (-not (Test-Path 'build\launcher\SXRON Launcher.exe')) { throw 'Launcher EXE was not created.' }
+          & 'build\launcher\SXRON Launcher.exe' --smoke
+          if ($LASTEXITCODE -ne 0) { throw 'SXRON Launcher smoke test failed.' }
+
       - name: Build web application
         run: npm run build
 
@@ -186,6 +198,7 @@ jobs:
           $info = @{ version = $version; build = $version; commit = $commit; releaseTag = $tag } | ConvertTo-Json
           Set-Content -Path 'dist/build-info.json' -Value $info -Encoding UTF8
           Write-Host "Version identity: $tag / $commit"
+          Set-Content -Path 'build/current-version.txt' -Value $version -Encoding ASCII
 
       - name: Clean Windows release directory
         shell: pwsh
@@ -198,6 +211,16 @@ jobs:
         run: npx electron-builder --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Verify launcher packaging
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'build/current-version.txt')) { throw 'current-version.txt missing.' }
+          if (-not (Test-Path 'build/launcher/SXRON Launcher.exe')) { throw 'Launcher EXE missing.' }
+          if (-not (Test-Path 'release/win-unpacked/resources/launcher/SXRON Launcher.exe')) { throw 'Packaged launcher resource missing.' }
+          $installedVersion = (Get-Content 'build/current-version.txt' -Raw).Trim()
+          if ($installedVersion -ne '${{ steps.version.outputs.version }}') { throw "Version identity mismatch: $installedVersion" }
+          Write-Host "Launcher packaging verified for version $installedVersion."
 
       - name: Verify Windows artifacts
         shell: pwsh
@@ -263,15 +286,15 @@ jobs:
             $env:SXRON_FULL_STARTUP_SMOKE = '1'
             $proc = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu','--no-sandbox' -WorkingDirectory (Join-Path $PWD 'release\win-unpacked') -PassThru
 
-            Start-Sleep -Seconds 5
+            Start-Sleep -Seconds 12
 
             if ($proc.HasExited) {
-              Write-Host "Packaged Electron exited during bootstrap with code: $($proc.ExitCode)"
+              Write-Host "Packaged Electron startup smoke exited with code: $($proc.ExitCode)"
               if ($proc.ExitCode -ne 0) {
-                throw "Packaged SXRON Electron bootstrap failed with exit code $($proc.ExitCode)."
+                throw "Packaged SXRON Electron startup failed with exit code $($proc.ExitCode)."
               }
             } else {
-              Write-Host 'Packaged Electron bootstrap stayed alive for 5 seconds: OK.'
+              Write-Host 'Packaged Electron stayed alive for the full startup smoke window: OK.'
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
             }
           } finally {
