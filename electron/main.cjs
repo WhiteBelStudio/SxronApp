@@ -253,7 +253,7 @@ function installWindowChrome(win) {
     document.head.appendChild(style);
     const bar = document.createElement('div');
     bar.id = 'sxron-window-chrome';
-    bar.innerHTML = '<div class="sxron-chrome-title"><span class="sxron-chrome-mark">S</span><span>SXRON</span></div><div class="sxron-chrome-actions"><button data-action="minimize" aria-label="Свернуть">−</button><button data-action="maximize" aria-label="Развернуть">□</button><button data-action="close" class="sxron-close" aria-label="Закрыть">×</button></div>';
+    bar.innerHTML = '<div class="sxron-chrome-actions"><button data-action="minimize" aria-label="Свернуть">−</button><button data-action="maximize" aria-label="Развернуть">□</button><button data-action="close" class="sxron-close" aria-label="Закрыть">×</button></div>';
     bar.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => window.open('sxron://' + button.dataset.action)));
     document.body.appendChild(bar);
   })()` ).catch(() => {});
