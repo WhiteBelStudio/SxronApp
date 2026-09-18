@@ -1,6 +1,6 @@
 {
   "name": "sxron-marketplace",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "SXRON Marketplace",
   "main": "electron/main.cjs",
   "type": "module",
@@ -38,16 +38,39 @@
   "build": {
     "appId": "com.sxron.marketplace",
     "productName": "SXRON Marketplace",
-    "directories": {"output": "release"},
-    "files": ["dist/**/*", "electron/**/*", "server-dist/**/*", "package.json"],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "server-dist/**/*",
+      "package.json"
+    ],
     "extraResources": [
       {
         "from": "backend/sxron-api",
         "to": "backend/sxron-api"
       }
     ],
-    "win": {"target": "nsis", "icon": "build/sxron-icon.svg", "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}"},
-    "nsis": {"oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true},
-    "publish": [{"provider": "github", "owner": "WhiteBelStudio", "repo": "SxronApp", "releaseType": "release"}]
+    "win": {
+      "target": "nsis",
+      "icon": "build/sxron-icon.svg",
+      "artifactName": "SXRON-Marketplace-Setup-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "WhiteBelStudio",
+        "repo": "SxronApp",
+        "releaseType": "release"
+      }
+    ]
   }
 }
