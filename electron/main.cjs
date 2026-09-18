@@ -18,6 +18,18 @@ const GITHUB_OWNER = 'WhiteBelStudio';
 const GITHUB_REPO = 'SxronApp';
 const GITHUB_LATEST_RELEASE_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
 
+const GOT_SINGLE_INSTANCE_LOCK = app.requestSingleInstanceLock();
+if (!GOT_SINGLE_INSTANCE_LOCK) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
+
 function readBuildInfo() {
   try {
     const file = path.join(app.getAppPath(), 'dist', 'build-info.json');
@@ -276,15 +288,47 @@ async function downloadAndInstallGitHubUpdate() {
     ')',
     '',
     '$deadline = (Get-Date).AddSeconds(60)',
+    '$electronExe = Join-Path $InstallDir "SXRON Marketplace.exe"',
+    '$apiExe = Join-Path $InstallDir "resources\\backend\\sxron-api\\sxron-api.exe"',
+    '',
+    'function Stop-SxronProcesses {',
+    '  $targets = @($electronExe, $apiExe) | ForEach-Object { try { [IO.Path]::GetFullPath($_) } catch { $_ } }',
+    '  $processes = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue',
+    '  foreach ($process in $processes) {',
+    '    $path = $process.ExecutablePath',
+    '    if (-not $path) { continue }',
+    '    $normalized = try { [IO.Path]::GetFullPath($path) } catch { $path }',
+    '    if ($targets -contains $normalized) {',
+    '      try { Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue } catch {}',
+    '    }',
+    '  }',
+    '}',
+    '',
+    'function Test-FileFree([string]$Path) {',
+    '  if (-not (Test-Path -LiteralPath $Path)) { return $true }',
+    '  try {',
+    '    $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)',
+    '    $stream.Dispose()',
+    '    return $true',
+    '  } catch {',
+    '    return $false',
+    '  }',
+    '}',
+    '',
+    'Start-Sleep -Seconds 2',
+    'Stop-SxronProcesses',
+    '',
     'while ((Get-Date) -lt $deadline) {',
-    '  $electronAlive = Get-Process -Id $ElectronPid -ErrorAction SilentlyContinue',
-    '  $apiAlive = if ($ApiPid -gt 0) { Get-Process -Id $ApiPid -ErrorAction SilentlyContinue } else { $null }',
-    '  if (-not $electronAlive -and -not $apiAlive) { break }',
+    '  Stop-SxronProcesses',
+    '  $electronAlive = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -and ((try { [IO.Path]::GetFullPath($_.ExecutablePath) } catch { $_.ExecutablePath }) -eq $electronExe) }',
+    '  $apiAlive = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -and ((try { [IO.Path]::GetFullPath($_.ExecutablePath) } catch { $_.ExecutablePath }) -eq $apiExe) }',
+    '  $exeFree = Test-FileFree $electronExe',
+    '  if (-not $electronAlive -and -not $apiAlive -and $exeFree) { break }',
     '  Start-Sleep -Milliseconds 300',
     '}',
     '',
-    '# Give Windows time to release executable/DLL handles after process exit.',
-    'Start-Sleep -Seconds 3',
+    'Start-Sleep -Seconds 2',
+    'Stop-SxronProcesses',
     '',
     'if (-not (Test-Path -LiteralPath $Installer)) { exit 2 }',
     '',
@@ -300,16 +344,13 @@ async function downloadAndInstallGitHubUpdate() {
     'exit 4',
   ].join('\n');
 
-  fs.writeFileSync(helperPath, helperScript, 'utf8');
+
 
   // Stop the API ourselves before Electron exits, then let the external
   // PowerShell helper wait for both PIDs.
   stopApi();
 
-  const helper = spawn(process.env.ComSpec || 'cmd.exe', [
-    '/d',
-    '/c',
-    'powershell.exe',
+  const helper = spawn('powershell.exe', [
     '-NoProfile',
     '-NonInteractive',
     '-WindowStyle',
@@ -454,6 +495,7 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (!GOT_SINGLE_INSTANCE_LOCK) return;
   registerWindowsAssociations();
   try {
     appendApiLog(`SXRON Electron start ${new Date().toISOString()} | version=${CURRENT_VERSION} | packaged=${app.isPackaged}\n`);
