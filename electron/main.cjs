@@ -7,6 +7,7 @@ const https = require('https');
 const crypto = require('crypto');
 
 const isDev = !app.isPackaged;
+const IS_SMOKE_TEST = process.argv.includes('--sxron-smoke-test');
 let apiProcess = null;
 let mainWindow = null;
 let updateCheckInProgress = false;
@@ -368,10 +369,21 @@ app.whenReady().then(async () => {
   try {
     await startApi();
     await createWindow();
+    if (IS_SMOKE_TEST) {
+      setTimeout(() => {
+        stopApi();
+        app.exit(0);
+      }, 1500);
+    }
   } catch (error) {
     console.error('SXRON startup failed:', error);
-    await dialog.showMessageBox({ type: 'error', title: 'SXRON Marketplace', message: 'Не удалось запустить SXRON Marketplace.', detail: error?.message || String(error) });
-    app.quit();
+    if (!IS_SMOKE_TEST) {
+      await dialog.showMessageBox({ type: 'error', title: 'SXRON Marketplace', message: 'Не удалось запустить SXRON Marketplace.', detail: error?.message || String(error) });
+    } else {
+      console.error(error?.stack || error);
+    }
+    stopApi();
+    app.exit(1);
     return;
   }
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow().catch(console.error); });
