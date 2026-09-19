@@ -124,7 +124,7 @@ internal static class SxronLauncher
         {
             using (var client = new WebClient())
             {
-                client.Headers[HttpRequestHeader.UserAgent] = "SXRON-Launcher/1.4.1";
+                client.Headers[HttpRequestHeader.UserAgent] = "SXRON-Launcher/1.4.2";
                 string json = client.DownloadString(
                     "https://api.github.com/repos/" + Owner + "/" + Repo + "/releases/latest"
                 );
@@ -161,7 +161,7 @@ internal static class SxronLauncher
 
         using (var client = new WebClient())
         {
-            client.Headers[HttpRequestHeader.UserAgent] = "SXRON-Launcher/1.4.1";
+            client.Headers[HttpRequestHeader.UserAgent] = "SXRON-Launcher/1.4.2";
             client.DownloadFile(url, installer);
         }
 
