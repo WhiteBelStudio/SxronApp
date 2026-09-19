@@ -1,12 +1,12 @@
 {
-  "version": "1.4.0",
+  "version": "1.4.1",
   "build": "github-build-aware",
-  "title": "SXRON Marketplace 1.4.0",
-  "message": "SXRON Marketplace 1.4.0 — исправлены обновление, синхронизация проекта и версия Android.",
+  "title": "SXRON Marketplace 1.4.1",
+  "message": "SXRON Marketplace 1.4.1 — production hardening обновлений Windows и строгая проверка запуска перед публикацией.",
   "changes": [
-    "Стабильная синхронизация локального проекта с GitHub.",
-    "Канонический Windows launcher для запуска актуальной версии.",
-    "Корректный Android versionName/versionCode для новых сборок.",
-    "Сохранение пользовательских данных при обновлении."
+    "Сохранён весь marketplace core 1.4.0: медиа, избранное, покупки, заказы, сообщения и уведомления.",
+    "Обновления Windows всегда переходят в канонический каталог %LOCALAPPDATA%\\Programs\\sxron-marketplace.",
+    "CI проверяет полный запуск Electron/API и публикует EXE только после успешного startup smoke.",
+    "Синхронизированы версии desktop, API, launcher и Android."
   ]
 }
