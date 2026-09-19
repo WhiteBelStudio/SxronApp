@@ -148,7 +148,6 @@ export default function App() {
         onCategory={setSelectedCategory}
         onFavorite={toggleFavorite}
         onProduct={setSelectedProduct}
-        onSeller={setSellerProduct}
         navigate={navigate}
         notify={notify}
       />)}
