@@ -5,6 +5,8 @@
 export interface City { id: number; name: string; slug?: string; }
 export interface Category { id: number; name: string; slug?: string; icon?: string; products_count?: number; }
 
+export interface ProductPhoto { id: number; name: string; content_type: string; size_bytes: number; url: string; is_cover?: boolean; sort_order?: number; }
+
 export interface Product {
   id: number;
   name: string;
@@ -18,6 +20,8 @@ export interface Product {
   delivery?: string | null;
   photo_url?: string | null;
   photo_file_id?: string | null;
+  photos?: ProductPhoto[];
+  cover_photo_url?: string | null;
   status?: string | null;
   available?: boolean;
   is_available?: boolean;
@@ -42,9 +46,58 @@ export interface CreateProductData {
   photo_url?: string | null;
 }
 
-export type Page = "home" | "favorites" | "catalog" | "profile";
+export type Page = "home" | "favorites" | "catalog" | "profile" | "messages" | "purchases" | "sales" | "notifications" | "support";
 export interface ProductsResponse { products: Product[]; total?: number; page?: number; limit?: number; }
 export interface Favorite { id: number; product_id: number; user_id?: number; created_at?: string; }
+
+export interface Order {
+  id: number;
+  buyer_id: number;
+  seller_id: number;
+  product_id: number;
+  product?: { id: number; name: string; price: number; photo_url?: string | null; seller_name?: string } | null;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  delivery_method: string;
+  delivery_address: string;
+  note: string;
+  status: string;
+  cancel_reason?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string | null;
+}
+
+export interface Conversation {
+  id: number;
+  product_id?: number | null;
+  other_user_id: number;
+  other_user_name?: string | null;
+  last_text?: string;
+  last_message_at: string;
+}
+
+export interface ChatMessage {
+  id: number;
+  sender_id: number;
+  text: string;
+  media_id?: number | null;
+  created_at: string;
+  read_at?: string | null;
+}
+
+export interface SxronNotification {
+  id: number;
+  user_id: number;
+  type: string;
+  title: string;
+  message: string;
+  entity_type?: string | null;
+  entity_id?: number | null;
+  read_at?: string | null;
+  created_at: string;
+}
 
 export type ProfileAccent = "cyan" | "violet" | "blue" | "sunset";
 export type ProfileBanner = "aurora" | "violet" | "ocean" | "sunset";
