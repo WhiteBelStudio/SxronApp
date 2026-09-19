@@ -1,6 +1,6 @@
 {
   "name": "sxron-marketplace",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "SXRON Marketplace",
   "main": "electron/main.cjs",
   "type": "module",
