@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import mimetypes
+import os
 import re
 import uuid
 from datetime import datetime
@@ -30,6 +31,8 @@ ALLOWED_FILES = {
     "text/plain": ".txt",
 }
 
+
+MEDIA_BASE_URL = os.getenv("SXRON_MEDIA_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
 def _media_root() -> Path:
     root = base.DATA_DIR / "media"
@@ -132,7 +135,13 @@ def _store_upload(
 
 
 def _user(client_id: str | None):
-    return base.current_user(client_id)
+    user = base.current_user(client_id)
+    try:
+        if "is_blocked" in user.keys() and int(user["is_blocked"]):
+            raise HTTPException(status_code=403, detail="Аккаунт заблокирован")
+    except AttributeError:
+        pass
+    return user
 
 
 def _participant_or_admin(user: Any, conversation_id: int) -> dict[str, Any]:
@@ -174,6 +183,23 @@ class ConversationCreate(BaseModel):
 class NotificationRead(BaseModel):
     read: bool = True
 
+
+def _purge_orphan_media() -> None:
+    with base.db() as connection:
+        rows = connection.execute(
+            """SELECT m.id, m.relative_path
+               FROM media_files m
+               LEFT JOIN product_media pm ON pm.media_id=m.id
+               LEFT JOIN messages msg ON msg.media_id=m.id
+               WHERE pm.media_id IS NULL AND msg.media_id IS NULL"""
+        ).fetchall()
+        for row in rows:
+            try:
+                (_media_root() / row["relative_path"]).unlink(missing_ok=True)
+            except OSError:
+                pass
+        if rows:
+            connection.executemany("DELETE FROM media_files WHERE id=?", [(row["id"],) for row in rows])
 
 def init_marketplace_tables() -> None:
     with base.db() as connection:
@@ -355,6 +381,7 @@ def _order_dict(row: Any) -> dict[str, Any]:
 def register_marketplace_core() -> None:
     init_marketplace_tables()
     media_root = _media_root()
+    _purge_orphan_media()
 
     try:
         base.app.mount("/media", StaticFiles(directory=str(media_root)), name="sxron-media")
