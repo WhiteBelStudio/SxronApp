@@ -2,10 +2,10 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-title SXRON Marketplace 1.4.2
+title SXRON Marketplace 1.4.3
 
 echo ================================================
-echo        SXRON MARKETPLACE 1.4.2
+echo        SXRON MARKETPLACE 1.4.3
 echo        One-click Windows launcher
 echo ================================================
 echo.
@@ -77,7 +77,7 @@ if not exist vite.config.ts goto :project_error
 if not exist package.json goto :project_error
 
 echo.
-echo [4/4] Starting SXRON Marketplace 1.4.2...
+echo [4/4] Starting SXRON Marketplace 1.4.3...
 echo.
 echo Frontend: http://127.0.0.1:5173
 echo API:      http://127.0.0.1:8000
