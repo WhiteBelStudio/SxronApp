@@ -66,6 +66,120 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Set Android version identity
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          VERSION_CODE="$(python -c "v='$VERSION'.split('.'); print(int(v[0])*1000000 + int(v[1])*1000 + int(v[2]))")"
+          export VERSION VERSION_CODE
+          python - <<'PY'
+          import os, re
+          from pathlib import Path
+          version = os.environ['VERSION']
+          code = os.environ['VERSION_CODE']
+          path = Path('android/app/build.gradle')
+          text = path.read_text(encoding='utf-8')
+          text, n1 = re.subn(r'(?m)^\s*versionCode\s+\d+\s*
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Verify APK
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p release
+          cp android/app/build/outputs/apk/debug/app-debug.apk "release/SXRON-Marketplace-${VERSION}-android.apk"
+          ls -lh release
+
+      - name: Publish APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          TAG="v${VERSION}"
+          APK="release/SXRON-Marketplace-${VERSION}-android.apk"
+
+          test -s "$APK"
+
+          if gh release view "v" >/dev/null 2>&1; then
+            echo 'Removing malformed GitHub release tag: v'
+            gh release delete "v" --yes --cleanup-tag
+          fi
+
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "SXRON Marketplace ${VERSION}" --notes "SXRON Marketplace ${VERSION}"
+          gh release upload "$TAG" "$APK" --clobber
+
+      - name: Verify published APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          TAG="v${VERSION}"
+          EXPECTED="SXRON-Marketplace-${VERSION}-android.apk"
+          ASSETS="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+          echo "$ASSETS"
+          grep -Fx "$EXPECTED" <<< "$ASSETS"
+, f'        versionCode {code}', text, count=1)
+          text, n2 = re.subn(r'(?m)^\s*versionName\s+"[^"]*"\s*
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Verify APK
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p release
+          cp android/app/build/outputs/apk/debug/app-debug.apk "release/SXRON-Marketplace-${VERSION}-android.apk"
+          ls -lh release
+
+      - name: Publish APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          TAG="v${VERSION}"
+          APK="release/SXRON-Marketplace-${VERSION}-android.apk"
+
+          test -s "$APK"
+
+          if gh release view "v" >/dev/null 2>&1; then
+            echo 'Removing malformed GitHub release tag: v'
+            gh release delete "v" --yes --cleanup-tag
+          fi
+
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "SXRON Marketplace ${VERSION}" --notes "SXRON Marketplace ${VERSION}"
+          gh release upload "$TAG" "$APK" --clobber
+
+      - name: Verify published APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          TAG="v${VERSION}"
+          EXPECTED="SXRON-Marketplace-${VERSION}-android.apk"
+          ASSETS="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+          echo "$ASSETS"
+          grep -Fx "$EXPECTED" <<< "$ASSETS"
+, f'        versionName "{version}"', text, count=1)
+          if n1 != 1 or n2 != 1:
+              raise SystemExit('Could not set Android version identity in generated Gradle file.')
+          path.write_text(text, encoding='utf-8')
+          print(f'Android versionName={version} versionCode={code}')
+          PY
+
+      - name: Verify Android version identity
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          VERSION_CODE="$(python -c "v='$VERSION'.split('.'); print(int(v[0])*1000000 + int(v[1])*1000 + int(v[2]))")"
+          grep -Eq "versionCode[[:space:]]+$VERSION_CODE" android/app/build.gradle
+          grep -Eq "versionName[[:space:]]+\"$VERSION\"" android/app/build.gradle
+          echo "Android version identity verified: $VERSION / $VERSION_CODE"
+
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
