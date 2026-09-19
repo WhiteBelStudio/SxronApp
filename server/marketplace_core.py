@@ -337,7 +337,7 @@ def _product_media(product_id: int, request: Request | None = None) -> list[dict
             "url": (
                 _public_url(request, row["relative_path"])
                 if request is not None
-                else "/media/" + row["relative_path"].replace("\\", "/")
+                else MEDIA_BASE_URL + "/media/" + row["relative_path"].replace("\\", "/")
             ),
             "is_cover": bool(row["is_cover"]),
             "sort_order": int(row["sort_order"]),
