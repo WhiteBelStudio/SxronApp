@@ -164,7 +164,10 @@ export default function App() {
   return <div className={appClass}>
     <header className="sxron-topbar"><button className="sxron-brand" onClick={() => navigate("home")} aria-label="SXRON"><span className="sxron-brand__mark">S</span><span>SXRON</span></button>{!isMobile && <nav className="sxron-topnav">{sidebarItems.map((item) => <button key={item.key} className={(item.page && item.page === page ? "active" : "") + (item.soon ? " sxron-topnav-soon" : "")} onClick={() => { if (item.soon) { notify("Этот раздел скоро появится"); return; } if (item.page) navigate(item.page); }} style={{ position: "relative" }}><span className="sxron-topnav-icon">{item.icon}</span><span>{item.label}</span>{item.soon && <em className="sxron-topnav-badge">скоро</em>}{item.key === "profile" && updateAvailable && <span style={{ position: "absolute", top: 8, right: 10, width: 7, height: 7, borderRadius: 99, background: "#22b8ff", boxShadow: "0 0 0 3px rgba(34, 184, 255,.12)" }} />}</button>)}</nav>}<div className="sxron-city-pill">📍 {city.name}</div></header>
     <main className="sxron-content">
-      {page === "messages" && <MessagesPage onNotify={notify} />}\n      {page === "purchases" && <OrdersPage side="buying" onNotify={notify} />}\n      {page === "sales" && <OrdersPage side="selling" onNotify={notify} />}\n      {page === "notifications" && <NotificationsPage onNotify={notify} />}\n      {page === "home" && (isMobile ? <section className="sxron-home"><div className="sxron-hero-card"><div><span className="sxron-kicker">SXRON MARKETPLACE</span><h1>Покупай.<br /><span>Продавай.</span></h1><p>Современный маркетплейс Белореченска. Найди нужное или размести своё объявление.</p><div className="sxron-actions"><button className="sxron-primary" onClick={() => navigate("catalog")}>🛍 Открыть каталог</button><button className="sxron-secondary" onClick={() => { setManageMode("create"); navigate("profile"); }}>＋ Продать</button></div></div><div className="sxron-hero-orb"><span>S</span></div></div><div className="sxron-trust-row"><div className="sxron-trust-item"><span>🛡</span><div><b>Безопасные сделки</b><small>Проверенные продавцы</small></div></div><div className="sxron-trust-item"><span>💳</span><div><b>Удобная оплата</b><small>Надёжные способы</small></div></div><div className="sxron-trust-item"><span>🚚</span><div><b>Быстрая доставка</b><small>По городу и региону</small></div></div></div><div className="sxron-section-head"><div><span>КАТЕГОРИИ</span><h2>Что ищем?</h2></div><button onClick={() => navigate("catalog")}>Все →</button></div><div className="sxron-category-grid">{categories.slice(0, 8).map((category) => <button key={category.id} className="sxron-category-card" onClick={() => { setSelectedCategory(category.name); navigate("catalog"); }}><strong>{category.icon || "◈"}</strong><span>{category.name}</span></button>)}</div><div className="sxron-section-head"><div><span>ПОСЛЕДНИЕ</span><h2>Новые объявления</h2></div><button onClick={() => navigate("catalog")}>Смотреть все →</button></div><ProductGrid products={products.slice(0, 6)} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /></section> : <DesktopMarketplaceHome135
+      {page === "messages" && <MessagesPage onNotify={notify} />}
+      {page === "purchases" && <OrdersPage side="buying" onNotify={notify} />}
+      {page === "sales" && <OrdersPage side="selling" onNotify={notify} />}
+      {page === "notifications" && <NotificationsPage onNotify={notify} />}\n      {page === "home" && (isMobile ? <section className="sxron-home"><div className="sxron-hero-card"><div><span className="sxron-kicker">SXRON MARKETPLACE</span><h1>Покупай.<br /><span>Продавай.</span></h1><p>Современный маркетплейс Белореченска. Найди нужное или размести своё объявление.</p><div className="sxron-actions"><button className="sxron-primary" onClick={() => navigate("catalog")}>🛍 Открыть каталог</button><button className="sxron-secondary" onClick={() => { setManageMode("create"); navigate("profile"); }}>＋ Продать</button></div></div><div className="sxron-hero-orb"><span>S</span></div></div><div className="sxron-trust-row"><div className="sxron-trust-item"><span>🛡</span><div><b>Безопасные сделки</b><small>Проверенные продавцы</small></div></div><div className="sxron-trust-item"><span>💳</span><div><b>Удобная оплата</b><small>Надёжные способы</small></div></div><div className="sxron-trust-item"><span>🚚</span><div><b>Быстрая доставка</b><small>По городу и региону</small></div></div></div><div className="sxron-section-head"><div><span>КАТЕГОРИИ</span><h2>Что ищем?</h2></div><button onClick={() => navigate("catalog")}>Все →</button></div><div className="sxron-category-grid">{categories.slice(0, 8).map((category) => <button key={category.id} className="sxron-category-card" onClick={() => { setSelectedCategory(category.name); navigate("catalog"); }}><strong>{category.icon || "◈"}</strong><span>{category.name}</span></button>)}</div><div className="sxron-section-head"><div><span>ПОСЛЕДНИЕ</span><h2>Новые объявления</h2></div><button onClick={() => navigate("catalog")}>Смотреть все →</button></div><ProductGrid products={products.slice(0, 6)} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /></section> : <DesktopMarketplaceHome135
         city={city}
         categories={categories}
         products={products}
@@ -210,6 +213,67 @@ function SessionsModal({ sessions, onClose, onRevoke, onRevokeAll }: { sessions:
 function ProductGrid({ products, favorites, onFavorite, onProduct, onSeller }: { products: Product[]; favorites: number[]; onFavorite: (id: number) => void; onProduct: (product: Product) => void; onSeller: (product: Product) => void }) { if (!products.length) return <EmptyState title="Ничего не найдено" text="Попробуй изменить запрос или категорию." />; return <div className="sxron-product-grid">{products.map((product) => <article className="sxron-product-card" key={product.id} onClick={() => onProduct(product)}><div className="sxron-product-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}<button onClick={(event) => { event.stopPropagation(); onFavorite(product.id); }} className={favorites.includes(product.id) ? "liked" : ""}>{favorites.includes(product.id) ? "♥" : "♡"}</button></div><div className="sxron-product-body"><span>{product.category || "Без категории"}</span><h3>{product.name}</h3><strong>{product.price.toLocaleString("ru-RU")} ₽</strong><small>📍 {productCity(product)} · <button onClick={(event) => { event.stopPropagation(); onSeller(product); }}>Продавец</button></small></div></article>)}</div>; }
 function ProductModal({ product, favorite, onFavorite, onClose, onSeller, onBuy, onMessageSeller }: { product: Product; favorite: boolean; onFavorite: () => void; onClose: () => void; onSeller: () => void; onBuy: () => void; onMessageSeller: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-product-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-detail-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}</div><div className="sxron-detail-content"><span>{product.category || "Без категории"}</span><h2>{product.name}</h2><strong className="sxron-detail-price">{product.price.toLocaleString("ru-RU")} ₽</strong><p>{product.description}</p><div className="sxron-detail-meta"><span>📍 {productCity(product)}</span>{product.condition && <span>◈ {product.condition}</span>}{product.delivery && <span>🚚 {product.delivery}</span>}</div><div className="sxron-detail-actions"><button className="sxron-primary" onClick={onBuy}>🛒 Купить</button><button className="sxron-secondary" onClick={onMessageSeller}>✉ Написать продавцу</button><button className="sxron-secondary" onClick={onSeller}>👤 Профиль продавца</button><button className="sxron-secondary" onClick={onFavorite}>{favorite ? "♥ В избранном" : "♡ В избранное"}</button></div></div></div></div>; }
 function SellerModal({ product, onClose }: { product: Product; onClose: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-seller-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-seller-avatar">{(product.name || "S").charAt(0).toUpperCase()}</div><span>ПРОДАВЕЦ</span><h2>Продавец SXRON</h2><div className="sxron-rating">★★★★★ <b>Новый профиль</b></div><p>Профиль продавца и его объявления будут загружаться из SXRON API.</p><div className="sxron-seller-stats"><div><b>—</b><span>Рейтинг</span></div><div><b>—</b><span>Отзывы</span></div><div><b>—</b><span>Объявления</span></div></div><button className="sxron-primary">💬 Написать продавцу</button></div></div>; }
-function ProductEditor({ product, userId, onCancel, onSave }: { product: Product | null; userId: number; onCancel: () => void; onSave: (product: Product, files?: File[]) => void }) { const [files, setFiles] = useState<File[]>([]); const [name, setName] = useState(product?.name || ""); const [description, setDescription] = useState(product?.description || ""); const [price, setPrice] = useState(String(product?.price || "")); const [category, setCategory] = useState(product?.category || ""); const [city, setCity] = useState(productCity(product || { city: "Белоречensk" } as Product)); return <div className="sxron-editor"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" /><input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Цена, ₽" /><div className="sxron-editor-row"><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Категория" /><input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" /></div><div className="marketplace-core-upload"><label>Фото товара<input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" onChange={event => { const selected = Array.from(event.target.files || []); if (selected.length > 8) { setError("Можно выбрать максимум 8 фото."); return; } if (selected.some(file => file.size > 10 * 1024 * 1024)) { setError("Каждое фото должно быть до 10 МБ."); return; } setFiles(selected); setError(""); }} /></label>{files.length > 0 && <div className="marketplace-core-upload-list">{files.map(file => <span key={file.name}>{file.name}</span>)}</div>}{error && <small className="marketplace-core-error">{error}</small>}</div><div className="sxron-editor-actions"><button className="sxron-secondary" onClick={onCancel}>Отмена</button><button className="sxron-primary" onClick={() => { if (!name.trim() || !Number(price)) return; onSave({ ...(product || {} as Product), id: product?.id || Date.now(), name: name.trim(), description: description.trim(), price: Number(price.replace(/\s/g, "").replace(",", ".")), category: category.trim() || "Без категории", city, created_by: userId, available: true, condition: product?.condition || null, delivery: product?.delivery || null }, files); }}>Сохранить</button></div></div>; }
+function ProductEditor({ product, userId, onCancel, onSave }: { product: Product | null; userId: number; onCancel: () => void; onSave: (product: Product, files?: File[]) => void }) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [error, setError] = useState("");
+  const [name, setName] = useState(product?.name || "");
+  const [description, setDescription] = useState(product?.description || "");
+  const [price, setPrice] = useState(String(product?.price || ""));
+  const [category, setCategory] = useState(product?.category || "");
+  const [city, setCity] = useState(productCity(product || { city: "Белоречensk" } as Product));
+
+  return <div className="sxron-editor">
+    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" />
+    <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" />
+    <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Цена, ₽" />
+    <div className="sxron-editor-row">
+      <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Категория" />
+      <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" />
+    </div>
+    <div className="marketplace-core-upload">
+      <label>Фото товара
+        <input
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={(event) => {
+            const selected = Array.from(event.target.files || []);
+            if (selected.length > 8) { setError("Можно выбрать максимум 8 фото."); return; }
+            if (selected.some((file) => file.size > 10 * 1024 * 1024)) { setError("Каждое фото должно быть до 10 МБ."); return; }
+            setFiles(selected);
+            setError("");
+          }}
+        />
+      </label>
+      {files.length > 0 && <div className="marketplace-core-upload-list">{files.map((file) => <span key={file.name}>{file.name}</span>)}</div>}
+      {error && <small className="marketplace-core-error">{error}</small>}
+      <small className="marketplace-core-muted">До 8 изображений, каждое не больше 10 МБ. Фото автоматически сохраняются в хранилище SXRON.</small>
+    </div>
+    <div className="sxron-editor-actions">
+      <button className="sxron-secondary" onClick={onCancel}>Отмена</button>
+      <button
+        className="sxron-primary"
+        onClick={() => {
+          const numericPrice = Number(price.replace(/\s/g, "").replace(",", "."));
+          if (!name.trim() || !numericPrice) { setError("Укажи название и корректную цену."); return; }
+          onSave({
+            ...(product || {} as Product),
+            id: product?.id || 0,
+            name: name.trim(),
+            description: description.trim(),
+            price: numericPrice,
+            category: category.trim() || "Без категории",
+            city,
+            created_by: userId,
+            available: true,
+            condition: product?.condition || null,
+            delivery: product?.delivery || null,
+          }, files);
+        }}
+      >Сохранить</button>
+    </div>
+  </div>;
+}
+
 function LoadingGrid() { return <div className="sxron-product-grid">{Array.from({ length: 6 }).map((_, index) => <div className="sxron-skeleton" key={index}><div /><span /><span /></div>)}</div>; }
 function EmptyState({ title, text, action, onAction }: { title: string; text: string; action?: string; onAction?: () => void }) { return <div className="sxron-empty"><div>◈</div><h2>{title}</h2><p>{text}</p>{action && <button className="sxron-primary" onClick={onAction}>{action}</button>}</div>; }
