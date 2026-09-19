@@ -1,0 +1,40 @@
+name: SXRON Marketplace Core PR
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Node dependencies
+        run: npm install --no-audit --no-fund
+      - name: TypeScript check
+        run: npx tsc -p tsconfig.app.json --noEmit
+      - name: Build web app
+        run: npm run build
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r server/requirements.txt
+      - name: Compile Python
+        run: python -m compileall -q server
+      - name: Backend import smoke
+        env:
+          SXRON_DATA_DIR: ${{ github.workspace }}/build/pr-smoke-data
+        run: |
+          python -c "from server.launcher import app; print('SXRON backend routes:', len(app.routes))"
