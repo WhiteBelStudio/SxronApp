@@ -306,22 +306,21 @@ jobs:
             $env:SXRON_FULL_STARTUP_SMOKE = '1'
             $proc = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu','--no-sandbox' -WorkingDirectory (Join-Path $PWD 'release\win-unpacked') -PassThru
 
-            Start-Sleep -Seconds 12
-
-            if ($proc.HasExited) {
-              Write-Host "Packaged Electron startup smoke exited with code: $($proc.ExitCode)"
-              if ($proc.ExitCode -ne 0) {
-                throw "Packaged SXRON Electron startup failed with exit code $($proc.ExitCode)."
-              }
-            } else {
-              Write-Host 'Packaged Electron stayed alive for the full startup smoke window: OK.'
+            $completed = $proc.WaitForExit(20000)
+            if (-not $completed) {
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+              throw 'Packaged SXRON full startup smoke timed out after 20 seconds.'
+            }
+
+            Write-Host "Packaged Electron full startup smoke exited with code: $($proc.ExitCode)"
+            if ($proc.ExitCode -ne 0) {
+              throw "Packaged SXRON full startup smoke failed with exit code $($proc.ExitCode)."
             }
           } finally {
             if ($null -eq $oldDataDir) { Remove-Item Env:SXRON_DATA_DIR -ErrorAction SilentlyContinue } else { $env:SXRON_DATA_DIR = $oldDataDir }
           }
 
-          Write-Host 'Packaged Electron bootstrap smoke test: OK.'
+          Write-Host 'Packaged Electron full startup smoke test: OK.'
 
       - name: Verify installer checksum
         shell: pwsh
