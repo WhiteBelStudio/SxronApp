@@ -1,11 +1,25 @@
 !macro preInit
-  ; Always use the canonical per-user SXRON installation directory.
+  ; Always use one canonical per-user SXRON installation directory.
   StrCpy $INSTDIR "$LOCALAPPDATA\Programs\sxron-marketplace"
 !macroend
 
 !macro customInit
-  ; The launcher is outside $INSTDIR, so the installer can safely replace app files.
+  ; Kill every legacy SXRON process before replacing files.
+  nsExec::ExecToLog 'taskkill /F /T /IM "SXRON Marketplace.exe"'
+  Pop $0
+  nsExec::ExecToLog 'taskkill /F /T /IM "sxron-api.exe"'
+  Pop $0
+
+  ; Remove uninstallers left by malformed/legacy installs.
   Delete "$INSTDIR\Uninstall*.exe"
+
+  ; Remove old malformed installation directories created by the historical
+  ; --force-run updater bug. Keep the canonical directory above untouched.
+  RMDir /r "$LOCALAPPDATA\Programs\sxron-marketplace --force-run"
+  RMDir /r "$LOCALAPPDATA\Programs\sxron-marketplace --force-run --force-run"
+  RMDir /r "$LOCALAPPDATA\Programs\sxron-marketplace --force-run --force-run --force-run"
+  RMDir /r "$LOCALAPPDATA\Programs\sxron-marketplace --force-run --force-run --force-run --force-run"
+  RMDir /r "$LOCALAPPDATA\Programs\sxron-marketplace --force-run --force-run --force-run --force-run --force-run"
   nsExec::ExecToLog 'taskkill /F /T /IM "SXRON Marketplace.exe"'
   Pop $0
   nsExec::ExecToLog 'taskkill /F /T /IM "sxron-api.exe"'
