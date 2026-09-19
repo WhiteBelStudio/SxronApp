@@ -66,6 +66,40 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Set Android version identity
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          VERSION_CODE="$(python -c "v='$VERSION'.split('.'); print(int(v[0])*1000000 + int(v[1])*1000 + int(v[2]))")"
+          export VERSION VERSION_CODE
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          version = os.environ['VERSION']
+          code = os.environ['VERSION_CODE']
+          path = Path('android/app/build.gradle')
+          lines = path.read_text(encoding='utf-8').splitlines()
+          code_index = next((i for i, line in enumerate(lines) if line.strip().startswith('versionCode ')), None)
+          name_index = next((i for i, line in enumerate(lines) if line.strip().startswith('versionName ')), None)
+          if code_index is None or name_index is None:
+              raise SystemExit('Could not find Android versionCode/versionName in generated Gradle file.')
+          indent = lines[code_index][:len(lines[code_index]) - len(lines[code_index].lstrip())]
+          lines[code_index] = f'{indent}versionCode {code}'
+          lines[name_index] = f'{indent}versionName "{version}"'
+          path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          print(f'Android versionName={version} versionCode={code}')
+          PY
+
+      - name: Verify Android version identity
+        shell: bash
+        run: |
+          VERSION='${{ steps.version.outputs.version }}'
+          VERSION_CODE="$(python -c "v='$VERSION'.split('.'); print(int(v[0])*1000000 + int(v[1])*1000 + int(v[2]))")"
+          grep -Eq "versionCode[[:space:]]+$VERSION_CODE" android/app/build.gradle
+          grep -Eq "versionName[[:space:]]+\"$VERSION\"" android/app/build.gradle
+          echo "Android version identity verified: $VERSION / $VERSION_CODE"
+
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
