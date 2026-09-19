@@ -2,11 +2,11 @@
   "version": "1.4.1",
   "build": "github-build-aware",
   "title": "SXRON Marketplace 1.4.1",
-  "message": "SXRON Marketplace 1.4.1 — production hardening обновлений Windows и строгая проверка запуска перед публикацией.",
+  "message": "SXRON Marketplace 1.4.1 — production hardening Windows updater, canonical install path and strict startup validation.",
   "changes": [
-    "Сохранён весь marketplace core 1.4.0: медиа, избранное, покупки, заказы, сообщения и уведомления.",
-    "Обновления Windows всегда переходят в канонический каталог %LOCALAPPDATA%\\Programs\\sxron-marketplace.",
-    "CI проверяет полный запуск Electron/API и публикует EXE только после успешного startup smoke.",
-    "Синхронизированы версии desktop, API, launcher и Android."
+    "Marketplace core 1.4.0 сохранён: медиа, избранное, покупки, заказы, сообщения и уведомления.",
+    "Обновления Windows всегда используют канонический каталог %LOCALAPPDATA%\\Programs\\sxron-marketplace.",
+    "Публикация Windows EXE разрешается только после полного startup smoke Electron/API.",
+    "Pydantic Core native extension проверяется и присутствует в bundled API."
   ]
 }
