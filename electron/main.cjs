@@ -15,6 +15,9 @@ let updateCheckInProgress = false;
 let latestRelease = null;
 
 const CURRENT_VERSION = app.getVersion();
+const CANONICAL_WINDOWS_INSTALL_DIR = process.platform === 'win32' && process.env.LOCALAPPDATA
+  ? path.join(process.env.LOCALAPPDATA, 'Programs', 'sxron-marketplace')
+  : '';
 const GITHUB_OWNER = 'WhiteBelStudio';
 const GITHUB_REPO = 'SxronApp';
 const GITHUB_LATEST_RELEASE_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
@@ -322,6 +325,10 @@ async function downloadAndInstallGitHubUpdate() {
     ? resourcesDir.slice(0, -resourcesMarker.length)
     : path.dirname(app.getPath('exe'));
 
+  if (process.platform === 'win32' && CANONICAL_WINDOWS_INSTALL_DIR) {
+    installDir = CANONICAL_WINDOWS_INSTALL_DIR;
+  }
+
   // Always resolve Windows updates to the canonical per-user installation path.
   // Never propagate a malformed historical --force-run suffix into a new update.
   if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
@@ -415,7 +422,7 @@ async function downloadAndInstallGitHubUpdate() {
     'if (-not (Test-FileFree $electronExe)) { exit 5 }',
     '',
     'try {',
-    '  $proc = Start-Process -FilePath $Installer -ArgumentList @("/S", "/NCRC", "/D=$InstallDir") -WorkingDirectory (Split-Path -Parent $Installer) -PassThru',
+    '  $proc = Start-Process -FilePath $Installer -ArgumentList @("/S", "/NCRC") -WorkingDirectory (Split-Path -Parent $Installer) -PassThru',
     '  if ($proc) { exit 0 }',
     '} catch { exit 3 }',
     'exit 4',

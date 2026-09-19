@@ -10,7 +10,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.4.1"
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.getenv("SXRON_DATA_DIR", BASE_DIR / "data"))
 DB_PATH = DATA_DIR / "sxron.db"

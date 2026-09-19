@@ -9,7 +9,7 @@ import server.main as base
 import server.public_api as public_api
 
 
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.4.1"
 
 
 def _ensure_schema() -> None:

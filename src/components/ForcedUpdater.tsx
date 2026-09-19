@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.4.1";
 
 type UpdaterEvent = {
   event: string;
