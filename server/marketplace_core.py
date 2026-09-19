@@ -694,7 +694,11 @@ def register_marketplace_core() -> None:
         _participant_or_admin(user, conversation_id)
         with base.db() as connection:
             rows = connection.execute(
-                "SELECT * FROM messages WHERE conversation_id=? ORDER BY id ASC LIMIT 500",
+                """SELECT m.*, mf.original_name, mf.content_type, mf.size_bytes, mf.relative_path
+                   FROM messages m
+                   LEFT JOIN media_files mf ON mf.id=m.media_id
+                   WHERE m.conversation_id=?
+                   ORDER BY m.id ASC LIMIT 500""",
                 (conversation_id,),
             ).fetchall()
         return {
@@ -704,6 +708,13 @@ def register_marketplace_core() -> None:
                     "sender_id": row["sender_id"],
                     "text": row["text"],
                     "media_id": row["media_id"],
+                    "media": ({
+                        "id": row["media_id"],
+                        "name": row["original_name"],
+                        "content_type": row["content_type"],
+                        "size_bytes": row["size_bytes"],
+                        "url": MEDIA_BASE_URL + "/media/" + row["relative_path"].replace("\\", "/"),
+                    } if row["media_id"] is not None and row["relative_path"] else None),
                     "created_at": row["created_at"],
                     "read_at": row["read_at"],
                 }
