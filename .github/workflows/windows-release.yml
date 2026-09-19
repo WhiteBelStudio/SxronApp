@@ -200,6 +200,26 @@ jobs:
           Write-Host "Version identity: $tag / $commit"
           Set-Content -Path 'build/current-version.txt' -Value $version -Encoding ASCII
 
+      - name: Verify current version consistency
+        shell: pwsh
+        run: |
+          $expected = '${{ steps.version.outputs.version }}'
+          if ($expected -ne '1.3.6') { throw "This production branch must build SXRON 1.3.6, got $expected" }
+          $files = @(
+            'package.json',
+            'src/main.tsx',
+            'server/release_version.py',
+            'src/components/ForcedUpdater.tsx',
+            'build/launcher/SXRONLauncher.cs',
+            'START-SXRON.bat',
+            'update-manifest.json'
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path $file)) { throw "Version consistency file missing: $file" }
+            $text = Get-Content $file -Raw
+            if ($text -match '1\.3\.[0-5]') { throw "Stale 1.3.x version found in $file" }
+          }
+          Write-Host 'Production version consistency: 1.3.6'
       - name: Clean Windows release directory
         shell: pwsh
         run: |
