@@ -204,7 +204,8 @@ jobs:
         shell: pwsh
         run: |
           $expected = '${{ steps.version.outputs.version }}'
-          if ($expected -ne '1.4.0') { throw "This production branch must build SXRON 1.4.0, got $expected" }
+          $packageVersion = node -p "require('./package.json').version"
+           if ($expected -ne $packageVersion) { throw "Version output mismatch: package=$packageVersion workflow=$expected" }
           $files = @(
             'package.json',
             'src/main.tsx',
