@@ -66,7 +66,6 @@ export default function DesktopMarketplaceHome({
   onCategory,
   onFavorite,
   onProduct,
-  onSeller,
   navigate,
   notify,
 }: {
@@ -82,7 +81,6 @@ export default function DesktopMarketplaceHome({
   onCategory: (value: string) => void;
   onFavorite: (id: number) => void;
   onProduct: (product: Product) => void;
-  onSeller: (product: Product) => void;
   navigate: (page: Page) => void;
   notify: (message: string) => void;
 }) {
