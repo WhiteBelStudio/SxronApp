@@ -1,8 +1,8 @@
 {
-  "version": "1.4.3",
+  "version": "1.4.4",
   "build": "github-build-aware",
-  "title": "SXRON Marketplace 1.4.3",
-  "message": "SXRON Marketplace 1.4.3 — финальная production-сборка: полный replacement updater, канонический путь установки и строгая проверка запуска перед публикацией.",
+  "title": "SXRON Marketplace 1.4.4",
+  "message": "SXRON Marketplace 1.4.4 — финальная production-сборка: полный replacement updater, канонический путь установки и строгая проверка запуска перед публикацией.",
   "changes": [
     "Marketplace core 1.4.0 сохранён: медиа, избранное, покупки, заказы, сообщения и уведомления.",
     "Обновления Windows всегда используют канонический каталог %LOCALAPPDATA%\\Programs\\sxron-marketplace.",
