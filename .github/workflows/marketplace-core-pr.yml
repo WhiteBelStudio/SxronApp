@@ -1,0 +1,86 @@
+name: SXRON Marketplace Core PR
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Node dependencies
+        run: npm install --no-audit --no-fund
+      - name: TypeScript check
+        run: npx tsc -p tsconfig.app.json --noEmit
+      - name: Build web app
+        run: npm run build
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r server/requirements.txt
+          python -m pip install httpx2
+      - name: Compile Python
+        run: python -m compileall -q server
+      - name: Backend import smoke
+        env:
+          SXRON_DATA_DIR: ${{ github.workspace }}/build/pr-smoke-data
+        run: |
+          python -c "from server.launcher import app; print('SXRON backend routes:', len(app.routes))"
+      - name: Marketplace core runtime smoke
+        env:
+          SXRON_DATA_DIR: ${{ github.workspace }}/build/pr-runtime-smoke
+        run: |
+          python - <<'PY'
+          from fastapi.testclient import TestClient
+          from server.launcher import app
+
+          client = TestClient(app)
+
+          health = client.get("/health")
+          assert health.status_code == 200, health.text
+          assert health.json()["status"] == "ok"
+
+          catalog = client.get("/products")
+          assert catalog.status_code == 200, catalog.text
+          assert isinstance(catalog.json(), list)
+
+          headers = {"X-SXRON-Client-ID": "ci-marketplace-user"}
+          favorites = client.get("/favorites", headers=headers)
+          assert favorites.status_code == 200, favorites.text
+
+          png = (
+              b"\x89PNG\r\n\x1a\n"
+              b"\x00\x00\x00\x0dIHDR"
+              b"\x00\x00\x00\x01\x00\x00\x00\x01"
+              b"\x08\x06\x00\x00\x00"
+              b"\x1f\x15\xc4\x89"
+              b"\x00\x00\x00\x0aIDAT"
+              b"\x78\x9c\x63\x60\x00\x00\x00\x02\x00\x01"
+              b"\xe2\x21\xbc\x33"
+              b"\x00\x00\x00\x00IEND\xaeB\x60\x82"
+          )
+          upload = client.post(
+              "/media/upload?kind=general",
+              headers=headers,
+              files={"file": ("smoke.png", png, "image/png")},
+          )
+          assert upload.status_code == 200, upload.text
+          payload = upload.json()
+          assert payload["id"] > 0
+          assert payload["content_type"] == "image/png"
+
+          print("Marketplace core runtime smoke: OK")
+          PY

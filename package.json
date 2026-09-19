@@ -1,6 +1,6 @@
 {
   "name": "sxron-marketplace",
-  "version": "1.3.7",
+  "version": "1.4.0",
   "description": "SXRON Marketplace",
   "main": "electron/main.cjs",
   "type": "module",
@@ -33,7 +33,9 @@
     "electron-builder": "latest",
     "typescript": "latest",
     "vite": "latest",
-    "wait-on": "latest"
+    "wait-on": "latest",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0"
   },
   "build": {
     "appId": "com.sxron.marketplace",

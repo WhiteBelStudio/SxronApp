@@ -83,6 +83,14 @@ except ModuleNotFoundError:
 
 register_session_tracking(app)
 
+# Marketplace core: media storage, favorites, orders, chat and notifications.
+try:
+    from server.marketplace_core import register_marketplace_core
+except ModuleNotFoundError:
+    from marketplace_core import register_marketplace_core
+
+register_marketplace_core()
+
 
 if __name__ == "__main__":
     uvicorn.run(

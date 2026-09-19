@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AvatarShape, City, Page, Product, ProfileAccent, ProfileBanner, ProfileCustomization, User } from "./types";
-import { addAdmin, createProduct, deleteProduct, getAdmins, getCategories, getMe, getProducts, getProfile, getSessions, logout, revokeAllSessions, revokeSession, setPassword, updateProduct, updateProfile, type AdminUser, type MeResponse, type SessionInfo } from "./api/api";
+import { addAdmin, addFavorite, createConversation, createProduct, deleteProduct, getAdmins, getCategories, getFavorites, getMe, getProducts, getSessions, logout, removeFavorite, revokeAllSessions, revokeSession, setPassword, updateProduct, updateProfile, uploadProductImages, type AdminUser, type MeResponse, type SessionInfo } from "./api/api";
 import "./styles/global.css";
 import "./styles/profile.css";
 import "./styles/marketplace.css";
@@ -9,6 +9,11 @@ import "./styles/sxron-redesign.css";
 import "./styles/desktop.css";
 import "./styles/desktop-reference-135.css";
 import DesktopMarketplaceHome135 from "./components/DesktopMarketplaceHome135";
+import OrderCheckoutModal from "./components/OrderCheckoutModal";
+import OrdersPage from "./pages/OrdersPage";
+import MessagesPage from "./pages/MessagesPage";
+import NotificationsPage from "./pages/NotificationsPage";
+import "./styles/marketplace-core.css";
 
 const DEFAULT_PROFILE: ProfileCustomization = { displayName: "", bio: "", status: "", avatar: "✦", accent: "cyan", banner: "aurora", avatarShape: "rounded", usernameVisible: true, badgesVisible: true, activityVisible: true };
 const AVATARS = ["✦", "S", "◈", "◆", "●", "✚", "⚡", "★", "☁", "♢", "⌂", "◎", "❖", "◇", "⬢", "✧"];
@@ -19,7 +24,7 @@ function profileFromUser(user: User, me: MeResponse | null = null): ProfileCusto
 function loadProfile(): ProfileCustomization { try { return { ...DEFAULT_PROFILE, ...JSON.parse(localStorage.getItem("sxron_profile_customization") || "null") }; } catch { return DEFAULT_PROFILE; } }
 function loadFavorites(): number[] { try { return JSON.parse(localStorage.getItem("sxron_favorites") || "[]"); } catch { return []; } }
 function saveFavorites(ids: number[]) { try { localStorage.setItem("sxron_favorites", JSON.stringify(ids)); } catch { } }
-function normalizeProduct(product: Product): Product { return { ...product, price: Number(product.price) || 0, description: product.description || "Описание отсутствует." }; }
+function normalizeProduct(product: Product): Product { const cover = product.cover_photo_url || product.photos?.find((photo) => photo.is_cover)?.url || product.photos?.[0]?.url || product.photo_url || null; return { ...product, price: Number(product.price) || 0, description: product.description || "Описание отсутствует.", photo_url: cover, cover_photo_url: cover }; }
 function productCity(product: Product) { return typeof product.city === "string" ? product.city : product.city?.name || "Белореченск"; }
 
 export default function App() {
@@ -30,7 +35,9 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<{ id: number; name: string; slug?: string; icon?: string }[]>([]);
   const [favorites, setFavorites] = useState<number[]>(() => loadFavorites());
+  const [favoriteCatalog, setFavoriteCatalog] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
   const [sellerProduct, setSellerProduct] = useState<Product | null>(null);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Все");
@@ -69,17 +76,33 @@ export default function App() {
   }, [updateVersion]);
   useEffect(() => { let alive = true; (async () => { setLoading(true); try { const [productData, categoryData] = await Promise.all([getProducts({ city: city.name }), getCategories()]); if (!alive) return; setProducts(productData.map(normalizeProduct)); setCategories(categoryData); setApiError(""); } catch (error) { if (alive) setApiError(error instanceof Error ? error.message : "Не удалось загрузить каталог."); } finally { if (alive) setLoading(false); } })(); return () => { alive = false; }; }, [city.name]);
   useEffect(() => { getMe().then((result) => { setMe(result); setProfile((current) => ({ ...(result.user.display_name || result.user.avatar_url || result.user.bio ? profileFromUser(result.user, result) : current), status: roleLabel(result) })); }).catch(() => setMe(null)); }, []);
+  useEffect(() => { getFavorites().then((items) => { const normalized = items.map(normalizeProduct); setFavorites(normalized.map((item) => item.id)); setFavoriteCatalog(normalized); }).catch(() => undefined); }, []);
   useEffect(() => { if (!me?.is_admin) return; getAdmins().then((result) => setAdmins(result.admins)).catch(() => undefined); }, [me?.is_admin]);
 
   const filteredProducts = useMemo(() => { const query = search.trim().toLowerCase(); return products.filter((product) => { const category = product.category || "Без категории"; return (selectedCategory === "Все" || category === selectedCategory) && (!query || `${product.name} ${product.description} ${category} ${productCity(product)}`.toLowerCase().includes(query)); }); }, [products, search, selectedCategory]);
-  const favoriteProducts = products.filter((product) => favorites.includes(product.id));
+  const favoriteProducts = favoriteCatalog.length ? favoriteCatalog : products.filter((product) => favorites.includes(product.id));
   const managedProducts = products.filter((product) => Boolean(product.created_by && me?.user.id === product.created_by));
   function navigate(next: Page) { setPage(next); setSelectedProduct(null); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  function toggleFavorite(id: number) { setFavorites((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]); }
+  async function toggleFavorite(id: number) {
+    const exists = favorites.includes(id);
+    setFavorites((current) => exists ? current.filter((item) => item !== id) : [...current, id]);
+    const product = products.find((item) => item.id === id) || favoriteCatalog.find((item) => item.id === id);
+    if (!exists && product) setFavoriteCatalog((current) => current.some((item) => item.id === id) ? current : [product, ...current]);
+    if (exists) setFavoriteCatalog((current) => current.filter((item) => item.id !== id));
+    try {
+      if (exists) await removeFavorite(id);
+      else await addFavorite(id);
+    } catch (error) {
+      setFavorites((current) => exists ? [...current, id] : current.filter((item) => item !== id));
+      if (!exists && product) setFavoriteCatalog((current) => current.filter((item) => item.id !== id));
+      if (exists && product) setFavoriteCatalog((current) => current.some((item) => item.id === id) ? current : [product, ...current]);
+      notify(error instanceof Error ? error.message : "Не удалось изменить избранное");
+    }
+  }
   function notify(message: string) { setToast(message); window.setTimeout(() => setToast(""), 2600); }
   function checkForUpdates() { setUpdateChecking(true); setUpdateMessage("Проверяем наличие новой версии…"); try { window.open("sxron://check-updates"); } catch (error) { setUpdateChecking(false); setUpdateMessage(error instanceof Error ? error.message : "Не удалось запустить проверку."); } }
   function startUpdate() { setUpdateChecking(true); setUpdateMessage(`Запускаем загрузку версии ${updateVersion || "новой"}…`); try { window.open("sxron://start-update"); } catch (error) { setUpdateChecking(false); setUpdateMessage(error instanceof Error ? error.message : "Не удалось запустить обновление."); } }
-  async function handleProductSave(product: Product) {
+  async function handleProductSave(product: Product, files: File[] = []) {
     try {
       const payload = {
         name: product.name,
@@ -87,11 +110,17 @@ export default function App() {
         price: Number(product.price) || 0,
         category: product.category || null,
         city: productCity(product),
+        condition: product.condition || null,
+        delivery: product.delivery || null,
       };
       const saved = product.id > 0 && products.some((item) => item.id === product.id)
         ? await updateProduct(product.id, payload)
         : await createProduct(payload);
-      const normalized = normalizeProduct(saved);
+      let normalized = normalizeProduct(saved);
+      if (files.length) {
+        const uploaded = await uploadProductImages(normalized.id, files);
+        normalized = normalizeProduct({ ...normalized, photos: uploaded.photos, cover_photo_url: uploaded.photos[0]?.url || normalized.cover_photo_url });
+      }
       setProducts((current) => current.some((item) => item.id === normalized.id) ? current.map((item) => item.id === normalized.id ? normalized : item) : [normalized, ...current]);
       setEditingProduct(null);
       setManageMode("list");
@@ -122,11 +151,11 @@ export default function App() {
     { key: "home", label: "Главная", icon: "⌂", page: "home" },
     { key: "catalog", label: "Каталог", icon: "⌕", page: "catalog" },
     { key: "favorites", label: "Избранное", icon: "♡", page: "favorites" },
-    { key: "messages", label: "Сообщения", icon: "✉", soon: true },
+    { key: "messages", label: "Сообщения", icon: "✉", page: "messages" },
     { key: "listings", label: "Мои объявления", icon: "🗂", page: "profile" },
-    { key: "purchases", label: "Покупки", icon: "🛒", soon: true },
-    { key: "sales", label: "Продажи", icon: "💳", soon: true },
-    { key: "notifications", label: "Уведомления", icon: "🔔", soon: true },
+    { key: "purchases", label: "Покупки", icon: "🛒", page: "purchases" },
+    { key: "sales", label: "Продажи", icon: "💳", page: "sales" },
+    { key: "notifications", label: "Уведомления", icon: "🔔", page: "notifications" },
     ...(me?.is_admin ? [{ key: "admin", label: "Администрация", icon: "🛡", page: "profile" as Page }] : []),
     { key: "support", label: "Поддержка", icon: "🎧", soon: true },
     { key: "profile", label: "Профиль", icon: "◉", page: "profile" },
@@ -135,7 +164,10 @@ export default function App() {
   return <div className={appClass}>
     <header className="sxron-topbar"><button className="sxron-brand" onClick={() => navigate("home")} aria-label="SXRON"><span className="sxron-brand__mark">S</span><span>SXRON</span></button>{!isMobile && <nav className="sxron-topnav">{sidebarItems.map((item) => <button key={item.key} className={(item.page && item.page === page ? "active" : "") + (item.soon ? " sxron-topnav-soon" : "")} onClick={() => { if (item.soon) { notify("Этот раздел скоро появится"); return; } if (item.page) navigate(item.page); }} style={{ position: "relative" }}><span className="sxron-topnav-icon">{item.icon}</span><span>{item.label}</span>{item.soon && <em className="sxron-topnav-badge">скоро</em>}{item.key === "profile" && updateAvailable && <span style={{ position: "absolute", top: 8, right: 10, width: 7, height: 7, borderRadius: 99, background: "#22b8ff", boxShadow: "0 0 0 3px rgba(34, 184, 255,.12)" }} />}</button>)}</nav>}<div className="sxron-city-pill">📍 {city.name}</div></header>
     <main className="sxron-content">
-      {page === "home" && (isMobile ? <section className="sxron-home"><div className="sxron-hero-card"><div><span className="sxron-kicker">SXRON MARKETPLACE</span><h1>Покупай.<br /><span>Продавай.</span></h1><p>Современный маркетплейс Белореченска. Найди нужное или размести своё объявление.</p><div className="sxron-actions"><button className="sxron-primary" onClick={() => navigate("catalog")}>🛍 Открыть каталог</button><button className="sxron-secondary" onClick={() => { setManageMode("create"); navigate("profile"); }}>＋ Продать</button></div></div><div className="sxron-hero-orb"><span>S</span></div></div><div className="sxron-trust-row"><div className="sxron-trust-item"><span>🛡</span><div><b>Безопасные сделки</b><small>Проверенные продавцы</small></div></div><div className="sxron-trust-item"><span>💳</span><div><b>Удобная оплата</b><small>Надёжные способы</small></div></div><div className="sxron-trust-item"><span>🚚</span><div><b>Быстрая доставка</b><small>По городу и региону</small></div></div></div><div className="sxron-section-head"><div><span>КАТЕГОРИИ</span><h2>Что ищем?</h2></div><button onClick={() => navigate("catalog")}>Все →</button></div><div className="sxron-category-grid">{categories.slice(0, 8).map((category) => <button key={category.id} className="sxron-category-card" onClick={() => { setSelectedCategory(category.name); navigate("catalog"); }}><strong>{category.icon || "◈"}</strong><span>{category.name}</span></button>)}</div><div className="sxron-section-head"><div><span>ПОСЛЕДНИЕ</span><h2>Новые объявления</h2></div><button onClick={() => navigate("catalog")}>Смотреть все →</button></div><ProductGrid products={products.slice(0, 6)} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /></section> : <DesktopMarketplaceHome135
+      {page === "messages" && <MessagesPage onNotify={notify} />}
+      {page === "purchases" && <OrdersPage side="buying" onNotify={notify} />}
+      {page === "sales" && <OrdersPage side="selling" onNotify={notify} />}
+      {page === "notifications" && <NotificationsPage onNotify={notify} />}\n      {page === "home" && (isMobile ? <section className="sxron-home"><div className="sxron-hero-card"><div><span className="sxron-kicker">SXRON MARKETPLACE</span><h1>Покупай.<br /><span>Продавай.</span></h1><p>Современный маркетплейс Белореченска. Найди нужное или размести своё объявление.</p><div className="sxron-actions"><button className="sxron-primary" onClick={() => navigate("catalog")}>🛍 Открыть каталог</button><button className="sxron-secondary" onClick={() => { setManageMode("create"); navigate("profile"); }}>＋ Продать</button></div></div><div className="sxron-hero-orb"><span>S</span></div></div><div className="sxron-trust-row"><div className="sxron-trust-item"><span>🛡</span><div><b>Безопасные сделки</b><small>Проверенные продавцы</small></div></div><div className="sxron-trust-item"><span>💳</span><div><b>Удобная оплата</b><small>Надёжные способы</small></div></div><div className="sxron-trust-item"><span>🚚</span><div><b>Быстрая доставка</b><small>По городу и региону</small></div></div></div><div className="sxron-section-head"><div><span>КАТЕГОРИИ</span><h2>Что ищем?</h2></div><button onClick={() => navigate("catalog")}>Все →</button></div><div className="sxron-category-grid">{categories.slice(0, 8).map((category) => <button key={category.id} className="sxron-category-card" onClick={() => { setSelectedCategory(category.name); navigate("catalog"); }}><strong>{category.icon || "◈"}</strong><span>{category.name}</span></button>)}</div><div className="sxron-section-head"><div><span>ПОСЛЕДНИЕ</span><h2>Новые объявления</h2></div><button onClick={() => navigate("catalog")}>Смотреть все →</button></div><ProductGrid products={products.slice(0, 6)} favorites={favorites} onFavorite={toggleFavorite} onProduct={setSelectedProduct} onSeller={setSellerProduct} /></section> : <DesktopMarketplaceHome135
         city={city}
         categories={categories}
         products={products}
@@ -156,7 +188,7 @@ export default function App() {
       {page === "profile" && <UserProfilePage profile={profile} me={me} products={products} favorites={favorites} managedProducts={managedProducts} admins={admins} adminId={adminId} setAdminId={setAdminId} manageMode={manageMode} setManageMode={setManageMode} editingProduct={editingProduct} setEditingProduct={setEditingProduct} onEditProfile={() => setProfileEditorOpen(true)} onSessions={openSessions} onLogout={handleLogout} onAddAdmin={async () => { const id = Number(adminId); if (!id) return notify("Введите корректный ID"); try { await addAdmin(id); const result = await getAdmins(); setAdmins(result.admins); setAdminId(""); notify("Администратор добавлен"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось добавить администратора"); } }} onDeleteProduct={handleDeleteProduct} onSaveProduct={handleProductSave} onCancelEdit={() => { setManageMode("list"); setEditingProduct(null); }} updateAvailable={updateAvailable} updateVersion={updateVersion} updateChecking={updateChecking} updateMessage={updateMessage} onCheckUpdates={checkForUpdates} onStartUpdate={startUpdate} />}
     </main>
     <nav className="sxron-bottom-nav"><button className={page === "home" ? "active" : ""} onClick={() => navigate("home")}><b>⌂</b><span>Главная</span></button><button className={page === "catalog" ? "active" : ""} onClick={() => navigate("catalog")}><b>⌕</b><span>Каталог</span></button><button className={page === "favorites" ? "active" : ""} onClick={() => navigate("favorites")}><b>♡</b><span>Избранное</span></button><button className={page === "profile" ? "active" : ""} onClick={() => navigate("profile")} style={{ position: "relative" }}><b>◉</b><span>Профиль{updateAvailable && <i style={{ position: "absolute", top: 4, right: 22, width: 6, height: 6, borderRadius: 99, background: "#22b8ff" }} />}</span></button></nav>
-    {selectedProduct && <ProductModal product={selectedProduct} favorite={favorites.includes(selectedProduct.id)} onFavorite={() => toggleFavorite(selectedProduct.id)} onClose={() => setSelectedProduct(null)} onSeller={() => setSellerProduct(selectedProduct)} />}
+    {selectedProduct && <ProductModal product={selectedProduct} favorite={favorites.includes(selectedProduct.id)} onFavorite={() => void toggleFavorite(selectedProduct.id)} onClose={() => setSelectedProduct(null)} onSeller={() => setSellerProduct(selectedProduct)} onBuy={() => { setCheckoutProduct(selectedProduct); setSelectedProduct(null); }} onMessageSeller={async () => { if (!selectedProduct.seller_id) return; try { await createConversation({ seller_id: selectedProduct.seller_id, product_id: selectedProduct.id }); setSelectedProduct(null); navigate("messages"); } catch (error) { notify(error instanceof Error ? error.message : "Не удалось открыть диалог"); } }} />}
     {sellerProduct && <SellerModal product={sellerProduct} onClose={() => setSellerProduct(null)} />}
     {profileEditorOpen && <ProfileCustomizer initial={profile} onClose={() => setProfileEditorOpen(false)} onSave={saveUserProfile} />}
     {sessionsOpen && <SessionsModal sessions={sessions} onClose={() => setSessionsOpen(false)} onRevoke={removeSession} onRevokeAll={removeAllSessions} />}
@@ -179,8 +211,69 @@ function PasswordChangeModal({ onClose }: { onClose: () => void }) { const [pass
 function ProfileCustomizer({ initial, onClose, onSave }: { initial: ProfileCustomization; onClose: () => void; onSave: (profile: ProfileCustomization) => Promise<void> }) { const [draft, setDraft] = useState<ProfileCustomization>(initial); const [saving, setSaving] = useState(false); const [error, setError] = useState(""); const fileRef = useRef<HTMLInputElement>(null); const update = <K extends keyof ProfileCustomization>(key: K, value: ProfileCustomization[K]) => setDraft((current) => ({ ...current, [key]: value })); function uploadAvatar(event: React.ChangeEvent<HTMLInputElement>) { const file = event.target.files?.[0]; if (!file) return; if (!file.type.startsWith("image/")) { setError("Можно выбрать только изображение."); return; } if (file.size > 1_500_000) { setError("Аватар должен быть не больше 1.5 МБ."); return; } const reader = new FileReader(); reader.onload = () => { if (typeof reader.result === "string") { update("avatar", reader.result); setError(""); } }; reader.readAsDataURL(file); } async function submit() { setSaving(true); setError(""); try { await onSave(draft); } catch (err) { setError(err instanceof Error ? err.message : "Не удалось сохранить профиль."); } finally { setSaving(false); } } return <div className="profile-customizer-backdrop" onClick={onClose}><div className="profile-customizer" onClick={(event) => event.stopPropagation()}><div className="profile-customizer__header"><div><span className="profile-customizer__eyebrow">SXRON IDENTITY</span><h2>Настройка профиля</h2><p>Полная кастомизация профиля — внешний вид и приватность.</p></div><button className="profile-customizer__close" onClick={onClose}>×</button></div><div className="profile-customizer__preview profile-customizer__preview--rich"><div className={`profile-customizer__preview-avatar profile-customizer__preview-avatar--${draft.avatarShape}`}>{draft.avatar.startsWith("data:image/") ? <img src={draft.avatar} alt="" /> : draft.avatar}</div><div><strong>{draft.displayName || "Пользователь"}</strong><span>{draft.status || "Пользователь"}</span><p>{draft.bio || "Добавь короткое описание о себе."}</p></div></div><label className="profile-customizer__field"><span>Отображаемое имя</span><input maxLength={60} value={draft.displayName} onChange={(e) => update("displayName", e.target.value)} /></label><label className="profile-customizer__field"><span>О себе</span><textarea maxLength={500} rows={4} value={draft.bio} onChange={(e) => update("bio", e.target.value)} /></label><div className="profile-customizer__group"><span className="profile-customizer__label">Аватар</span><div className="profile-customizer__avatars">{AVATARS.map((avatar) => <button type="button" key={avatar} className={draft.avatar === avatar ? "is-active" : ""} onClick={() => update("avatar", avatar)}>{avatar}</button>)}</div><div className="profile-customizer__avatar-upload"><button type="button" className="profile-customizer__upload-button" onClick={() => fileRef.current?.click()}><span className="profile-customizer__upload-icon">↑</span><span><strong>Загрузить свой аватар</strong><small>PNG, JPG, WEBP · до 1.5 МБ</small></span></button><input ref={fileRef} className="profile-customizer__file-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadAvatar} />{draft.avatar.startsWith("data:image/") && <button type="button" className="profile-customizer__remove-avatar" onClick={() => update("avatar", "✦")}>Удалить фото</button>}</div></div><div className="profile-customizer__group"><span className="profile-customizer__label">Цвет профиля</span><div className="profile-customizer__accents">{(["cyan", "violet", "blue", "sunset"] as ProfileAccent[]).map((accent) => <button type="button" key={accent} data-accent={accent} className={draft.accent === accent ? "is-active" : ""} onClick={() => update("accent", accent)}><i />{accent === "cyan" ? "SXRON" : accent === "violet" ? "Violet" : accent === "blue" ? "Blue" : "Sunset"}</button>)}</div></div><div className="profile-customizer__group"><span className="profile-customizer__label">Обложка профиля</span><div className="profile-customizer__banners">{BANNERS.map((banner) => <button type="button" key={banner} data-banner={banner} className={`profile-customizer__banner profile-customizer__banner--${banner} ${draft.banner === banner ? "is-active" : ""}`} onClick={() => update("banner", banner)}><span />{banner === "aurora" ? "Aurora" : banner === "violet" ? "Violet" : banner === "ocean" ? "Ocean" : "Sunset"}</button>)}</div></div><div className="profile-customizer__group"><span className="profile-customizer__label">Форма аватара</span><div className="profile-customizer__shapes">{SHAPES.map((shape) => <button type="button" key={shape} className={draft.avatarShape === shape ? "is-active" : ""} onClick={() => update("avatarShape", shape)}><span className={`profile-shape-demo profile-shape-demo--${shape}`} />{shape === "rounded" ? "Rounded" : shape === "circle" ? "Circle" : "Square"}</button>)}</div></div><div className="profile-customizer__group"><span className="profile-customizer__label">Приватность</span><label className="profile-customizer__switch"><span><strong>Показывать username</strong><small>Другие пользователи увидят @username в профиле.</small></span><input type="checkbox" checked={draft.usernameVisible} onChange={(e) => update("usernameVisible", e.target.checked)} /><i /></label><label className="profile-customizer__switch"><span><strong>Показывать значки</strong><small>Публичные отметки и статус профиля.</small></span><input type="checkbox" checked={draft.badgesVisible} onChange={(e) => update("badgesVisible", e.target.checked)} /><i /></label><label className="profile-customizer__switch"><span><strong>Показывать активность</strong><small>Онлайн-статус и активность профиля.</small></span><input type="checkbox" checked={draft.activityVisible} onChange={(e) => update("activityVisible", e.target.checked)} /><i /></label></div>{error && <p className="profile-customizer__error">{error}</p>}<div className="profile-customizer__actions"><button className="profile-customizer__cancel" onClick={onClose} disabled={saving}>Отмена</button><button className="profile-customizer__save" onClick={submit} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить профиль"}</button></div></div></div>; }
 function SessionsModal({ sessions, onClose, onRevoke, onRevokeAll }: { sessions: SessionInfo[]; onClose: () => void; onRevoke: (id: number) => void; onRevokeAll: () => void }) { return <div className="profile-customizer-backdrop" onClick={onClose}><div className="profile-customizer sessions-modal" onClick={(event) => event.stopPropagation()}><div className="profile-customizer__header"><div><span className="profile-customizer__eyebrow">SECURITY</span><h2>Активные устройства</h2><p>Сессии, с которых открыт ваш аккаунт.</p></div><button className="profile-customizer__close" onClick={onClose}>×</button></div><div className="sessions-list">{sessions.length ? sessions.map((session) => <div className="session-row" key={session.id}><div className="session-icon">{session.device?.toLowerCase().includes("mobile") ? "📱" : "💻"}</div><div className="session-info"><b>{session.device || session.platform || "Устройство"}</b><span>{session.client_type || "SXRON"} · вход {new Date(session.created_at).toLocaleDateString("ru-RU")}</span><small>{session.ip_address || "IP скрыт"}</small></div><button onClick={() => onRevoke(session.id)}>Завершить</button></div>) : <div className="sessions-empty">Активных сессий не найдено.</div>}</div>{sessions.length > 1 && <button className="profile-customizer__cancel sessions-revoke-all" onClick={onRevokeAll}>Завершить остальные сессии</button>}</div></div>; }
 function ProductGrid({ products, favorites, onFavorite, onProduct, onSeller }: { products: Product[]; favorites: number[]; onFavorite: (id: number) => void; onProduct: (product: Product) => void; onSeller: (product: Product) => void }) { if (!products.length) return <EmptyState title="Ничего не найдено" text="Попробуй изменить запрос или категорию." />; return <div className="sxron-product-grid">{products.map((product) => <article className="sxron-product-card" key={product.id} onClick={() => onProduct(product)}><div className="sxron-product-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}<button onClick={(event) => { event.stopPropagation(); onFavorite(product.id); }} className={favorites.includes(product.id) ? "liked" : ""}>{favorites.includes(product.id) ? "♥" : "♡"}</button></div><div className="sxron-product-body"><span>{product.category || "Без категории"}</span><h3>{product.name}</h3><strong>{product.price.toLocaleString("ru-RU")} ₽</strong><small>📍 {productCity(product)} · <button onClick={(event) => { event.stopPropagation(); onSeller(product); }}>Продавец</button></small></div></article>)}</div>; }
-function ProductModal({ product, favorite, onFavorite, onClose, onSeller }: { product: Product; favorite: boolean; onFavorite: () => void; onClose: () => void; onSeller: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-product-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-detail-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}</div><div className="sxron-detail-content"><span>{product.category || "Без категории"}</span><h2>{product.name}</h2><strong className="sxron-detail-price">{product.price.toLocaleString("ru-RU")} ₽</strong><p>{product.description}</p><div className="sxron-detail-meta"><span>📍 {productCity(product)}</span>{product.condition && <span>◈ {product.condition}</span>}{product.delivery && <span>🚚 {product.delivery}</span>}</div><div className="sxron-detail-actions"><button className="sxron-primary" onClick={onSeller}>👤 Профиль продавца</button><button className="sxron-secondary" onClick={onFavorite}>{favorite ? "♥ В избранном" : "♡ В избранное"}</button></div></div></div></div>; }
+function ProductModal({ product, favorite, onFavorite, onClose, onSeller, onBuy, onMessageSeller }: { product: Product; favorite: boolean; onFavorite: () => void; onClose: () => void; onSeller: () => void; onBuy: () => void; onMessageSeller: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-product-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-detail-image">{product.photo_url ? <img src={product.photo_url} alt={product.name} /> : <span>S</span>}</div><div className="sxron-detail-content"><span>{product.category || "Без категории"}</span><h2>{product.name}</h2><strong className="sxron-detail-price">{product.price.toLocaleString("ru-RU")} ₽</strong><p>{product.description}</p><div className="sxron-detail-meta"><span>📍 {productCity(product)}</span>{product.condition && <span>◈ {product.condition}</span>}{product.delivery && <span>🚚 {product.delivery}</span>}</div><div className="sxron-detail-actions"><button className="sxron-primary" onClick={onBuy}>🛒 Купить</button><button className="sxron-secondary" onClick={onMessageSeller}>✉ Написать продавцу</button><button className="sxron-secondary" onClick={onSeller}>👤 Профиль продавца</button><button className="sxron-secondary" onClick={onFavorite}>{favorite ? "♥ В избранном" : "♡ В избранное"}</button></div></div></div></div>; }
 function SellerModal({ product, onClose }: { product: Product; onClose: () => void }) { return <div className="sxron-modal-backdrop" onClick={onClose}><div className="sxron-modal sxron-seller-modal" onClick={(event) => event.stopPropagation()}><button className="sxron-modal-close" onClick={onClose}>×</button><div className="sxron-seller-avatar">{(product.name || "S").charAt(0).toUpperCase()}</div><span>ПРОДАВЕЦ</span><h2>Продавец SXRON</h2><div className="sxron-rating">★★★★★ <b>Новый профиль</b></div><p>Профиль продавца и его объявления будут загружаться из SXRON API.</p><div className="sxron-seller-stats"><div><b>—</b><span>Рейтинг</span></div><div><b>—</b><span>Отзывы</span></div><div><b>—</b><span>Объявления</span></div></div><button className="sxron-primary">💬 Написать продавцу</button></div></div>; }
-function ProductEditor({ product, userId, onCancel, onSave }: { product: Product | null; userId: number; onCancel: () => void; onSave: (product: Product) => void }) { const [name, setName] = useState(product?.name || ""); const [description, setDescription] = useState(product?.description || ""); const [price, setPrice] = useState(String(product?.price || "")); const [category, setCategory] = useState(product?.category || ""); const [city, setCity] = useState(productCity(product || { city: "Белоречensk" } as Product)); return <div className="sxron-editor"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" /><input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Цена, ₽" /><div className="sxron-editor-row"><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Категория" /><input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" /></div><div className="sxron-editor-actions"><button className="sxron-secondary" onClick={onCancel}>Отмена</button><button className="sxron-primary" onClick={() => { if (!name.trim() || !Number(price)) return; onSave({ ...(product || {} as Product), id: product?.id || Date.now(), name: name.trim(), description: description.trim(), price: Number(price.replace(/\s/g, "").replace(",", ".")), category: category.trim() || "Без категории", city, created_by: userId, available: true }); }}>Сохранить</button></div></div>; }
+function ProductEditor({ product, userId, onCancel, onSave }: { product: Product | null; userId: number; onCancel: () => void; onSave: (product: Product, files?: File[]) => void }) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [error, setError] = useState("");
+  const [name, setName] = useState(product?.name || "");
+  const [description, setDescription] = useState(product?.description || "");
+  const [price, setPrice] = useState(String(product?.price || ""));
+  const [category, setCategory] = useState(product?.category || "");
+  const [city, setCity] = useState(productCity(product || { city: "Белоречensk" } as Product));
+
+  return <div className="sxron-editor">
+    <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" />
+    <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание" />
+    <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="Цена, ₽" />
+    <div className="sxron-editor-row">
+      <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Категория" />
+      <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Город" />
+    </div>
+    <div className="marketplace-core-upload">
+      <label>Фото товара
+        <input
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={(event) => {
+            const selected = Array.from(event.target.files || []);
+            if (selected.length > 8) { setError("Можно выбрать максимум 8 фото."); return; }
+            if (selected.some((file) => file.size > 10 * 1024 * 1024)) { setError("Каждое фото должно быть до 10 МБ."); return; }
+            setFiles(selected);
+            setError("");
+          }}
+        />
+      </label>
+      {files.length > 0 && <div className="marketplace-core-upload-list">{files.map((file) => <span key={file.name}>{file.name}</span>)}</div>}
+      {error && <small className="marketplace-core-error">{error}</small>}
+      <small className="marketplace-core-muted">До 8 изображений, каждое не больше 10 МБ. Фото автоматически сохраняются в хранилище SXRON.</small>
+    </div>
+    <div className="sxron-editor-actions">
+      <button className="sxron-secondary" onClick={onCancel}>Отмена</button>
+      <button
+        className="sxron-primary"
+        onClick={() => {
+          const numericPrice = Number(price.replace(/\s/g, "").replace(",", "."));
+          if (!name.trim() || !numericPrice) { setError("Укажи название и корректную цену."); return; }
+          onSave({
+            ...(product || {} as Product),
+            id: product?.id || 0,
+            name: name.trim(),
+            description: description.trim(),
+            price: numericPrice,
+            category: category.trim() || "Без категории",
+            city,
+            created_by: userId,
+            available: true,
+            condition: product?.condition || null,
+            delivery: product?.delivery || null,
+          }, files);
+        }}
+      >Сохранить</button>
+    </div>
+  </div>;
+}
+
 function LoadingGrid() { return <div className="sxron-product-grid">{Array.from({ length: 6 }).map((_, index) => <div className="sxron-skeleton" key={index}><div /><span /><span /></div>)}</div>; }
 function EmptyState({ title, text, action, onAction }: { title: string; text: string; action?: string; onAction?: () => void }) { return <div className="sxron-empty"><div>◈</div><h2>{title}</h2><p>{text}</p>{action && <button className="sxron-primary" onClick={onAction}>{action}</button>}</div>; }

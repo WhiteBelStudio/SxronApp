@@ -14,7 +14,7 @@ import "./styles/user-profile.css";
 import "./styles/theme.css";
 import "./styles/desktop-overrides.css";
 
-const APP_VERSION = "1.3.7";
+const APP_VERSION = "1.4.0";
 
 function syncStaticVersionLabels() {
   document.title = `SXRON Marketplace ${APP_VERSION}`;

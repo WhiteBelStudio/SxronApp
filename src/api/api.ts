@@ -7,6 +7,10 @@ import type {
   ProfileBanner,
   AvatarShape,
   User,
+  Order,
+  Conversation,
+  ChatMessage,
+  SxronNotification,
 } from "../types";
 
 const DEFAULT_API_URL =
@@ -192,6 +196,104 @@ export async function getSessions(): Promise<SessionsResponse> { return request<
 export async function revokeSession(sessionId: number): Promise<{ ok: boolean }> { return request<{ ok: boolean }>(`/auth/sessions/${sessionId}`, { method: "DELETE" }); }
 export async function revokeAllSessions(): Promise<{ ok: boolean }> { return request<{ ok: boolean }>("/auth/sessions/revoke-all", { method: "POST" }); }
 export async function getAdminSessions(): Promise<SessionsResponse> { return request<SessionsResponse>("/admin/sessions"); }
+
+
+export async function getFavorites(): Promise<Product[]> {
+  return request<Product[]>("/favorites");
+}
+
+export async function addFavorite(productId: number): Promise<{ ok: boolean; favorite: boolean }> {
+  return request<{ ok: boolean; favorite: boolean }>(`/favorites/${productId}`, { method: "POST" });
+}
+
+export async function removeFavorite(productId: number): Promise<{ ok: boolean; favorite: boolean }> {
+  return request<{ ok: boolean; favorite: boolean }>(`/favorites/${productId}`, { method: "DELETE" });
+}
+
+export async function uploadProductImages(productId: number, files: File[]): Promise<{ photos: NonNullable<Product["photos"]> }> {
+  const form = new FormData();
+  for (const file of files) form.append("files", file, file.name);
+  const response = await fetch(`${API_URL}/products/${productId}/images`, {
+    method: "POST",
+    body: form,
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache",
+      "X-SXRON-Client-ID": getClientId(),
+      ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
+    },
+  });
+  if (!response.ok) {
+    let message = `Ошибка загрузки фото: ${response.status}`;
+    try { const data = await response.json(); if (typeof data?.detail === "string") message = data.detail; } catch {}
+    throw new Error(message);
+  }
+  return response.json() as Promise<{ photos: NonNullable<Product["photos"]> }>;
+}
+
+export async function deleteProductImage(productId: number, mediaId: number): Promise<{ ok: boolean; photos: NonNullable<Product["photos"]> }> {
+  return request<{ ok: boolean; photos: NonNullable<Product["photos"]> }>(`/products/${productId}/images/${mediaId}`, { method: "DELETE" });
+}
+
+export async function createOrder(data: { product_id: number; quantity?: number; delivery_method?: string; delivery_address?: string; note?: string }): Promise<Order> {
+  return request<Order>("/orders", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function getOrders(side: "all" | "buying" | "selling" = "all"): Promise<{ orders: Order[] }> {
+  return request<{ orders: Order[] }>(`/orders?side=${encodeURIComponent(side)}`);
+}
+
+export async function updateOrder(orderId: number, status: string, note = ""): Promise<Order> {
+  return request<Order>(`/orders/${orderId}`, { method: "PATCH", body: JSON.stringify({ status, note }) });
+}
+
+export async function getConversations(): Promise<{ conversations: Conversation[] }> {
+  return request<{ conversations: Conversation[] }>("/conversations");
+}
+
+export async function createConversation(data: { seller_id: number; product_id?: number; text?: string }): Promise<{ conversation_id: number }> {
+  return request<{ conversation_id: number }>("/conversations", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function getMessages(conversationId: number): Promise<{ messages: ChatMessage[] }> {
+  return request<{ messages: ChatMessage[] }>(`/conversations/${conversationId}/messages`);
+}
+
+export async function sendMessage(conversationId: number, text: string, mediaId?: number): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/conversations/${conversationId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ text, media_id: mediaId ?? null }),
+  });
+}
+
+export async function uploadMedia(file: File, kind: "chat" | "general" | "avatar" = "chat"): Promise<{ id: number; name: string; content_type: string; size_bytes: number; url: string }> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const response = await fetch(`${API_URL}/media/upload?kind=${encodeURIComponent(kind)}`, {
+    method: "POST",
+    body: form,
+    cache: "no-store",
+    headers: {
+      "Cache-Control": "no-cache",
+      "X-SXRON-Client-ID": getClientId(),
+      ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
+    },
+  });
+  if (!response.ok) {
+    let message = `Ошибка загрузки файла: ${response.status}`;
+    try { const data = await response.json(); if (typeof data?.detail === "string") message = data.detail; } catch {}
+    throw new Error(message);
+  }
+  return response.json();
+}
+
+export async function getNotifications(): Promise<{ notifications: SxronNotification[] }> {
+  return request<{ notifications: SxronNotification[] }>("/notifications");
+}
+
+export async function markNotificationRead(notificationId: number, read = true): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>(`/notifications/${notificationId}`, { method: "PATCH", body: JSON.stringify({ read }) });
+}
 
 export async function getProducts(params?: { search?: string; category?: string; city?: string }): Promise<Product[]> {
   const searchParams = new URLSearchParams();
