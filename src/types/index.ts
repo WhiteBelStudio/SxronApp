@@ -78,11 +78,20 @@ export interface Conversation {
   last_message_at: string;
 }
 
+export interface ChatMessageMedia {
+  id: number;
+  name: string;
+  content_type: string;
+  size_bytes: number;
+  url: string;
+}
+
 export interface ChatMessage {
   id: number;
   sender_id: number;
   text: string;
   media_id?: number | null;
+  media?: ChatMessageMedia | null;
   created_at: string;
   read_at?: string | null;
 }
