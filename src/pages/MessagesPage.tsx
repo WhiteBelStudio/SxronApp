@@ -50,7 +50,20 @@ export default function MessagesPage({ onNotify }: { onNotify?: (message: string
       </aside>
       <div className="marketplace-core-chat__room">
         {!active ? <div className="marketplace-core-chat__placeholder"><strong>✉</strong><span>Выберите диалог</span></div> : <>
-          <div className="marketplace-core-chat__messages">{messages.map(message => <div key={message.id} className={message.sender_id === myId ? "outgoing" : "incoming"}><div>{message.text || (message.media_id ? "📎 Файл" : "")}</div><small>{new Date(message.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</small></div>)}</div>
+          <div className="marketplace-core-chat__messages">{messages.map(message => <div key={message.id} className={message.sender_id === myId ? "outgoing" : "incoming"}>
+            <div>
+              {message.text && <p className="marketplace-core-chat__text">{message.text}</p>}
+              {message.media && (
+                message.media.content_type.startsWith("image/")
+                  ? <a href={message.media.url} target="_blank" rel="noreferrer" className="marketplace-core-chat__attachment">
+                      <img src={message.media.url} alt={message.media.name} />
+                      <span>{message.media.name}</span>
+                    </a>
+                  : <a href={message.media.url} target="_blank" rel="noreferrer" className="marketplace-core-chat__file">📎 {message.media.name} · {(message.media.size_bytes / 1024 / 1024).toFixed(1)} МБ</a>
+              )}
+            </div>
+            <small>{new Date(message.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</small>
+          </div>)}</div>
           <div className="marketplace-core-chat__composer"><input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submit(); } }} placeholder="Написать сообщение…" /><input ref={fileRef} type="file" hidden onChange={e => { const file = e.target.files?.[0]; if (file) void attach(file); e.currentTarget.value = ""; }} /><button className="sxron-secondary" onClick={() => fileRef.current?.click()}>📎</button><button className="sxron-primary" disabled={sending || !draft.trim()} onClick={() => void submit()}>Отправить</button></div>
         </>}
       </div>
