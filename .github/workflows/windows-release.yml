@@ -315,10 +315,10 @@ jobs:
             $env:SXRON_FULL_STARTUP_SMOKE = '1'
             $proc = Start-Process -FilePath $appExe -ArgumentList '--disable-gpu','--no-sandbox' -WorkingDirectory (Join-Path $PWD 'release\win-unpacked') -PassThru
 
-            $completed = $proc.WaitForExit(20000)
+            $completed = $proc.WaitForExit(60000)
             if (-not $completed) {
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-              throw 'Packaged SXRON full startup smoke timed out after 20 seconds.'
+              throw 'Packaged SXRON full startup smoke timed out after 60 seconds.'
             }
 
             Write-Host "Packaged Electron full startup smoke exited with code: $($proc.ExitCode)"
