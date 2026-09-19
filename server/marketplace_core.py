@@ -383,11 +383,6 @@ def register_marketplace_core() -> None:
     media_root = _media_root()
     _purge_orphan_media()
 
-    try:
-        base.app.mount("/media", StaticFiles(directory=str(media_root)), name="sxron-media")
-    except RuntimeError:
-        pass
-
     original_product_dict = base.product_dict
 
     if not getattr(base.product_dict, "_sxron_media_enriched", False):
@@ -750,6 +745,12 @@ def register_marketplace_core() -> None:
                 (recipient, "message", "Новое сообщение", text[:180] or "Вам отправили файл.", "conversation", conversation_id, timestamp),
             )
         return {"ok": True}
+
+    # Register the static media mount after API routes so /media/upload is not shadowed.
+    try:
+        base.app.mount("/media", StaticFiles(directory=str(media_root)), name="sxron-media")
+    except RuntimeError:
+        pass
 
     @base.app.get("/notifications")
     def list_notifications(x_sxron_client_id: str | None = Header(default=None)):
