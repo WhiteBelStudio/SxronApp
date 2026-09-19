@@ -168,7 +168,7 @@ internal static class SxronLauncher
         using (Process process = Process.Start(new ProcessStartInfo
         {
             FileName = installer,
-            Arguments = "/S /NCRC /D="" + InstallDir + """,
+            Arguments = "/S /NCRC /D=\"" + InstallDir + "\"",
             UseShellExecute = true,
             WorkingDirectory = UpdateDir
         }))
