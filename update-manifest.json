@@ -1,11 +1,12 @@
 {
-  "version": "1.4.1",
+  "version": "1.4.3",
   "build": "github-build-aware",
-  "title": "SXRON Marketplace 1.4.1",
-  "message": "SXRON Marketplace 1.4.1 — финальная production-сборка: стабильный Windows updater, канонический путь установки и строгая проверка запуска перед публикацией.",
+  "title": "SXRON Marketplace 1.4.3",
+  "message": "SXRON Marketplace 1.4.3 — финальная production-сборка: полный replacement updater, канонический путь установки и строгая проверка запуска перед публикацией.",
   "changes": [
     "Marketplace core 1.4.0 сохранён: медиа, избранное, покупки, заказы, сообщения и уведомления.",
     "Обновления Windows всегда используют канонический каталог %LOCALAPPDATA%\\Programs\\sxron-marketplace.",
+    "Обновление Windows полностью заменяет старую установку, не удаляя пользовательские данные в %APPDATA%\\sxron-marketplace\\data.",
     "Публикация Windows EXE разрешается только после полного startup smoke Electron/API.",
     "Pydantic Core native extension проверяется и присутствует в bundled API.",
     "Финальный Windows release запускается на полном startup smoke перед публикацией EXE."
