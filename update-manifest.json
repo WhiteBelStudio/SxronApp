@@ -1,8 +1,8 @@
 {
-  "version": "1.3.7",
+  "version": "1.4.0",
   "build": "github-build-aware",
-  "title": "SXRON Marketplace 1.3.7",
-  "message": "SXRON Marketplace 1.3.7 — исправлены обновление, синхронизация проекта и версия Android.",
+  "title": "SXRON Marketplace 1.4.0",
+  "message": "SXRON Marketplace 1.4.0 — исправлены обновление, синхронизация проекта и версия Android.",
   "changes": [
     "Стабильная синхронизация локального проекта с GitHub.",
     "Канонический Windows launcher для запуска актуальной версии.",
