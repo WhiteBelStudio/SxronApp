@@ -109,7 +109,10 @@ def get_product(product_id:int):
     return product_dict(row)
 @app.post("/products")
 def create_product(data:ProductCreate,x_sxron_client_id:str|None=Header(default=None)):
-    user=current_user(x_sxron_client_id); require_admin(user)
+    user=current_user(x_sxron_client_id)
+    publisher = is_admin(user["id"])
+    initial_status = "active" if publisher else "pending"
+    initial_available = 1 if publisher else 0
     with db() as connection:
         category_id=data.category_id
         if not category_id and data.category:
@@ -117,16 +120,24 @@ def create_product(data:ProductCreate,x_sxron_client_id:str|None=Header(default=
         city_id=data.city_id
         if not city_id and data.city:
             row=connection.execute("SELECT id FROM cities WHERE LOWER(name)=LOWER(?)",(data.city,)).fetchone(); city_id=row["id"] if row else None
-        timestamp=now(); cursor=connection.execute("INSERT INTO products(name,description,price,category_id,city_id,condition,delivery,photo_url,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",(data.name.strip(),data.description.strip(),data.price,category_id,city_id,data.condition,data.delivery,data.photo_url,user["id"],timestamp,timestamp)); row=connection.execute("SELECT * FROM products WHERE id=?",(cursor.lastrowid,)).fetchone()
+        timestamp=now()
+        cursor=connection.execute(
+            """INSERT INTO products(
+                name,description,price,category_id,city_id,condition,delivery,photo_url,
+                status,available,created_by,created_at,updated_at
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (data.name.strip(),data.description.strip(),data.price,category_id,city_id,data.condition,
+             data.delivery,data.photo_url,initial_status,initial_available,user["id"],timestamp,timestamp)
+        )
+        row=connection.execute("SELECT * FROM products WHERE id=?",(cursor.lastrowid,)).fetchone()
     return product_dict(row)
 @app.put("/products/{product_id}")
 def update_product(product_id:int, data:ProductCreate, x_sxron_client_id:str|None=Header(default=None)):
     user=current_user(x_sxron_client_id)
-    require_admin(user)
     with db() as connection:
         existing=connection.execute("SELECT * FROM products WHERE id=?",(product_id,)).fetchone()
         if not existing: raise HTTPException(status_code=404,detail="Товар не найден")
-        if not is_owner(user) and existing["created_by"] != user["id"]:
+        if not is_admin(user["id"]) and existing["created_by"] != user["id"]:
             raise HTTPException(status_code=403,detail="Можно изменять только свои объявления")
         category_id=data.category_id
         if not category_id and data.category:
@@ -137,11 +148,15 @@ def update_product(product_id:int, data:ProductCreate, x_sxron_client_id:str|Non
             row=connection.execute("SELECT id FROM cities WHERE LOWER(name)=LOWER(?)",(data.city,)).fetchone()
             city_id=row["id"] if row else None
         timestamp=now()
+        next_status = "active" if is_admin(user["id"]) else "pending"
+        next_available = 1 if is_admin(user["id"]) else 0
         connection.execute(
             """UPDATE products
-               SET name=?, description=?, price=?, category_id=?, city_id=?, condition=?, delivery=?, photo_url=?, available=1, status='active', updated_at=?
+               SET name=?, description=?, price=?, category_id=?, city_id=?, condition=?, delivery=?,
+                   photo_url=?, available=?, status=?, updated_at=?
                WHERE id=?""",
-            (data.name.strip(),data.description.strip(),data.price,category_id,city_id,data.condition,data.delivery,data.photo_url,timestamp,product_id)
+            (data.name.strip(),data.description.strip(),data.price,category_id,city_id,data.condition,
+             data.delivery,data.photo_url,next_available,next_status,timestamp,product_id)
         )
         row=connection.execute("SELECT * FROM products WHERE id=?",(product_id,)).fetchone()
     return product_dict(row)
@@ -153,7 +168,7 @@ def delete_product(product_id:int, x_sxron_client_id:str|None=Header(default=Non
     with db() as connection:
         existing=connection.execute("SELECT * FROM products WHERE id=?",(product_id,)).fetchone()
         if not existing: raise HTTPException(status_code=404,detail="Товар не найден")
-        if not is_owner(user) and existing["created_by"] != user["id"]:
+        if not is_admin(user["id"]) and existing["created_by"] != user["id"]:
             raise HTTPException(status_code=403,detail="Можно удалять только свои объявления")
         connection.execute("DELETE FROM products WHERE id=?",(product_id,))
     return {"ok":True}
