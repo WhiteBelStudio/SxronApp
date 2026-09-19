@@ -15,6 +15,9 @@ let updateCheckInProgress = false;
 let latestRelease = null;
 
 const CURRENT_VERSION = app.getVersion();
+const CANONICAL_WINDOWS_INSTALL_DIR = process.platform === 'win32'
+  ? path.join(process.env.LOCALAPPDATA || path.dirname(app.getPath('exe')), 'Programs', 'sxron-marketplace')
+  : '';
 const GITHUB_OWNER = 'WhiteBelStudio';
 const GITHUB_REPO = 'SxronApp';
 const GITHUB_LATEST_RELEASE_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
@@ -295,9 +298,11 @@ async function downloadAndInstallGitHubUpdate() {
   // directory after a failed forced-update chain.
   const resourcesDir = String(process.resourcesPath || '');
   const resourcesMarker = `${path.sep}resources`;
-  let installDir = resourcesDir.endsWith(resourcesMarker)
-    ? resourcesDir.slice(0, -resourcesMarker.length)
-    : path.dirname(app.getPath('exe'));
+  let installDir = process.platform === 'win32' && CANONICAL_WINDOWS_INSTALL_DIR
+    ? CANONICAL_WINDOWS_INSTALL_DIR
+    : (resourcesDir.endsWith(resourcesMarker)
+      ? resourcesDir.slice(0, -resourcesMarker.length)
+      : path.dirname(app.getPath('exe')));
 
   // Recover the intended default folder if an older update accidentally
   // appended repeated --force-run suffixes to the installation directory.
@@ -384,7 +389,7 @@ async function downloadAndInstallGitHubUpdate() {
     'if (-not (Test-FileFree $electronExe)) { exit 5 }',
     '',
     'try {',
-    '  $proc = Start-Process -FilePath $Installer -ArgumentList @("/S", "/NCRC", "/D=$InstallDir") -WorkingDirectory (Split-Path -Parent $Installer) -PassThru',
+    '  $proc = Start-Process -FilePath $Installer -ArgumentList @("/S", "/NCRC") -WorkingDirectory (Split-Path -Parent $Installer) -PassThru',
     '  if ($proc) { exit 0 }',
     '} catch { exit 3 }',
     'exit 4',
